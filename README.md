@@ -6,7 +6,7 @@ Python tools for reading European XFEL's h5 files
 
 Installing
 ==========
-This package is dependent on h5py and numpy.
+This package is dependent on h5py, numpy and matplotlib.
 
 Installing h5py on EuXFEL computer may require installing the *libhdf5-dev*
 package from the ubuntu repositories.
