@@ -12,5 +12,6 @@ setup(name="euxfel_h5tools",
       long_description=read("README.md"),
       url="https://github.com/European-XFEL/h5tools-py",
       license = "To Be Confirmed",
+      scripts = ["bin/euxfel_h5tool.py"],
       install_requires=["h5py", "numpy", "matplotlib"]
       )
