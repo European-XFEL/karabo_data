@@ -10,35 +10,35 @@ def stat(args):
 
     for filename in args:
         out = ""
-        try:
-            xfel_file = h5py.File(filename, 'r')
-            out = " File: '{}'\n".format(xfel_file.filename)
-            size_mb = xfel_file.fid.get_filesize() / 1000000
-            out += " Size: {} MB".format(size_mb)
-            entries = len(xfel_file["INDEX/trainId"])
-            out += "\t Entries: {}".format(entries)
-            f_train = xfel_file["INDEX/trainId"][0]
-            out += "\t First Train: {}".format(f_train)
-            l_train = xfel_file["INDEX/trainId"][-1]
-            out += "\t Last Train: {}".format(l_train)
-            out += "\n"
+        #try:
+        xfel_file = h5py.File(filename, 'r')
+        out = " File: '{}'\n".format(xfel_file.filename)
+        size_mb = xfel_file.fid.get_filesize() / 1000000
+        out += " Size: {} MB".format(size_mb)
+        entries = len(xfel_file["INDEX/trainId"])
+        out += "\t Entries: {}".format(entries)
+        f_train = xfel_file["INDEX/trainId"][0]
+        out += "\t First Train: {}".format(f_train)
+        l_train = xfel_file["INDEX/trainId"][-1]
+        out += "\t Last Train: {}".format(l_train)
+        out += "\n"
 
-            total_size += size_mb
-            total_entries += entries
+        total_size += size_mb
+        total_entries += entries
 
-            if f_train <= first_train:
-                first_train = f_train
-            if l_train >= last_train:
-                last_train = l_train
-        except:
+        if f_train <= first_train:
+            first_train = f_train
+        if l_train >= last_train:
+            last_train = l_train
+        #except:
             # The errors could be:
             #  - OSError: not an HDF5 file
             #  - IOError: truncated file
             #  - IndexError: one of the keys used was not found,
             #                therefore not EuXFEL specific
-            out = "{}: not an EuXFEL HDF5 file".format(filename)
-            invalid_files.append(filename)
-            raise
+            #out = "{}: not an EuXFEL HDF5 file".format(filename)
+            #invalid_files.append(filename)
+            #raise
 
         print(out)
 
