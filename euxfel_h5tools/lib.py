@@ -53,7 +53,7 @@ def stat(args):
         print("These are not valid files: {}".format(", ".join(invalid_files)))
 
 
-def rec_print_h5_level(ds, indent=0, maxlen=2):
+def rec_print_h5_level(ds, indent=0, maxlen=10):
     """Given an h5 data structure, iterate through it (from S Hauf)"""
     for k in list(ds.keys())[:maxlen]:
         print(" "*indent+k)
