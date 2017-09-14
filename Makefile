@@ -4,7 +4,7 @@ install:
 	python3 -m pip install .
 
 test:
-	python3 -m pytest -v tests
+	python3 -m pytest -v tests euxfel_h5tools
 
 build-docker-image:
 	docker build -t image .

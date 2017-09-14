@@ -8,7 +8,7 @@ import sys
 import h5py
 import numpy as np
 
-
+import euxfel_h5tools
 
 def stat(args):
     first_train = 0
