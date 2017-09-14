@@ -3,9 +3,11 @@
 European XFEL HDF5 files stat
 """
 
+import sys
+
 import h5py
 import numpy as np
-import sys
+
 
 
 def stat(args):
