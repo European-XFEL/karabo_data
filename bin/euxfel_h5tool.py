@@ -10,6 +10,9 @@ import numpy as np
 
 import euxfel_h5tools
 
+import matplotlib.pyplot as plt
+
+
 
 
 if __name__ == "__main__":
@@ -21,5 +24,3 @@ if __name__ == "__main__":
     print("Overview of structure")
     f = h5py.File(filename, 'r')
     euxfel_h5tools.rec_print_h5_level(f, maxlen=3)
-
-    # identify detector (should be provided by user as argument, maybe)
