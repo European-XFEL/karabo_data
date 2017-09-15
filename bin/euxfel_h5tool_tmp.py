@@ -54,7 +54,7 @@ if __name__ == "__main__":
         # image data available in numpy array 'data'
 
         # for example plot first pulse in every train
-        if pulse_ids[i] == 0:
+        if pulse_ids[i] == 8:
             plt.imshow(data[0,:,:])
             plt.title("trainid={}, pulseid={}".format(train_ids[i], pulse_ids[i]))
             plt.show(block=False)
