@@ -1,23 +1,24 @@
 import os
 
 class Run():
-    hdf5_files = []
-    instruments = []
-    self.instrument = None
-
     def __init__(self, path):
-        self.load(path)
+        if path:
+            self.load(path)
+        self.hdf5_files = []
+        self.instruments = []
+        self.instrument = None
 
-    @property
-    def instrument(self):
-        return self.instrument
 
-    @instrument.setter
-    def name(self, inst):
-        if inst in self.instruments:
-            self.instrument = inst
-        else:
-            raise Exception("{} not available".format(inst))
+    #@property
+    #def instrument(self):
+    #    return self.instrument
+    #
+    #@instrument.setter
+    #def name(self, inst):
+    #    if inst in self.instruments:
+    #        self.instrument = inst
+    #    else:
+    #        raise Exception("{} not available".format(inst))
 
     def load(self, path):
         if not os.path.isdir(path):
@@ -35,5 +36,5 @@ class Run():
 
 class FakeRun(Run):
     def __init__(self, trains, pulses, name):
-        super(FakeRun, self).__init__()
+        super(FakeRun, self).__init__(path=None)
         self.name = name
