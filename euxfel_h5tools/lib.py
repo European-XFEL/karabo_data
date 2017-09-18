@@ -1,56 +1,105 @@
 import h5py
 
-def stat(args):
-    """gather basic info about file"""
-    first_train = 0
+
+def stat(files, multiline=False):
+    """gather basic info about file
+    :param files: a list of filenames to check
+    :param split: print each information on a new line
+    """
+    first_train = float('inf')
     last_train = 0
     total_size = 0
     total_entries = 0
-    invalid_files = []
+    instruments = set()
+    invalid = []
 
-    for filename in args:
+    for filename in files:
         out = ""
-        #try:
-        xfel_file = h5py.File(filename, 'r')
-        out = " File: '{}'\n".format(xfel_file.filename)
-        size_mb = xfel_file.fid.get_filesize() / 1000000
-        out += " Size: {} MB".format(size_mb)
-        entries = len(xfel_file["INDEX/trainId"])
-        out += "\t Entries: {}".format(entries)
-        f_train = xfel_file["INDEX/trainId"][0]
-        out += "\t First Train: {}".format(f_train)
-        l_train = xfel_file["INDEX/trainId"][-1]
-        out += "\t Last Train: {}".format(l_train)
-        out += "\n"
+        try:
+            xfel_file = h5py.File(filename, 'r')
+            sfile = "File: '{}'".format(xfel_file.filename)
 
-        total_size += size_mb
-        total_entries += entries
+            size_mb = xfel_file.fid.get_filesize() / 1000000
+            ssize = "Size: {} MB".format(size_mb)
 
-        if f_train <= first_train:
-            first_train = f_train
-        if l_train >= last_train:
-            last_train = l_train
-        #except:
+            inst = xfel_file["INSTRUMENT"]
+            sinst = "Instruments: {}".format(", ".join(inst))
+
+            f_train = xfel_file["INDEX/trainId"][0]
+            sf_train = "First Train: {}".format(f_train)
+
+            l_train = xfel_file["INDEX/trainId"][-1]
+            sl_train = "Last Train: {}".format(l_train)
+
+            entries = len(xfel_file["INDEX/trainId"])
+            sentries = "Entries: {}".format(entries)
+
+            paths = list(xfel_file["METADATA/dataSourceId"])
+            header_path = [p for p in paths if p.endswith(b"header")][0]
+            pulses = xfel_file[header_path + b"/pulseCount"][0]
+            spulses = "Pulses per Train: {}".format(pulses)
+
+            instruments.update(inst)
+            total_size += size_mb
+            total_entries += entries
+
+            if f_train <= first_train:
+                first_train = f_train
+            if l_train >= last_train:
+                last_train = l_train
+
+            if multiline:
+                out = ("{f}\n{size}\n{entries}\n"
+                       "{pulses}\n{first}\n{last}\n"
+                       "{instruments}".format(f=sfile,
+                                              size=ssize,
+                                              entries=sentries,
+                                              pulses=spulses,
+                                              first=sf_train,
+                                              last=sl_train,
+                                              instruments=sinst))
+            else:
+                out = ("{f}\n\t{size}\t{entries}\t"
+                       "{pulses}\n\t{first}\t{last}\n\t"
+                       "{instruments}\n".format(f=sfile,
+                                                size=ssize,
+                                                entries=sentries,
+                                                pulses=spulses,
+                                                first=sf_train,
+                                                last=sl_train,
+                                                instruments=sinst))
+
+        except (OSError, IOError, KeyError):
             # The errors could be:
             #  - OSError: not an HDF5 file
             #  - IOError: truncated file
-            #  - IndexError: one of the keys used was not found,
-            #                therefore not EuXFEL specific
-            #out = "{}: not an EuXFEL HDF5 file".format(filename)
-            #invalid_files.append(filename)
-            #raise
+            #  - KeyError: one of the keys used was not found,
+            #                therefore not a EuXFEL specific file
+            out = "{}: not an EuXFEL HDF5 file\n".format(filename)
+            invalid.append(filename)
 
         print(out)
 
-    if len(args) > 1:
-        total = "Total Files: {}\t".format(len(args) - len(invalid_files))
-        total += "First Train: {}\n".format(first_train)
-        total += "Total File Size: {}\t".format(total_size)
-        total += "Last Train: {}\n".format(last_train)
+    if len(files) > 1:
+        if multiline:
+            total = "Total Files: {}\n".format(len(files) - len(invalid))
+            total += "Total File Size: {} MB\n".format(total_size)
+            total += "First Train: {}\n".format(first_train)
+            total += "Last Train: {}\n".format(last_train)
+            total += "Instruments: {}\n".format(", ".join(instruments))
+        else:
+            total = "---\n"
+            total += "Total Files: {}\t".format(len(files) - len(invalid))
+            total += "Total File Size: {} MB\n".format(total_size)
+            total += "First Train: {}\t".format(first_train)
+            total += "Last Train: {}\n".format(last_train)
+            total += "Instruments: {}\n".format(", ".join(instruments))
+            total += "-" * 3
+
         print(total)
 
-    if invalid_files:
-        print("These are not valid files: {}".format(", ".join(invalid_files)))
+    if invalid:
+        print("These are not valid files: {}".format(", ".join(invalid)))
 
 
 def rec_print_h5_level(ds, indent=0, maxlen=10):
