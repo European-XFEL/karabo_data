@@ -1,0 +1,34 @@
+- Run Class
+  - point to a directory contains run data, it load the data
+    - needs to be a run -directory (not experiment)
+  - r = Run(datapath)
+  - r.set_default_instrument("DET/AGPIPD0-M")
+  - implementation
+    - scan directotry for files
+    - open all to understand which trainIDs and pulses are there
+    - if 16 files, check all train ID are the same
+
+- Terminology
+  - train IDs (absolute) -> trainID
+  - pulse IDs
+  - relative train IDs (starting from 0 in each run) -> t (=relative Train
+
+  - r.index(trainID, pulseID) -> index
+  - r.index(t, pulseID) -> index
+
+  - r.data(t = 1, pulse = 3)
+  - r.data(trainID = 14434365, pulse = 3)
+
+  - r.data(index=16)
+  - r.data(index=range(0, 400, 2))
+  - r.data(device="DET/AGIPD0-M") or   - data(instrument="DET/AGIPD0-M")
+  -
+
+- other functions / accessible from command line tool
+  - dump_indices  | index | trainID | pulse ID |
+  - size -> len(index), len(trainID), len(pulseID) or maybe
+  - size_trains() ->
+  - size_pulses () ->
+  - size_index () ->
+
+  - file(trainId) -> list of files that contains the data
