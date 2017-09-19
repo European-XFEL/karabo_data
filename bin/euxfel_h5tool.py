@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # Iterate over files for options that process single files
 
     # structure
-    if arguments['structure'] is True:
+    if arguments['structure']:
         # Only works with one file
         filename = arguments["FILE"]
         print("Structure for file '{}'".format(filename))
@@ -84,12 +84,12 @@ if __name__ == "__main__":
             euxfel_h5tools.rec_print_h5_level(f, maxlen=max_len)
 
     # info
-    if arguments['info'] is True:
+    if arguments['info']:
         filenames = check_filenames_are_files(arguments['FILES'])
         euxfel_h5tools.stat(filenames)
 
     # converting
-    if arguments['convert-cbf'] is True:
+    if arguments['convert-cbf']:
         euxfel_h5tools.h5_to_cbf(arguments['FILE'],
                                  arguments['OUTPUTFILENAME'],
                                  int(arguments['INDEX']))

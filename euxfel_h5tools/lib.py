@@ -114,8 +114,13 @@ def rec_print_h5_level(ds, indent=0, maxlen=100):
             print(" "*indent + k)
 
 
-def np_to_cbf(np_array, index=0):
+def np_to_cbf(np_array, index=0, header=None):
     """Given a 3D np array, convert it to a CBF data object"""
+    if header is not None:
+        header = header
+    else:
+        header = {}
+
     img_reduced = np_array[index, ...]
     cbf_out = fabio.cbfimage.cbfimage(header=header, data=img_reduced)
     return cbf_out
@@ -123,10 +128,6 @@ def np_to_cbf(np_array, index=0):
 
 def h5_to_cbf(in_h5file, cbf_filename, index, header=None):
     """Conversion from numpy array to cbf binary image"""
-    if header is not None:
-        header = header
-    else:
-        header = {}
     try:
         tmpf = h5py.File(in_h5file, 'r')
         paths = list(tmpf["METADATA/dataSourceId"])

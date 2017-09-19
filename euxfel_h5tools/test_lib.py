@@ -1,7 +1,7 @@
 import os
-import pytest
 import subprocess
 
+import pytest
 
 def test_summary_on_data_file():
     testdatapath = "data/example_data/R0126-AGG01-S00002.h5"
