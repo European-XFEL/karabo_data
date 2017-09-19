@@ -1,3 +1,4 @@
+import logging
 import h5py
 
 
@@ -102,9 +103,12 @@ def stat(files, multiline=False):
         print("These are not valid files: {}".format(", ".join(invalid)))
 
 
-def rec_print_h5_level(ds, indent=0, maxlen=10):
+def rec_print_h5_level(ds, indent=0, maxlen=100):
     """Given an h5 data structure, iterate through it (from S Hauf)"""
+
     for k in list(ds.keys())[:maxlen]:
         print(" "*indent+k)
         if isinstance(ds[k], h5py.Group):
             rec_print_h5_level(ds[k], indent+4, maxlen)
+        else:
+            print(" "*indent + k)

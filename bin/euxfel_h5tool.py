@@ -2,27 +2,31 @@
 """European XFEL HDF5 files exploration tool
 
 Usage:
-  euxfel_h5tool.py [options] PATH ...
+  euxfel_h5tool.py structure FILE [-l n] [--maxnode=n] [--size]
+  euxfel_h5tool.py info FILES ... [-l n]
   euxfel_h5tool.py --help      # use to display options
-  euxfel_h5tool.py --h         # use to display options
 
 Options:
 
-  -h, --help         Show this screen.
-  -v, --version      Show version.
-  -s, --structure    Display structure of file
-  -i, --info         Display summary info of file
+  -h, --help           Show this screen.
+  -v, --version        Show version.
+Generic options
+  -l n, --loglevel=n   Set log level level [default: 20].
+                       DEBUG is 10. INFO is 20.
+For commmand structure
+  --maxnode=n          Maximum number of nodes [default: 10]
+  --size               Display size of each node
 
 Details:
 
-  PATH is meant to point to a directory of files, or a list of files,
-  or a single FILE.
+  PATH is meant to point to a directory of files.
+  FILE is a single FILE.
+  FILES is a sequence of one or more files.
 
-  Some options will only work for a single file. Some will iterate
-  over a list of files if given multiple files.
+Commands:
+  structure: display hdf5 structure
 
-  Others will make sense of a directory full of files belonging to the
-  same run.
+  info: display overview of saved trainIDs and pulses
 
 """
 
@@ -34,38 +38,52 @@ import h5py
 
 import euxfel_h5tools
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
-
 # get version from external file?
 version = 0.1
+
+
+def check_filenames_are_files(filenames):
+    # check filenames are files
+    logging.debug("Filenames={}".format(filenames))
+    for filename in filenames:
+        assert os.path.isfile(filename)
+    return filenames
+
+def convert_path_to_list_of_files(path):
+    # convert path into list of filenames where required
+
+    if len(path) == 1:   # could be file or directory
+        if os.path.isdir(path[0]):
+            # if PATH is directory, read list of files, TODO
+            filenames = os.path.listdir(path)
+        else:
+            filenames = path
+    else:
+        # assume that all arguments are files
+        filenames = arguments['PATH']
+
+
 
 
 if __name__ == "__main__":
 
     arguments = docopt.docopt(__doc__, version=version)
+    loglevel = int(arguments['--loglevel'])
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=loglevel)
     logging.debug("arguments = {}".format(arguments))
 
-    path = arguments['PATH']
-    if len(path) == 1:   # could be file or directory
-
-        if os.path.isdir(path):
-            # if PATH is directory, read list of files, TODO
-            filenames = os.path.listdir(path)
-    else:
-        # assume that all arguments are files
-        filenames = arguments['PATH']
-        for filename in filenames:
-            assert os.path.isfile(filename)
-
     # Iterate over files for options that process single files
-    if arguments['--structure'] == True:
-            # Only works with one file at the moment
 
-            for filename in filenames:
-                print("-"*70)
-                print("Structure for file '{}'".format(filename))
-                with h5py.File(filename, 'r') as f:
-                    euxfel_h5tools.rec_print_h5_level(f, maxlen=3)
+    # structure
+    if arguments['structure'] == True:
+        # Only works with one file
+        filename = arguments["FILE"]
+        print("Structure for file '{}'".format(filename))
+        with h5py.File(filename, 'r') as f:
+            euxfel_h5tools.rec_print_h5_level(f,
+                                              maxlen=int(arguments['--maxnode']))
 
-    if arguments['--info'] == True:
+    # info
+    if arguments['info'] == True:
+        filenames = check_filenames_are_files(arguments['FILES'])
         euxfel_h5tools.stat(filenames)
