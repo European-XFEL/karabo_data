@@ -50,6 +50,7 @@ def check_filenames_are_files(filenames):
         assert os.path.isfile(filename)
     return filenames
 
+
 def convert_path_to_list_of_files(path):
     # convert path into list of filenames where required
 
@@ -64,8 +65,6 @@ def convert_path_to_list_of_files(path):
         filenames = arguments['PATH']
 
 
-
-
 if __name__ == "__main__":
 
     arguments = docopt.docopt(__doc__, version=version)
@@ -76,25 +75,21 @@ if __name__ == "__main__":
     # Iterate over files for options that process single files
 
     # structure
-    if arguments['structure'] == True:
+    if arguments['structure'] is True:
         # Only works with one file
         filename = arguments["FILE"]
         print("Structure for file '{}'".format(filename))
+        max_len = int(arguments['--maxnode'])
         with h5py.File(filename, 'r') as f:
-            euxfel_h5tools.rec_print_h5_level(f,
-                                              maxlen=int(arguments['--maxnode']))
+            euxfel_h5tools.rec_print_h5_level(f, maxlen=max_len)
 
     # info
-    if arguments['info'] == True:
+    if arguments['info'] is True:
         filenames = check_filenames_are_files(arguments['FILES'])
         euxfel_h5tools.stat(filenames)
 
     # converting
-    if arguments['convert-cbf'] == True:
-        print(("Convert {} index {} to "
-               "{}".format(arguments['FILE'],
-                           arguments['INDEX'], 
-                           arguments['OUTPUTFILENAME'])))
-        euxfel_h5tools.h5_to_cbf(arguments['FILE'], 
-                                 arguments['OUTPUTFILENAME'], 
+    if arguments['convert-cbf'] is True:
+        euxfel_h5tools.h5_to_cbf(arguments['FILE'],
+                                 arguments['OUTPUTFILENAME'],
                                  int(arguments['INDEX']))

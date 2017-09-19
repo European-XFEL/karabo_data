@@ -122,13 +122,17 @@ def h5_to_cbf(in_h5file, cbf_filename, index, header=None):
         header = {}
     try:
         tmpf = h5py.File(in_h5file, 'r')
+        paths = list(tmpf["METADATA/dataSourceId"])
+        image_path = [p for p in paths if p.endswith(b"image")][0]
+        images = tmpf[image_path + b"/data"][index]
+        img_reduced = images[0, ...]
+        cbf_out = fabio.cbfimage.cbfimage(header=header, data=img_reduced)
+        cbf_out.write(cbf_filename)
+        print("Convert {} index {} to {}".format(in_h5file,
+                                                 index,
+                                                 cbf_filename))
     except IOError:
-        print("Check input file.")
+        print("{}: Could not be opened.".format(in_h5file))
         return
-
-    paths = list(tmpf["METADATA/dataSourceId"])
-    image_path = [p for p in paths if p.endswith(b"image")][0]
-    images = tmpf[image_path + b"/data"][index]
-    img_reduced = images[0, ...]
-    cbf_out = fabio.cbfimage.cbfimage(header=header, data=img_reduced)
-    cbf_out.write(cbf_filename)
+    except ValueError as ve:
+        print(str(ve))
