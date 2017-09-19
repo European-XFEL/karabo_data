@@ -1,7 +1,6 @@
 import os
-import subprocess
-
 import pytest
+import subprocess
 
 
 def test_summary_on_data_file():
