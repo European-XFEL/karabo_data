@@ -1,5 +1,6 @@
-import logging
+import fabio
 import h5py
+import logging
 
 
 def stat(files, multiline=False):
@@ -112,3 +113,22 @@ def rec_print_h5_level(ds, indent=0, maxlen=100):
             rec_print_h5_level(ds[k], indent+4, maxlen)
         else:
             print(" "*indent + k)
+
+def h5_to_cbf(in_h5file, cbf_filename, index, header=None):
+    """Conversion from numpy array to cbf binary image"""
+    if header is not None:
+        header = header
+    else:
+        header = {}
+    try:
+        tmpf = h5py.File(in_h5file, 'r')
+    except IOError:
+        print("Check input file.")
+        return
+        
+    paths = list(tmpf["METADATA/dataSourceId"])
+    image_path = [p for p in paths if p.endswith(b"image")][0]
+    images = tmpf[image_path + b"/data"][index]
+    img_reduced = images[0, ...]
+    cbf_out = fabio.cbfimage.cbfimage(header=header,data=img_reduced)
+    cbf_out.write(cbf_filename)
