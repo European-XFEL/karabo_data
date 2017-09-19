@@ -4,6 +4,7 @@
 Usage:
   euxfel_h5tool.py structure FILE [-l n] [--maxnode=n] [--size]
   euxfel_h5tool.py info FILES ... [-l n]
+  euxfel_h5tool.py convert-cbf INDEX OUTPUTFILENAME [-l n]
   euxfel_h5tool.py --help      # use to display options
 
 Options:
@@ -87,3 +88,7 @@ if __name__ == "__main__":
     if arguments['info'] == True:
         filenames = check_filenames_are_files(arguments['FILES'])
         euxfel_h5tools.stat(filenames)
+
+    # converting
+    if arguments['convert-cbf'] == True:
+        print("Convert index {} to {}".format(arguments['INDEX'], arguments['OUTPUTFILENAME']))
