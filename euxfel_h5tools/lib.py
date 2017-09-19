@@ -1,6 +1,5 @@
 import fabio
 import h5py
-import logging
 
 
 def stat(files, multiline=False):
@@ -114,21 +113,33 @@ def rec_print_h5_level(ds, indent=0, maxlen=100):
         else:
             print(" "*indent + k)
 
-def h5_to_cbf(in_h5file, cbf_filename, index, header=None):
-    """Conversion from numpy array to cbf binary image"""
+
+def np_to_cbf(np_array, index=0, header=None):
+    """Given a 3D np array, convert it to a CBF data object"""
     if header is not None:
         header = header
     else:
         header = {}
+
+    img_reduced = np_array[index, ...]
+    cbf_out = fabio.cbfimage.cbfimage(header=header, data=img_reduced)
+    return cbf_out
+
+
+def h5_to_cbf(in_h5file, cbf_filename, index, header=None):
+    """Conversion from numpy array to cbf binary image"""
     try:
         tmpf = h5py.File(in_h5file, 'r')
+        paths = list(tmpf["METADATA/dataSourceId"])
+        image_path = [p for p in paths if p.endswith(b"image")][0]
+        images = tmpf[image_path + b"/data"][index]
+        cbf_out = np_to_cbf(images)
+        cbf_out.write(cbf_filename)
+        print("Convert {} index {} to {}".format(in_h5file,
+                                                 index,
+                                                 cbf_filename))
     except IOError:
-        print("Check input file.")
+        print("{}: Could not be opened.".format(in_h5file))
         return
-        
-    paths = list(tmpf["METADATA/dataSourceId"])
-    image_path = [p for p in paths if p.endswith(b"image")][0]
-    images = tmpf[image_path + b"/data"][index]
-    img_reduced = images[0, ...]
-    cbf_out = fabio.cbfimage.cbfimage(header=header,data=img_reduced)
-    cbf_out.write(cbf_filename)
+    except ValueError as ve:
+        print(str(ve))
