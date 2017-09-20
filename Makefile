@@ -3,6 +3,9 @@
 install:
 	python3 -m pip install .
 
+dev-install:
+	python3 -m pip install -U -e .
+
 test:
 	python3 -m pytest -v tests euxfel_h5tools
 
