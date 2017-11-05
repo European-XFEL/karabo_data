@@ -1,9 +1,12 @@
+import os.path as osp
 import pytest
 from time import sleep
 
 from euxfel_h5tools import H5File
 
 FILEPATH = './R0019-lpd00-S00000.h5'
+require_data = pytest.mark.skipif(not osp.exists(FILEPATH),
+                                  reason="require data file.")
 
 @pytest.fixture(scope="session")
 def file_opened():
@@ -18,6 +21,7 @@ def file_opened():
     h5f.close()
 
 
+@require_data
 def test_get_file_infos(file_opened):
     f = file_opened
 
@@ -38,6 +42,7 @@ def test_get_file_infos(file_opened):
     assert 'INSTRUMENT/FXE_DET_LPD1M-1/DET/0CH0:xtdf/detector' in sources
 
 
+@require_data
 def test_iterate_trains(file_opened):
     f = file_opened
 
@@ -50,6 +55,7 @@ def test_iterate_trains(file_opened):
         assert len(data['FXE_DET_LPD1M-1/DET/0CH0:xtdf']) == 21
 
 
+@require_data
 def test_get_train_per_id(file_opened):
     f = file_opened
 
@@ -63,6 +69,7 @@ def test_get_train_per_id(file_opened):
         data = f.train_from_id(1234)  # train id not in file
 
 
+@require_data
 def test_get_train_per_index(file_opened):
     f = file_opened
 
@@ -75,6 +82,7 @@ def test_get_train_per_index(file_opened):
         data, _, _ = f.train_from_index(20)  # index out of range
 
 
+@require_data
 def test_read_metadata(file_opened):
     f = file_opened
 
