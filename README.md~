@@ -15,7 +15,6 @@ to install package:
 
     pip3 install -e .
 
-
 Contributing
 ===========
 
