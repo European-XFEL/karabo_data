@@ -1,1 +1,3 @@
-from .lib import h5_to_cbf, rec_print_h5_level, stat, np_to_cbf
+from .reader import H5File
+from .utils import (hdf5_file_info, hdf5_paths, hdf5_to_cbf, numpy_to_cbf,
+                    QuickView)
