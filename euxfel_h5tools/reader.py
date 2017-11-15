@@ -19,7 +19,7 @@ METADATA = 'METADATA'
 
 class H5File:
     """Handles a HDF5 file generated at the European XFEL.
-    
+
     An HDF5 file contains in general several record of data. This helps
     handling such file and extract back instrument data per XRAY train.
 
@@ -58,7 +58,7 @@ class H5File:
             dev = device.split('/')
             src = '/'.join((dev[:3]))
             path_base = '.'.join((dev[3:]))
-            if not src in train_data:
+            if src not in train_data:
                 train_data[src] = {}
             data = train_data[src]
 
@@ -68,7 +68,7 @@ class H5File:
                         path = '.'.join(filter(None,
                                         (path_base,) + tuple(key.split('/'))))
                         data[path] = value[int(first[train_index]):
-                                           int(last[train_index]+1),]
+                                           int(last[train_index]+1), ]
 
                 table.visititems(append_data)
 
@@ -105,9 +105,9 @@ class H5File:
 @contextmanager
 def open_H5File(path, driver=None):
     """factory function for with statement context managers, for H5File.
-    
+
     Best use this function than the class directly to ensure proper closing::
-    
+
        with open_H5File('/path/to/my/file.h5') as xfel_data:
            first_train = xfel_data.train_from_index(0)
            ...
@@ -122,7 +122,7 @@ def open_H5File(path, driver=None):
 class RunHandler:
     """Handles a 'run' generated at the European XFEL.
 
-    A 'run' is a directory containing a various amount of HDF5 file recorded 
+    A 'run' is a directory containing a various amount of HDF5 file recorded
     in the European XFEL format. This class can iterate through the data
     contained in the run and extract instrument data per XRAY train.
     """
@@ -164,13 +164,18 @@ class RunHandler:
 
         returns a tuple: ([int]train_id, [dict]train_data)
         """
-        try:
-            tid, files = next((t for t in self.ordered_trains
-                               if t[0] == train_id))
-        except StopIteration:
+        tid, files = next((t for t in self.ordered_trains
+                          if t[0] == train_id), (None, None))
+        if tid is None:
             raise ValueError("train {} not found in run.".format(train_id))
         data = {}
         for fh in files:
             d, _, _ = fh.train_from_id(tid)
             data.update(d)
         return (tid, data)
+
+
+if __name__ == '__main__':
+    r = RunHandler('./data/r0185')
+    for tid, d in r.trains():
+        print(tid)

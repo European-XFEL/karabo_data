@@ -219,7 +219,7 @@ def hdf5_paths(ds, indent=0, maxlen=100):
     for k in list(ds.keys())[:maxlen]:
         print(" " * indent + k)
         if isinstance(ds[k], h5py.Group):
-            rec_print_h5_level(ds[k], indent + 4, maxlen)
+            hdf5_paths(ds[k], indent + 4, maxlen)
         else:
             print(" " * indent + k)
 
