@@ -203,8 +203,6 @@ def stack_data(train, data, axis=-3, ignore=[]):
             combined[index,] = train[device][data]
         except KeyError:
             print('stack_data(): missing {} in {}'.format(data, device))
-        except Exception as ex:
-            print("Error in stack_data():", ex)
     return np.moveaxis(combined, 0, axis)
 
 
