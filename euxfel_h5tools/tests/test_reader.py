@@ -1,8 +1,9 @@
+import numpy as np
 import os.path as osp
 import pytest
 from time import sleep
 
-from euxfel_h5tools import H5File, open_H5File, RunHandler
+from euxfel_h5tools import H5File, open_H5File, RunHandler, stack_data
 
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
@@ -143,6 +144,29 @@ def test_wrong_train_id():
     with pytest.raises(ValueError) as info:
         tid, data = test_run.train_from_id(123456789)
     print(info)
+
+
+@require_data2
+def test_stack_data():
+    test_run = RunHandler(RUNPATH)
+    tid, data = test_run.train_from_id(1472810853)
+
+    comb = stack_data(data, 'image.data')
+    print(comb.shape)
+    assert comb.shape == (60, 10, 512, 128)
+    assert (comb[:, 0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
+
+
+@require_data2
+def test_stack_data_2():
+    test_run = RunHandler(RUNPATH)
+    tid, data = test_run.train_from_id(1472810853)
+
+    skip = ['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf', 'SPB_DET_AGIPD1M-1/DET/9CH0:xtdf']
+    comb = stack_data(data, 'image.data', axis=0, ignore=skip)
+    print(comb.shape)
+    assert comb.shape == (8, 60, 512, 128)
+    assert (comb[0, ...] == data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data']).all()
 
 
 if __name__ == '__main__':
