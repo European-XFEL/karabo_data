@@ -3,7 +3,8 @@ import os.path as osp
 import pytest
 from time import sleep
 
-from euxfel_h5tools import H5File, open_H5File, RunHandler, stack_data
+from euxfel_h5tools import (H5File, open_H5File, RunHandler, stack_data,
+                            stack_detector_data)
 
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
@@ -163,10 +164,36 @@ def test_stack_data_2():
     tid, data = test_run.train_from_id(1472810853)
 
     skip = ['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf', 'SPB_DET_AGIPD1M-1/DET/9CH0:xtdf']
-    comb = stack_data(data, 'image.data', axis=0, ignore=skip)
+    comb = stack_data(data, 'image.data', axis=0, xcept=skip)
     print(comb.shape)
     assert comb.shape == (8, 60, 512, 128)
     assert (comb[0, ...] == data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data']).all()
+
+
+@require_data2
+def test_stack_detector_data():
+    test_run = RunHandler(RUNPATH)
+    tid, data = test_run.train_from_id(1472810853)
+
+    comb = stack_detector_data(data, 'image.data', only='AGIPD1M-1')
+    print(comb.shape)
+    assert comb.shape == (60, 16, 512, 128)
+    assert (comb[:, 0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
+
+
+@require_data2
+def test_stack_detector_data_2():
+    test_run = RunHandler(RUNPATH)
+    tid, data = test_run.train_from_id(1472810853)
+
+    skip = ['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i) for i in range(3,8)]
+    comb = stack_detector_data(data, 'image.data', axis=0, only='AGIPD1M-1', xcept=skip)
+    print(comb.shape)
+    assert comb.shape == (16, 60, 512, 128)
+    for i in (0, 1, 2, 8, 9, 10):
+        assert (comb[i, ...] == data['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i)]['image.data']).all()
+    for i in (3, 4, 5, 6, 7, 11, 12, 13, 14, 15):
+        assert (comb[i, ...] == np.zeros((60, 512, 128))).all()
 
 
 if __name__ == '__main__':

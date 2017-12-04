@@ -177,32 +177,65 @@ class RunHandler:
         return (tid, data)
 
 
-def stack_data(train, data, axis=-3, ignore=[]):
-    """Stack all data from all devices in the train.
+def stack_data(train, data, axis=-3, xcept=[]):
+    """Stack data from devices in a train.
 
     :train:    train data
     :data:     the data path in the devices
     :axis:     axis on which you wish to stack
-    :ignore:   list of devices to ignore (useful if you have reccored slow
+    :xcept:    list of devices to ignore (useful if you have reccored slow
                data with detector data in the same run)
 
     returns ndarray stacked data for requested data path.
     """
     devs = [(list(map(int, re.findall(r'\d+', dev))), dev)
-            for dev in train.keys() if dev not in ignore]
+            for dev in train.keys() if dev not in xcept]
     devices = [dev for _, dev in sorted(devs)]
 
-    dtype = next((d[data].dtype for d in train.values() if data in d), None)
-    shape = next((d[data].shape for d in train.values() if data in d), None)
+    dtype, shape = next(((d[data].dtype, d[data].shape) 
+                        for d in train.values() if data in d), (None, None))
     if dtype is None or shape is None:
         return np.empty(0)
 
     combined = np.zeros((len(devices),) + shape, dtype=dtype)
     for index, device in enumerate(devices):
         try:
-            combined[index,] = train[device][data]
+            combined[index, ] = train[device][data]
         except KeyError:
             print('stack_data(): missing {} in {}'.format(data, device))
+    return np.moveaxis(combined, 0, axis)
+
+
+def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
+    """Stack data from detector modules in a train.
+
+    :train:    train data
+    :data:     the data path in the devices
+    :axis:     axis on which you wish to stack (default is -3)
+    :modules:  number of modules composing a detector (default is 16)
+    :only:     Only use devices in train containing this substring.
+    :xcept:    list of devices to ignore (useful if you have reccored slow
+               data with detector data in the same run)
+
+    returns ndarray stacked data for requested data path.
+    """
+    devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
+
+    dtype, shape = next(((d[data].dtype, d[data].shape) 
+                        for d in train.values() if data in d), (None, None))
+    if dtype is None or shape is None:
+        return np.empty(0)
+
+    combined = np.zeros((modules,) + shape, dtype=dtype)
+    for device in devices:
+        try:
+            index = int(re.findall(r'\d+', device)[-2])
+            combined[index, ] = train[device][data]
+        except KeyError:
+            print('stack_detector_data(): missing {} in {}'.format(data, device))
+        except IndexError:
+            print('stack_detector_Data(): module {} is out or range for a'
+                  'detector of {} modules'.format(index, modules))
     return np.moveaxis(combined, 0, axis)
 
 
