@@ -177,19 +177,19 @@ class RunHandler:
         return (tid, data)
 
 
-def stack_data(train, data, axis=-3, ignore=[]):
+def stack_data(train, data, axis=-3, xcept=[]):
     """Stack data from devices in a train.
 
     :train:    train data
     :data:     the data path in the devices
     :axis:     axis on which you wish to stack
-    :ignore:   list of devices to ignore (useful if you have reccored slow
+    :xcept:    list of devices to ignore (useful if you have reccored slow
                data with detector data in the same run)
 
     returns ndarray stacked data for requested data path.
     """
     devs = [(list(map(int, re.findall(r'\d+', dev))), dev)
-            for dev in train.keys() if dev not in ignore]
+            for dev in train.keys() if dev not in xcept]
     devices = [dev for _, dev in sorted(devs)]
 
     dtype, shape = next(((d[data].dtype, d[data].shape) 

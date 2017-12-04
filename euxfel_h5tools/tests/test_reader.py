@@ -164,7 +164,7 @@ def test_stack_data_2():
     tid, data = test_run.train_from_id(1472810853)
 
     skip = ['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf', 'SPB_DET_AGIPD1M-1/DET/9CH0:xtdf']
-    comb = stack_data(data, 'image.data', axis=0, ignore=skip)
+    comb = stack_data(data, 'image.data', axis=0, xcept=skip)
     print(comb.shape)
     assert comb.shape == (8, 60, 512, 128)
     assert (comb[0, ...] == data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data']).all()
@@ -177,12 +177,12 @@ def test_stack_detector_data():
 
     comb = stack_detector_data(data, 'image.data', only='AGIPD1M-1')
     print(comb.shape)
-    assert comb.shape == (10, 60, 512, 128)
-    assert (comb[0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
+    assert comb.shape == (60, 16, 512, 128)
+    assert (comb[:, 0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
 
 
 @require_data2
-def test_stack_detector_data():
+def test_stack_detector_data_2():
     test_run = RunHandler(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
 
