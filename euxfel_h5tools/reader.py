@@ -192,8 +192,8 @@ def stack_data(train, data, axis=-3, ignore=[]):
             for dev in train.keys() if dev not in ignore]
     devices = [dev for _, dev in sorted(devs)]
 
-    dtype = next((d[data].dtype for d in train.values() if data in d), None)
-    shape = next((d[data].shape for d in train.values() if data in d), None)
+    dtype, shape = next(((d[data].dtype, d[data].shape) 
+                        for d in train.values() if data in d), (None, None))
     if dtype is None or shape is None:
         return np.empty(0)
 
