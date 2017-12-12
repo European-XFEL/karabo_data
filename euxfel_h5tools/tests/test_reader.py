@@ -94,8 +94,8 @@ def test_read_metadata():
         sleep(2)
         data2, _, _ = f.train_from_index(0)
         assert 'metadata' in data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']
-        assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['tid'] == 1455918683
-        assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['sec'] != data2['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['sec']
+        assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['tid'] == 1455918683
+        assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['sec'] != data2['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['sec']
         assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['source'] == 'FXE_DET_LPD1M-1/DET/0CH0:xtdf'
 
 

@@ -41,10 +41,11 @@ class H5File:
         self.run = self.file[RUN_DATA]
 
         self.sources = [source.decode() for source in
-                        self.metadata['dataSourceId'].value]
+                        self.metadata['dataSourceId'].value if source]
         self.devices = [device.decode() for device in
-                        self.metadata['deviceId'].value]
-        self.train_ids = self.index['trainId'][()].tolist()
+                        self.metadata['deviceId'].value if device]
+        self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
+                          if tid != 0]
 
     def _gen_train_data(self, train_index):
         """Get data for the specified index in file."""
@@ -75,9 +76,9 @@ class H5File:
                 table.visititems(append_data)
 
             sec, frac = str(time()).split('.')
-            data.update({'metadata': {'source': src,
-                                      'tid': int(self.train_ids[train_index]),
-                                      'sec': int(sec), 'frac': int(frac)}})
+            timestamp = {'tid': int(self.train_ids[train_index]),
+                         'sec': int(sec), 'frac': int(frac)}
+            data.update({'metadata': {'source': src, 'timestamp': timestamp}})
 
         return (train_data, self.train_ids[train_index], train_index)
 
