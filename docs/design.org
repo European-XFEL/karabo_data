@@ -1,3 +1,5 @@
+* Brainstorming 2017
+
 - Run Class
   - point to a directory contains run data, it load the data
     - needs to be a run -directory (not experiment)
@@ -32,3 +34,43 @@
   - size_index () ->
 
   - file(trainId) -> list of files that contains the data
+
+* Brainstorming (Jan) 2018
+
+Pipeline:
+
+h5tool inputdataname -> train, pulse, source name to reduce data -> analysis -> filter -> conversion -> output
+
+- can read and combine data from multiple files
+  - reconstruct trains from a run and
+  - stream (iterate over) them in the correct order
+
+- initial exploration:
+  - how many trains
+  - what detector data (fast data), -> names of sources
+    - how many pulses
+  - what sensors (slow data) -> names of sources
+  - overview
+
+- conversion of data into other formats
+  - numpy array (detector data)
+  - plain txt
+  - matlab matrix (*.mat)
+  - png
+  - cheetah
+  - dump summary to screen
+  - xfel hdf5 files
+  - cxi
+  - python dictionaries / json / ...
+  - csv (slow data)
+  - stream it over 0MQ (or similar)
+
+- selection of trains, pulses and sources
+  - reduce the data we work on
+
+- analysis of pulses/trains
+  - for example total photon count (if calibrated)
+  - assemble detector modules in roughly right geometry
+
+- filters
+  - use results of this analysis as a filter
