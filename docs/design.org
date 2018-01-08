@@ -39,7 +39,8 @@
 
 Pipeline:
 
-h5tool inputdataname -> train, pulse, source name to reduce data -> analysis -> filter -> conversion -> output
+h5tool inputdataname -> train, pulse, source name to reduce data ->
+calibration -> analysis -> filter -> calibration -> conversion -> output
 
 - can read and combine data from multiple files
   - reconstruct trains from a run and
@@ -51,6 +52,8 @@ h5tool inputdataname -> train, pulse, source name to reduce data -> analysis -> 
     - how many pulses
   - what sensors (slow data) -> names of sources
   - overview
+  - show realtime for run: when was the run started (date and time),
+    for how long did the measurement go?
 
 - conversion of data into other formats
   - numpy array (detector data)
@@ -71,6 +74,19 @@ h5tool inputdataname -> train, pulse, source name to reduce data -> analysis -> 
 - analysis of pulses/trains
   - for example total photon count (if calibrated)
   - assemble detector modules in roughly right geometry
+  - integration over region of interest
 
 - filters
   - use results of this analysis as a filter
+
+Additional features:
+
+- loop over directory of runs to show summary table for each
+  - name, #trains, date and time & duration, detector, if scan ->
+    scanning parameters/device
+
+  (Could just be a bash loop, something like:
+
+  for dir in *; do
+     h5tool --info -verbose $dir
+  done
