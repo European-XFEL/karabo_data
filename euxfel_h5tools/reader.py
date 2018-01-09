@@ -6,6 +6,7 @@
 #############################################################################
 
 from contextlib import contextmanager
+import datetime
 from glob import glob
 import h5py
 import numpy as np
@@ -176,6 +177,51 @@ class RunHandler:
             d, _, _ = fh.train_from_id(tid)
             data.update(d)
         return (tid, data)
+
+    def _get_devices(self, src):
+        src = [s.split('/') for f in src for s in f.sources]
+        ctrl = set(['/'.join(c[1:4]) for c in src if c[0] == 'CONTROL'])
+        inst = set(['/'.join(i[1:4]) for i in src if i[0] == 'INSTRUMENT'])
+        return ctrl, inst
+
+    def infos(self):
+        # time info
+        first_train, _ = self.ordered_trains[0]
+        last_train, _ = self.ordered_trains[-1]
+        train_count = len(self.ordered_trains)
+        span_sec = (last_train - first_train) / 10
+        span_txt = str(datetime.timedelta(seconds=span_sec))
+
+        # devices infos
+        ctrl, inst = self._get_devices(self.files)
+
+        # disp
+        print('Run information')
+        print('\tDuration:      ', span_txt)
+        print('\tFirst train ID:', first_train)
+        print('\tLast train ID: ', last_train)
+        print('\t# of trains:   ', train_count)
+        print()
+        print('Devices')
+        print('\tInstruments')
+        [print('\t-', d) for d in sorted(inst)] or print('\t-')
+        print('\tControls')
+        [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
+
+    def train_info(self, train_id):
+        tid, files = next((t for t in self.ordered_trains
+                          if t[0] == train_id), (None, None))
+        if tid is None:
+            raise ValueError("train {} not found in run.".format(train_id))
+        ctrl, inst = self._get_devices(files)
+
+        # disp
+        print('Train [{}] information'.format(train_id))
+        print('Devices')
+        print('\tInstruments')
+        [print('\t-', d) for d in sorted(inst)] or print('\t-')
+        print('\tControls')
+        [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
 
 
 def stack_data(train, data, axis=-3, xcept=[]):
