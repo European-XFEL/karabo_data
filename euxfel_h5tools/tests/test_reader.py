@@ -1,6 +1,7 @@
 import numpy as np
 import os.path as osp
 import pytest
+from pytest import approx
 from time import sleep
 
 from euxfel_h5tools import (H5File, open_H5File, RunHandler, stack_data,
@@ -9,13 +10,20 @@ from euxfel_h5tools import (H5File, open_H5File, RunHandler, stack_data,
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
 RUNPATH = '/home/tmichela/Downloads//data/r0185'
-require_data = pytest.mark.skipif(not osp.exists(FILEPATH),
-                                  reason="require data file.")
-require_data2 = pytest.mark.skipif(not osp.exists(RUNPATH),
-                                   reason="require data files.")
+RUNPATH_SLOW = '/home/tmichela/Downloads/data/slow'
+# RUNPATH_MIXED = '/media/tmichela/storage/p002013/r0385'
+
+lpd_single_file = pytest.mark.skipif(not osp.exists(FILEPATH),
+                                     reason="require data file.")
+agipd_run = pytest.mark.skipif(not osp.exists(RUNPATH),
+                               reason="require data files.")
+xgm_run = pytest.mark.skipif(not osp.exists(RUNPATH_SLOW),
+                             reason="require data files.")
+# mixed_run = pytest.mark.skipif(not osp.exists(RUNPATH_MIXED),
+#                              reason="require data files.")
 
 
-@require_data
+@lpd_single_file
 def test_H5File():
     f = H5File(FILEPATH)
     assert f.file.filename == FILEPATH
@@ -23,7 +31,7 @@ def test_H5File():
     f.close()
 
 
-@require_data
+@lpd_single_file
 def test_get_file_infos():
     with open_H5File(FILEPATH) as f:
 
@@ -44,7 +52,7 @@ def test_get_file_infos():
         assert 'INSTRUMENT/FXE_DET_LPD1M-1/DET/0CH0:xtdf/detector' in sources
 
 
-@require_data
+@lpd_single_file
 def test_iterate_trains():
     with open_H5File(FILEPATH) as f:
 
@@ -57,7 +65,7 @@ def test_iterate_trains():
             assert len(data['FXE_DET_LPD1M-1/DET/0CH0:xtdf']) == 21
 
 
-@require_data
+@lpd_single_file
 def test_get_train_per_id():
     with open_H5File(FILEPATH) as f:
 
@@ -72,7 +80,7 @@ def test_get_train_per_id():
         print(info)
 
 
-@require_data
+@lpd_single_file
 def test_get_train_per_index():
     with open_H5File(FILEPATH) as f:
 
@@ -86,7 +94,7 @@ def test_get_train_per_index():
         print(info)
 
 
-@require_data
+@lpd_single_file
 def test_read_metadata():
     with open_H5File(FILEPATH) as f:
 
@@ -99,7 +107,7 @@ def test_read_metadata():
         assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['source'] == 'FXE_DET_LPD1M-1/DET/0CH0:xtdf'
 
 
-@require_data2
+@agipd_run
 def test_run():
     test_run = RunHandler(RUNPATH)
 
@@ -124,7 +132,7 @@ def test_run():
     assert len(train_data) == 11
 
 
-@require_data2
+@agipd_run
 def test_run_single():
     test_run = RunHandler(RUNPATH)
 
@@ -138,7 +146,7 @@ def test_run_single():
     assert img.shape == (60, 512, 128)
 
 
-@require_data2
+@agipd_run
 def test_wrong_train_id():
     test_run = RunHandler(RUNPATH)
 
@@ -147,7 +155,7 @@ def test_wrong_train_id():
     print(info)
 
 
-@require_data2
+@agipd_run
 def test_stack_data():
     test_run = RunHandler(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
@@ -158,7 +166,7 @@ def test_stack_data():
     assert (comb[:, 0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
 
 
-@require_data2
+@agipd_run
 def test_stack_data_2():
     test_run = RunHandler(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
@@ -170,7 +178,7 @@ def test_stack_data_2():
     assert (comb[0, ...] == data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data']).all()
 
 
-@require_data2
+@agipd_run
 def test_stack_detector_data():
     test_run = RunHandler(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
@@ -181,7 +189,7 @@ def test_stack_detector_data():
     assert (comb[:, 0, ...] == data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data']).all()
 
 
-@require_data2
+@agipd_run
 def test_stack_detector_data_2():
     test_run = RunHandler(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
@@ -194,6 +202,63 @@ def test_stack_detector_data_2():
         assert (comb[i, ...] == data['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i)]['image.data']).all()
     for i in (3, 4, 5, 6, 7, 11, 12, 13, 14, 15):
         assert (comb[i, ...] == np.zeros((60, 512, 128))).all()
+
+
+@xgm_run
+def test_filter_device():
+
+    dev_filter_1 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value',
+                                               'current.right.output.value'}}
+    dev_filter_2 = {''}
+    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'},
+                    'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
+
+    with open_H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
+        data, _, _ = f.train_from_index(500, devices=dev_filter_1)
+
+        assert len(data) == 1
+        assert 'SPB_XTD9_XGM/XGM/DOOCS' in data
+        xgm = data['SPB_XTD9_XGM/XGM/DOOCS']
+        assert len(xgm) == 3  # metadata, pulseEnergy, current
+        assert 'pulseEnergy.pulseEnergy.value' in xgm
+        # assert xgm['pulseEnergy.pulseEnergy.value'] == approx(0.06392462, rel=1e-7)
+        # assert xgm['current.right.output.value'] == approx(-7.968561e-15, rel=1e-6)
+
+        data, _, _ = f.train_from_index(0, devices=dev_filter_2)
+        assert len(data) == 0
+
+        data, _, _ = f.train_from_index(0, devices=dev_filter_3)
+        assert len(data) == 2
+
+
+@agipd_run
+def test_run_infos(capsys):
+    test_run = RunHandler(RUNPATH)
+    test_run.infos()
+    captured = capsys.readouterr()
+    print(captured)
+    assert captured[0] == (
+        'Run information\n'
+        '\tDuration:       0:08:57.200000\n'
+        '\tFirst train ID: 1472806005\n'
+        '\tLast train ID:  1472811377\n'
+        '\t# of trains:    542\n'
+        '\n'
+        'Devices\n'
+        '\tInstruments\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/0CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/10CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/1CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/2CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/3CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/4CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/5CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/6CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/7CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/8CH0:xtdf\n'
+        '\t- SPB_DET_AGIPD1M-1/DET/9CH0:xtdf\n'
+        '\tControls\n'
+        '\t-\n')
 
 
 if __name__ == '__main__':
