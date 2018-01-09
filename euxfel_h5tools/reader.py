@@ -24,17 +24,27 @@ class H5File:
     """Handles a HDF5 file generated at the European XFEL.
 
     An HDF5 file contains in general several record of data. This helps
-    handling such file and extract back instrument data per XRAY train.
-
-    Usage::
+    handling such file and extract back instrument data per XRAY train::
 
         h5f = H5File('/path/to/my/file.h5')
         for data, train_id, index in h5f.trains():
-            image = data['device']['parameter']
-            ...
+            value = data['device']['parameter']
+
+    Parameters
+    ----------
+    path: str
+        Path to the HDF5 file.
+    driver: str, optional
+        HDF5 driver.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the provided path is not a valid HDF5 file.
     """
     def __init__(self, path, driver=None):
-        assert h5py.is_hdf5(path)
+        if not h5py.is_hdf5(path):
+            raise FileNotFoundError(path, 'is not a valid HDF5 file.')
         self.file = h5py.File(path, 'r', driver=driver)
 
         self.metadata = self.file[METADATA]
@@ -49,14 +59,12 @@ class H5File:
                           if tid != 0]
 
     def _gen_train_data(self, train_index, only_this=None):
-        """Get data for the specified index in file."""
+        """Get data for the specified index in file.
+        """
         train_data = {}
         for device, source in zip(self.devices, self.sources):
             index = self.index[device]
             table = self.file[source]
-
-            first = int(index['first'][train_index])
-            last = int(index['last'][train_index])
             status = index['status'][train_index]
 
             dev = device.split('/')
@@ -71,6 +79,9 @@ class H5File:
             data = train_data[src]
 
             if status:
+                first = int(index['first'][train_index])
+                last = int(index['last'][train_index])
+
                 def append_data(key, value):
                     if isinstance(value, h5py.Dataset):
                         path = '.'.join(filter(None,
@@ -93,12 +104,51 @@ class H5File:
         return (train_data, self.train_ids[train_index], train_index)
 
     def trains(self, devices=None):
-        """Iterate over all trains in the file"""
+        """Iterate over all trains in the file.
+
+        Parameters
+        ----------
+        devices: dict, optional
+            Use to filter data by devices and by parameters, i.e., for::
+
+                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
+                for id, data in file_handler.trains(devices=dev):
+                    pos = data['xray_monitor']['beamPosition']
+
+            the returned data will only contains the device 'xray_monitor'
+            and 2 of it's parameters (pulseEnergy and beamPosition).
+        """
         for index, train in enumerate(self.train_ids):
             yield self._gen_train_data(index, only_this=devices)
 
     def train_from_id(self, train_id, devices=None):
-        """Get Train data for specified train ID."""
+        """Get Train data for specified train ID.
+
+        Parameters
+        ----------
+        train_id: int
+            the train ID you want to return
+        devices: dict, optional
+            Use to filter data by devices and by parameters, i.e., for::
+
+                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
+                for id, data in run,trains(devices=dev)
+
+            the returned data will only contains the device 'xray_monitor'
+            and 2 of it's parameters (pulseEnergy and beamPosition).
+
+        returns
+        -------
+        data, tid, index: tuple(dict, int, int)
+            data contains the train data.
+            tid is the train ID of the returned train.
+            index is the index of the train in the file.
+
+        Raises
+        ------
+        ValueError
+            if `train_id` is not found in the file.
+        """
         try:
             index = self.train_ids.index(train_id)
         except ValueError:
@@ -108,7 +158,28 @@ class H5File:
             return self._gen_train_data(index, only_this=devices)
 
     def train_from_index(self, index, devices=None):
-        """Get train data of the nth train in file."""
+        """Get train data of the nth train in file.
+
+        Parameters
+        ----------
+        index: int
+            Index of the train in the file.
+        devices: dict, optional
+            Use to filter data by devices and by parameters, i.e., for::
+
+                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
+                for id, data in run,trains(devices=dev)
+
+            the returned data will only contains the device 'xray_monitor'
+            and 2 of it's parameters (pulseEnergy and beamPosition).
+
+        returns
+        -------
+        data, tid, index: tuple(dict, int, int)
+            data contains the train data.
+            tid is the train ID of the returned train.
+            index is the index of the train in the file.
+        """
         return self._gen_train_data(index, only_this=devices)
 
     def close(self):
@@ -121,7 +192,13 @@ def open_H5File(path, driver=None):
 
         with open_H5File('/path/to/my/file.h5') as xfel_data:
             first_train = xfel_data.train_from_index(0)
-            ...
+
+    Parameters
+    ----------
+    path: str
+        Path to the HDF5 file.
+    driver: str, optional
+        HDF5 driver.
     """
     h5f = H5File(path, driver=driver)
     try:
@@ -136,6 +213,11 @@ class RunHandler:
     A 'run' is a directory containing a various amount of HDF5 file recorded
     in the European XFEL format. This class can iterate through the data
     contained in the run and extract instrument data per XRAY train.
+
+    Parameters
+    ----------
+    path: str
+        Path to the run directory.
     """
     def __init__(self, path):
         self.files = [H5File(f) for f in glob(osp.join(path, '*.h5'))
@@ -163,7 +245,7 @@ class RunHandler:
             Use to filter data by devices and by parameters, i.e., for::
 
                 dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run,trains(devices=dev)
+                for id, data in run.trains(devices=dev)
 
             the returned data will only contains the device 'xray_monitor'
             and 2 of it's parameters (pulseEnergy and beamPosition).
@@ -230,6 +312,8 @@ class RunHandler:
         return ctrl, inst
 
     def infos(self):
+        """Show information about the run.
+        """
         # time info
         first_train, _ = self.ordered_trains[0]
         last_train, _ = self.ordered_trains[-1]
@@ -254,6 +338,18 @@ class RunHandler:
         [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
 
     def train_info(self, train_id):
+        """Show information about a specific train in the run.
+
+        Parameters
+        ----------
+        train_id: int
+            The specific train ID you get details information.
+
+        Raises
+        ------
+        ValueError
+            if `train_id` is not found in the run.
+        """
         tid, files = next((t for t in self.ordered_trains
                           if t[0] == train_id), (None, None))
         if tid is None:
