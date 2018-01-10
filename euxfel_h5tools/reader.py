@@ -429,14 +429,16 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
     """
     devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
 
-    dtype, shape = next(((d[data].dtype, d[data].shape) 
-                        for d in train.values() if data in d), (None, None))
+    dtype, shape = next(((d[data].dtype, d[data].shape) for d in train.values()
+                        if data in d and 0 not in d[data].shape), (None, None))
     if dtype is None or shape is None:
         return np.empty(0)
 
     combined = np.zeros((modules,) + shape, dtype=dtype)
     for device in devices:
         try:
+            if 0 in train[device][data].shape:
+                continue
             index = int(re.findall(r'\d+', device)[-2])
             combined[index, ] = train[device][data]
         except KeyError:
