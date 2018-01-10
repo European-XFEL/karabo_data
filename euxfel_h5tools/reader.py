@@ -389,14 +389,16 @@ def stack_data(train, data, axis=-3, xcept=[]):
             for dev in train.keys() if dev not in xcept]
     devices = [dev for _, dev in sorted(devs)]
 
-    dtype, shape = next(((d[data].dtype, d[data].shape) 
-                        for d in train.values() if data in d), (None, None))
+    dtype, shape = next(((d[data].dtype, d[data].shape) for d in train.values()
+                        if data in d and 0 not in d[data].shape), (None, None))
     if dtype is None or shape is None:
         return np.empty(0)
 
     combined = np.zeros((len(devices),) + shape, dtype=dtype)
     for index, device in enumerate(devices):
         try:
+            if 0 in train[device][data].shape:
+                continue
             combined[index, ] = train[device][data]
         except KeyError:
             print('stack_data(): missing {} in {}'.format(data, device))
