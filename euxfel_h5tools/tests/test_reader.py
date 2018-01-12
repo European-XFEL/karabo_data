@@ -223,7 +223,7 @@ def test_filter_device():
     dev_filter_1 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value',
                                                'current.right.output.value'}}
     dev_filter_2 = {''}
-    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'},
+    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {}
                     'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
 
     with open_H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
@@ -242,6 +242,8 @@ def test_filter_device():
 
         data, _, _ = f.train_from_index(0, devices=dev_filter_3)
         assert len(data) == 2
+        assert len(data['SPB_XTD9_XGM/XGM/DOOCS']) == 77
+        assert len(data['SA1_XTD2_XGM/XGM/DOOCS']) == 2
 
 
 @agipd_run
