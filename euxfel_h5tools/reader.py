@@ -57,6 +57,7 @@ class H5File:
                         self.metadata['deviceId'].value if device]
         self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
                           if tid != 0]
+        self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
     def _gen_train_data(self, train_index, only_this=None):
         """Get data for the specified index in file.
@@ -118,7 +119,7 @@ class H5File:
             the returned data will only contains the device 'xray_monitor'
             and 2 of it's parameters (pulseEnergy and beamPosition).
         """
-        for index, train in enumerate(self.train_ids):
+        for index in range(len(self.train_ids)):
             yield self._gen_train_data(index, only_this=devices)
 
     def train_from_id(self, train_id, devices=None):
@@ -146,14 +147,14 @@ class H5File:
 
         Raises
         ------
-        ValueError
+        KeyError
             if `train_id` is not found in the file.
         """
         try:
-            index = self.train_ids.index(train_id)
-        except ValueError:
-            raise ValueError("train {} not found in {}.".format(
-                             train_id, self.file.filename))
+            index = self._trains[train_id]
+        except KeyError:
+            raise KeyError("train {} not found in {}.".format(
+                            train_id, self.file.filename))
         else:
             return self._gen_train_data(index, only_this=devices)
 
@@ -223,14 +224,14 @@ class RunHandler:
         self.files = [H5File(f) for f in glob(osp.join(path, '*.h5'))
                       if h5py.is_hdf5(f)]
 
-        trains = {}
+        self._trains = {}
         for fhandler in self.files:
             for train in fhandler.train_ids:
-                if train not in trains:
-                    trains[train] = []
-                trains[train].append(fhandler)
+                if train not in self._trains:
+                    self._trains[train] = []
+                self._trains[train].append(fhandler)
 
-        self.ordered_trains = list(sorted(trains.items()))
+        self.ordered_trains = list(sorted(self._trains.items()))
 
     def trains(self, devices=None):
         """Iterate over all trains in the run and gather all sources.
@@ -282,24 +283,61 @@ class RunHandler:
 
         returns
         -------
-        tid, data: tuple(int, dict)
-            tid is the train ID of the returned train
+        train_id, data: tuple(int, dict)
+            train_id is the train ID of the returned train
             data contains the train data.
 
         Raises
         ------
-        ValueError
+        KeyError
             if `train_id` is not found in the run.
         """
-        tid, files = next((t for t in self.ordered_trains
-                          if t[0] == train_id), (None, None))
-        if tid is None:
-            raise ValueError("train {} not found in run.".format(train_id))
+        try:
+            files = self._trains[train_id]
+        except KeyError:
+            raise KeyError("train {} not found in run.".format(train_id))
         data = {}
         for fh in files:
-            d, _, _ = fh.train_from_id(tid, devices=devices)
+            d, _, _ = fh.train_from_id(train_id, devices=devices)
             data.update(d)
-        return (tid, data)
+        return (train_id, data)
+
+    def train_from_index(self, index, devices=None):
+        """Get the nth train in the run.
+
+        Parameters
+        ----------
+        index: int
+            the train ID you want to return
+        devices: dict, optional
+            Use to filter data by devices and by parameters, i.e., for::
+
+                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
+                for id, data in run,trains(devices=dev)
+
+            the returned data will only contains the device 'xray_monitor'
+            and 2 of it's parameters (pulseEnergy and beamPosition).
+
+        returns
+        -------
+        train_id, data: tuple(int, dict)
+            train_id is the train ID of the returned train
+            data contains the train data.
+
+        Raises
+        ------
+        IndexError
+            if train `index` is out of range.
+        """
+        try:
+            train_id, files = self.ordered_trains[index]
+        except IndexError:
+            raise IndexError("Train index {} out of range.".format(index))
+        data = {}
+        for fh in files:
+            d, _, _ = fh.train_from_id(train_id, devices=devices)
+            data.update(d)
+        return (train_id, data)
 
     def _get_devices(self, src):
         """Return sets of control and instrument device names.
@@ -449,6 +487,30 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
             print('stack_detector_Data(): module {} is out or range for a'
                   'detector of {} modules'.format(index, modules))
     return np.moveaxis(combined, 0, axis)
+
+
+def extract_param(run_path, train_id, param):
+    run_handler = RunHandler(run_path)
+
+    depth_param = len(param.split('.'))
+    slashed_param = param.replace('.', '/')
+
+    devspaths = {}
+    def add_dev_and_path(key):
+        if (key.startswith(('CONTROL', 'INSTRUMENT'))
+            and key.endswith(slashed_param)):
+
+            key = key.split('/')
+            dev = '/'.join(key[1:-depth_param])
+            devspaths[dev] = {param} 
+
+    devspaths = {}
+    for fh in run_handler._trains[train_id]:
+            fh.file.visit(add_dev_and_path)
+        
+    _, data = run_handler.train_from_id(train_id, devices=devspaths)
+    stack = stack_detector_data(data, param)
+    return stack
 
 
 if __name__ == '__main__':
