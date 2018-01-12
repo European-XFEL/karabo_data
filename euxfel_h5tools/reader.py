@@ -490,30 +490,6 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
     return np.moveaxis(combined, 0, axis)
 
 
-def extract_param(run_path, train_id, param):
-    run_handler = RunHandler(run_path)
-
-    depth_param = len(param.split('.'))
-    slashed_param = param.replace('.', '/')
-
-    devspaths = {}
-    def add_dev_and_path(key):
-        if (key.startswith(('CONTROL', 'INSTRUMENT'))
-            and key.endswith(slashed_param)):
-
-            key = key.split('/')
-            dev = '/'.join(key[1:-depth_param])
-            devspaths[dev] = {param} 
-
-    devspaths = {}
-    for fh in run_handler._trains[train_id]:
-            fh.file.visit(add_dev_and_path)
-        
-    _, data = run_handler.train_from_id(train_id, devices=devspaths)
-    stack = stack_detector_data(data, param)
-    return stack
-
-
 if __name__ == '__main__':
     r = RunHandler('./data/r0185')
     for tid, d in r.trains():
