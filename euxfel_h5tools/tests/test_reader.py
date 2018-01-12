@@ -223,7 +223,7 @@ def test_filter_device():
     dev_filter_1 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value',
                                                'current.right.output.value'}}
     dev_filter_2 = {''}
-    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {}
+    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {},
                     'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
 
     with open_H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
