@@ -75,7 +75,7 @@ def test_get_train_per_id():
         assert train == 1455918700
         assert idx == 17
 
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(KeyError) as info:
             data = f.train_from_id(1234)  # train id not in file
         print(info)
 
@@ -133,7 +133,7 @@ def test_run():
 
 
 @agipd_run
-def test_run_single():
+def test_run_single_train_from_id():
     test_run = RunHandler(RUNPATH)
 
     tid, data = test_run.train_from_id(1472810853)
@@ -145,13 +145,26 @@ def test_run_single():
     img = data['SPB_DET_AGIPD1M-1/DET/8CH0:xtdf']['image.data']
     assert img.shape == (60, 512, 128)
 
+    with pytest.raises(KeyError) as info:
+        tid, data = test_run.train_from_id(123456789)
+    print(info)
+
 
 @agipd_run
-def test_wrong_train_id():
+def test_run_single_train_from_index():
     test_run = RunHandler(RUNPATH)
 
-    with pytest.raises(ValueError) as info:
-        tid, data = test_run.train_from_id(123456789)
+    tid, data = test_run.train_from_index(541)
+    assert len(data) == 2
+
+    tid, data = test_run.train_from_index(123)
+    assert len(data) == 11
+
+    img = data['SPB_DET_AGIPD1M-1/DET/9CH0:xtdf']['image.data']
+    assert img.shape == (60, 512, 128)
+
+    with pytest.raises(IndexError) as info:
+        tid, data = test_run.train_from_index(542)
     print(info)
 
 
@@ -210,7 +223,7 @@ def test_filter_device():
     dev_filter_1 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value',
                                                'current.right.output.value'}}
     dev_filter_2 = {''}
-    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'},
+    dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {},
                     'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
 
     with open_H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
@@ -229,6 +242,8 @@ def test_filter_device():
 
         data, _, _ = f.train_from_index(0, devices=dev_filter_3)
         assert len(data) == 2
+        assert len(data['SPB_XTD9_XGM/XGM/DOOCS']) == 77
+        assert len(data['SA1_XTD2_XGM/XGM/DOOCS']) == 2
 
 
 @agipd_run
