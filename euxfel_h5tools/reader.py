@@ -350,7 +350,7 @@ class RunHandler:
         inst = set(['/'.join(i[1:4]) for i in src if i[0] == 'INSTRUMENT'])
         return ctrl, inst
 
-    def infos(self):
+    def info(self):
         """Show information about the run.
         """
         # time info
@@ -360,7 +360,7 @@ class RunHandler:
         span_sec = (last_train - first_train) / 10
         span_txt = str(datetime.timedelta(seconds=span_sec))
 
-        # devices infos
+        # devices info
         ctrl, inst = self._get_devices(self.files)
 
         # disp
