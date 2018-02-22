@@ -32,7 +32,7 @@ def test_H5File():
 
 
 @lpd_single_file
-def test_get_file_infos():
+def test_get_file_info():
     with open_H5File(FILEPATH) as f:
 
         trains = f.train_ids
@@ -247,9 +247,9 @@ def test_filter_device():
 
 
 @agipd_run
-def test_run_infos(capsys):
+def test_run_info(capsys):
     test_run = RunHandler(RUNPATH)
-    test_run.infos()
+    test_run.info()
     captured = capsys.readouterr()
     print(captured)
     assert captured[0] == (
