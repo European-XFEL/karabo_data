@@ -7,6 +7,7 @@ dev-install:
 	python3 -m pip install -U -e .
 
 test:
+    python3 -m pip install -e git+https://github.com/Eropean-XFEL/karabo-bridge-py.git#egg=karabo-bridge-py
 	python3 -m pytest -v
 
 build-docker-image:

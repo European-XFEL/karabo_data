@@ -51,6 +51,9 @@ class ZMQStreamer:
             else:
                 sleep(0.1)
 
+    def stop(self):
+        raise NotImplementedError
+
     def _serialize(self, data):
         # TODO: optimize this...
         return [msgpack.dumps(data, use_bin_type=True)]

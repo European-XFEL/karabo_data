@@ -13,5 +13,6 @@ setup(name="euxfel_h5tools",
       url="https://github.com/European-XFEL/h5tools-py",
       license = "To Be Confirmed",
       scripts = ["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
-      install_requires=["docopt", "fabio", "h5py", "matplotlib", "msgpack", "msgpack-numpy", "numpy"]
+      install_requires=["docopt", "fabio", "h5py", "matplotlib", "msgpack",
+                        "msgpack-numpy", "numpy", "zmq"]
       )
