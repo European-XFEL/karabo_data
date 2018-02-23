@@ -2,11 +2,11 @@
 
 install:
 	python3 -m pip install .
+	python3 -m pip install -e git+https://github.com/Eropean-XFEL/karabo-bridge-py.git#egg=karabo-bridge-py
 
 dev-install:
 	python3 -m pip install -U -e .
-	python3 -m pip install -e git+https://github.com/Eropean-XFEL/karabo-bridge-py.git#egg=karabo-bridge-py
-
+	
 test:
 	python3 -m pytest -v
 
