@@ -1,7 +1,10 @@
 """Test streaming data with ZMQ interface."""
 
+import msgpack
+import msgpack_numpy as numpack
 import numpy as np
 import pytest
+from queue import Full
 from struct import pack
 from time import sleep
 
@@ -17,7 +20,34 @@ DATA = {'source1': {'parameter.1.value': 123,
                                                           dtype=np.uint8),
                           'something.else': ['a', 'bc', 'd']}
         }
-BDATA = b'\x82\xa7source1\x84\xb1parameter.1.value{\xablist.of.int\x93\x01\x02\x03\xacstring.param\xa4True\xa7boolean\xc2\xadXMPL/DET/MOD0\x82\xaesomething.else\x93\xa1a\xa2bc\xa1d\xaaimage.data\x85\xc4\x02nd\xc3\xc4\x05shape\x93\x02\x03\x04\xc4\x04kind\xc4\x00\xc4\x04type\xa3|u1\xc4\x04data\xc4\x18\xf2F\x14O\xc4\xd9\x8f\x82+\x89\x98\x0f3i,2j\x91k\xa2\x19|\x84\x8c'
+
+
+def compare_nested_dict(d1, d2, path=''):
+    for key in d1.keys():
+        if key not in d2:
+            print(d1.keys())
+            print(d2.keys())
+            raise KeyError('key is missing in d2: {}{}'.format(path, key))
+
+        if isinstance(d1[key], dict):
+            path += key + '.'
+            compare_nested_dict(d1[key], d2[key], path)
+        else:
+            v1 = d1[key]
+            v2 = d2[key]
+
+            try:
+                if isinstance(v1, np.ndarray):
+                    assert (v1 == v2).all()
+                elif isinstance(v1, tuple) or isinstance(v2, tuple):
+                    # msgpack doesn't know about complex types, everything is
+                    # an array. So tuples are packed as array and then
+                    # unpacked as list by default.
+                    assert list(v1) == list(v2)
+                else:
+                    assert v1 == v2
+            except AssertionError:
+                raise ValueError('diff: {}{}'.format(path, key), v1, v2)
 
 
 @pytest.yield_fixture
@@ -25,7 +55,6 @@ BDATA = b'\x82\xa7source1\x84\xb1parameter.1.value{\xablist.of.int\x93\x01\x02\x
 def server():
     serve = ZMQStreamer(1234, maxlen=10)
     yield serve
-    serve.stop()
 
 
 def test_serialize(server):
@@ -34,30 +63,35 @@ def test_serialize(server):
     
     assert isinstance(msg, list)
     assert len(msg) == 1
-    assert msg[-1] == BDATA
+    assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True,
+                                    default=numpack.encode)
 
 
 def test_fill_queue(server):
     serve = server
 
-    for i in range(20):
+    for i in range(10):
         serve.feed(i)
 
-    assert len(serve._buffer) == 10
-    assert serve._buffer[9] == [pack('b', 19)]
-    assert serve._buffer[0] == [pack('b', 10)]
+    assert serve._buffer.full()
+    with pytest.raises(Full):
+        serve._buffer.put_nowait(b'too much')
+
+    for i in range(10):
+        assert serve._buffer.get() == [msgpack.dumps(i)]
 
 
 def test_req_rep(server):
     serve = server
-    client = KaraboBridge('tcp://localhost:1234')
+    serve.start()
 
     for i in range(3):
         serve.feed(DATA)
 
+    client = KaraboBridge('tcp://localhost:1234')
     for i in range(3):
         data = client.next()
-        assert data == DATA
+        compare_nested_dict(data, DATA)
 
 
 if __name__ == '__main__':
