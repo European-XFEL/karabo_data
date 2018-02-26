@@ -11,6 +11,10 @@ import matplotlib.pyplot as plot
 import numpy as np
 
 
+__all__ = ['hdf5_file_info', 'hdf5_paths', 'hdf5_to_cbf', 'numpy_to_cbf',
+           'QuickView']
+
+
 class QuickView:
     """Pun intended
         This object displays a 3D array as provided by calibrated

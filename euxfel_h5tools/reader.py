@@ -15,6 +15,10 @@ import re
 from time import time
 
 
+__all__ = ['H5File', 'open_H5File', 'RunHandler', 'stack_data',
+           'stack_detector_data']
+
+
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
 METADATA = 'METADATA'
