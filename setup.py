@@ -11,7 +11,7 @@ setup(name="euxfel_h5tools",
       description="Python tools for reading European XFEL's h5 files",
       long_description=read("README.md"),
       url="https://github.com/European-XFEL/h5tools-py",
-      license = "To Be Confirmed",
+      license = "BSD",
       scripts = ["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
       install_requires=["docopt", "fabio", "h5py", "matplotlib", "msgpack",
                         "msgpack-numpy", "numpy", "zmq"]
