@@ -115,14 +115,31 @@ class H5File:
         Parameters
         ----------
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
+            keys are the devices names and values are set() of parameter names
+            (or empty set if all parameters are requested)
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in file_handler.trains(devices=dev):
-                    pos = data['xray_monitor']['beamPosition']
+                dev = {'device1: {'param_m, param_n}, 'device2': {}}
+                for tid, data in handler.trains(devices=dev):
+                    ...
 
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+        Examples
+        --------
+        Iterate over all trains
+        >>> for id, data in file_handler.trains():
+                pos = data['device_x']['param_n']
+
+        Filter devices and parameters
+        >>> dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'},
+                   'sample_x': {}, sample_y: {}}
+        >>> trains = file_handler.trains(devices=dev)
+        >>> traind_id, train_1 = next(trains)
+        >>> train_1.keys()
+        dict_keys(['xray_monitor', 'sample_x', 'sample_y'])
+
+        The returned data will contains the devices 'xray_monitor' and 2 of
+        it's parameters (pulseEnergy and beamPosition), sample_x and
+        sample_y (with all of their parameters). All other devices are ignored.
         """
         for index in range(len(self.train_ids)):
             yield self._gen_train_data(index, only_this=devices)
@@ -135,13 +152,9 @@ class H5File:
         train_id: int
             the train ID you want to return
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run,trains(devices=dev)
-
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
 
         returns
         -------
@@ -171,13 +184,9 @@ class H5File:
         index: int
             Index of the train in the file.
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run,trains(devices=dev)
-
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
 
         returns
         -------
@@ -248,13 +257,9 @@ class RunHandler:
         Parameters
         ----------
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run.trains(devices=dev)
-
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
 
         Returns
         -------
@@ -278,13 +283,9 @@ class RunHandler:
         train_id: int
             the train ID you want to return
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run,trains(devices=dev)
-
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
 
         returns
         -------
@@ -315,13 +316,9 @@ class RunHandler:
         index: int
             the train ID you want to return
         devices: dict, optional
-            Use to filter data by devices and by parameters, i.e., for::
+            Filter data by devices and by parameters.
 
-                dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'}}
-                for id, data in run,trains(devices=dev)
-
-            the returned data will only contains the device 'xray_monitor'
-            and 2 of it's parameters (pulseEnergy and beamPosition).
+            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
 
         returns
         -------
