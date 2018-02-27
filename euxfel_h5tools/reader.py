@@ -96,8 +96,8 @@ class H5File:
                     if isinstance(value, h5py.Dataset):
                         path = '.'.join(filter(None,
                                         (path_base,) + tuple(key.split('/'))))
-                        if (only_this and only_this[src]
-                            and path not in only_this[src]):
+                        if (only_this and only_this[src] and
+                                path not in only_this[src]):
                             return
 
                         if first == last:

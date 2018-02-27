@@ -60,7 +60,7 @@ class ZMQStreamer:
         for tid, data in run.trains():
             result = important_processing(data)
             serve.feed(result)
-            
+
         # client
         from karabo_bridge import KaraboBridge
         client = KaraboBridge('tcp://server.hostname:1234')
