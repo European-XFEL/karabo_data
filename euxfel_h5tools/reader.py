@@ -1,9 +1,14 @@
-#############################################################################
-# Author: <thomas.michelat@xfel.eu>
-# Created on October 26, 2017
-# Copyright (c) 2017, European X-Ray Free-Electron Laser Facility GmbH
-# All rights reserved.
-#############################################################################
+# coding: utf-8
+"""
+Collection of classes and functions to help reading HDF5 file generated at
+The European XFEL.
+
+Copyright (c) 2017, European X-Ray Free-Electron Laser Facility GmbH
+All rights reserved.
+
+You should have received a copy of the 3-Clause BSD License along with this
+program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
+"""
 
 from contextlib import contextmanager
 import datetime

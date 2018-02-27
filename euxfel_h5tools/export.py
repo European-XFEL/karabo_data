@@ -1,17 +1,23 @@
+# coding: utf-8
 """Expose data to different interface
 
 ZMQStream explose to a ZeroMQ socket in a REQ/REP pattern.
+
+Copyright (c) 2017, European X-Ray Free-Electron Laser Facility GmbH
+All rights reserved.
+
+You should have received a copy of the 3-Clause BSD License along with this
+program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 """
-
-
-__all__ = ['ZMQStreamer']
-
 
 import msgpack
 import msgpack_numpy as numpack
 from queue import Queue
 from threading import Event, Thread
 import zmq
+
+
+__all__ = ['ZMQStreamer']
 
 
 class REPInterface(Thread):

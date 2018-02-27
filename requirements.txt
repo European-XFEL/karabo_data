@@ -1,0 +1,8 @@
+docopt
+fabio
+h5py>=2.7.1
+matplotlib
+msgpack>=0.5.4
+msgpack-numpy>=0.4.3
+numpy
+pyzmq>=17.0.0
