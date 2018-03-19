@@ -222,7 +222,7 @@ def test_stack_detector_data_2():
     for i in (0, 1, 2, 8, 9, 10):
         np.testing.assert_equal(comb[i, ...], data['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i)]['image.data'])
     for i in (3, 4, 5, 6, 7, 11, 12, 13, 14, 15):
-        np.testing.assert_equal(comb[i, ...], np.full((60, 512, 128), np.nan, dtype=np.float32))
+        assert np.testing.assert_equal(comb[i, ...], np.full((60, 512, 128), np.nan, dtype=np.float32))
 
 
 @xgm_run
