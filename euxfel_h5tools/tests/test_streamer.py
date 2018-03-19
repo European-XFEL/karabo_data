@@ -8,7 +8,7 @@ from queue import Full
 from struct import pack
 from time import sleep
 
-from karabo_bridge import KaraboBridge
+from euxfel_karabo_bridge import Client
 
 from euxfel_h5tools import ZMQStreamer
 
@@ -88,7 +88,7 @@ def test_req_rep(server):
     for i in range(3):
         serve.feed(DATA)
 
-    client = KaraboBridge('tcp://localhost:1234')
+    client = Client('tcp://localhost:1234')
     for i in range(3):
         data = client.next()
         compare_nested_dict(data, DATA)
