@@ -30,6 +30,7 @@ setup(name="euxfel_h5tools",
       description="Python tools for reading European XFEL's h5 files",
       long_description=read("README.md"),
       license="BSD-3-Clause",
+      packages=find_packages(),
       scripts=["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
       install_requires=[r for r in read('requirements.txt').splitlines()],
       classifiers=[
