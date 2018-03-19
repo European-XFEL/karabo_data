@@ -6,7 +6,7 @@ install:
 
 dev-install:
 	python3 -m pip install -U -e .
-	
+
 test:
 	python3 -m pytest -v
 
