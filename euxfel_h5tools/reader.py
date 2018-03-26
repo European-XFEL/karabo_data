@@ -20,7 +20,7 @@ import re
 from time import time
 
 
-__all__ = ['H5File', 'open_H5File', 'RunHandler', 'stack_data',
+__all__ = ['H5File', 'RunHandler', 'stack_data',
            'stack_detector_data']
 
 
@@ -211,29 +211,6 @@ class H5File:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-
-
-@contextmanager
-def open_H5File(path, driver=None):
-    """Deprecated: factory function for with statement context managers, for H5File.
-
-    H5File can now be used as a context manager directly.
-
-        with open_H5File('/path/to/my/file.h5') as xfel_data:
-            first_train = xfel_data.train_from_index(0)
-
-    Parameters
-    ----------
-    path: str
-        Path to the HDF5 file.
-    driver: str, optional
-        HDF5 driver.
-    """
-    h5f = H5File(path, driver=driver)
-    try:
-        yield h5f
-    finally:
-        h5f.close()
 
 
 class RunHandler:
