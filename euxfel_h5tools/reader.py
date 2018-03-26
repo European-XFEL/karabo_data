@@ -20,7 +20,7 @@ import re
 from time import time
 
 
-__all__ = ['H5File', 'open_H5File', 'RunHandler', 'stack_data',
+__all__ = ['H5File', 'RunHandler', 'stack_data',
            'stack_detector_data']
 
 
@@ -205,26 +205,12 @@ class H5File:
     def close(self):
         self.file.close()
 
+    # Context manager protocol - enables "with H5File(...):"
+    def __enter__(self):
+        return self
 
-@contextmanager
-def open_H5File(path, driver=None):
-    """factory function for with statement context managers, for H5File.
-
-        with open_H5File('/path/to/my/file.h5') as xfel_data:
-            first_train = xfel_data.train_from_index(0)
-
-    Parameters
-    ----------
-    path: str
-        Path to the HDF5 file.
-    driver: str, optional
-        HDF5 driver.
-    """
-    h5f = H5File(path, driver=driver)
-    try:
-        yield h5f
-    finally:
-        h5f.close()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 
 class RunHandler:

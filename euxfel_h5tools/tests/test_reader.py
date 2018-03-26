@@ -4,7 +4,7 @@ import pytest
 from pytest import approx
 from time import sleep
 
-from euxfel_h5tools import (H5File, open_H5File, RunHandler, stack_data,
+from euxfel_h5tools import (H5File, RunHandler, stack_data,
                             stack_detector_data)
 
 
@@ -33,7 +33,7 @@ def test_H5File():
 
 @lpd_single_file
 def test_get_file_info():
-    with open_H5File(FILEPATH) as f:
+    with H5File(FILEPATH) as f:
 
         trains = f.train_ids
         train_count = len(trains)
@@ -54,7 +54,7 @@ def test_get_file_info():
 
 @lpd_single_file
 def test_iterate_trains():
-    with open_H5File(FILEPATH) as f:
+    with H5File(FILEPATH) as f:
 
         for data, train_id, index in f.trains():
             print(index, train_id)
@@ -67,7 +67,7 @@ def test_iterate_trains():
 
 @lpd_single_file
 def test_get_train_per_id():
-    with open_H5File(FILEPATH) as f:
+    with H5File(FILEPATH) as f:
 
         data, train, idx = f.train_from_id(1455918700)
         print(data)
@@ -82,7 +82,7 @@ def test_get_train_per_id():
 
 @lpd_single_file
 def test_get_train_per_index():
-    with open_H5File(FILEPATH) as f:
+    with H5File(FILEPATH) as f:
 
         data, train, idx = f.train_from_index(0)
         assert data is not None
@@ -96,7 +96,7 @@ def test_get_train_per_index():
 
 @lpd_single_file
 def test_read_metadata():
-    with open_H5File(FILEPATH) as f:
+    with H5File(FILEPATH) as f:
 
         data1, _, _ = f.train_from_index(0)
         sleep(2)
@@ -226,7 +226,7 @@ def test_filter_device():
     dev_filter_3 = {'SPB_XTD9_XGM/XGM/DOOCS': {},
                     'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
 
-    with open_H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
+    with H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
         data, _, _ = f.train_from_index(500, devices=dev_filter_1)
 
         assert len(data) == 1
