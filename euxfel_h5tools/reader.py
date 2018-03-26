@@ -205,10 +205,19 @@ class H5File:
     def close(self):
         self.file.close()
 
+    # Context manager protocol - enables "with H5File(...):"
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
 
 @contextmanager
 def open_H5File(path, driver=None):
-    """factory function for with statement context managers, for H5File.
+    """Deprecated: factory function for with statement context managers, for H5File.
+
+    H5File can now be used as a context manager directly.
 
         with open_H5File('/path/to/my/file.h5') as xfel_data:
             first_train = xfel_data.train_from_index(0)
