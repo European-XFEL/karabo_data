@@ -26,15 +26,12 @@ class QuickView:
         easily iterate over the pulses to display their respective
         images.
 
-        First, instantiate:
+        First, instantiate and give it the data (a 3D numpy array):
 
-            quick_v = QuickView()
-            # or
             quick_v = QuickView(data)
-
-        Set the data to your ndArray:
-
-            shower.data = data
+            # or
+            quick_v = QuickView()
+            quick_v.data = data
 
         You can now iterate over it in three different ways:
 
@@ -221,7 +218,7 @@ def hdf5_file_info(files, multiline=False):
 
 
 def hdf5_paths(ds, indent=0, maxlen=100):
-    """Visit and print name of all element in hfd5 file (from S Hauf)"""
+    """Visit and print name of all element in HDF5 file (from S Hauf)"""
 
     for k in list(ds.keys())[:maxlen]:
         print(" " * indent + k)
@@ -238,7 +235,7 @@ def numpy_to_cbf(np_array, index=0, header=None):
 
 
 def hdf5_to_cbf(in_h5file, cbf_filename, index, header=None):
-    """Conversion from numpy array to cbf binary image"""
+    """Conversion from HDF5 file to cbf binary image file"""
     try:
         tmpf = h5py.File(in_h5file, 'r')
         paths = list(tmpf["METADATA/dataSourceId"])
