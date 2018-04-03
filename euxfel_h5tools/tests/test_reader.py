@@ -2,11 +2,12 @@ import numpy as np
 import os.path as osp
 import pytest
 from pytest import approx
+from tempfile import TemporaryDirectory
 from time import sleep
 
 from euxfel_h5tools import (H5File, RunHandler, stack_data,
                             stack_detector_data)
-
+from . import make_examples
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
 RUNPATH = '/home/tmichela/Downloads//data/r0185'
@@ -22,6 +23,13 @@ xgm_run = pytest.mark.skipif(not osp.exists(RUNPATH_SLOW),
 # mixed_run = pytest.mark.skipif(not osp.exists(RUNPATH_MIXED),
 #                              reason="require data files.")
 
+
+@pytest.fixture(scope='module')
+def mock_agipd_data():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'CORR-R9999-AGIPD07-S00000.h5')
+        make_examples.make_agipd_example_file(path)
+        yield path
 
 @lpd_single_file
 def test_H5File():
@@ -64,6 +72,14 @@ def test_iterate_trains():
             assert len(data) == 1
             assert len(data['FXE_DET_LPD1M-1/DET/0CH0:xtdf']) == 21
 
+def test_iterate_trains_mock_data(mock_agipd_data):
+    with H5File(mock_agipd_data) as f:
+        for data, train_id, index in f.trains():
+            assert index in range(0, 250)
+            assert train_id in range(10000, 10250)
+            assert 'SPB_DET_AGIPD1M-1/DET/7CH0:xtdf' in data.keys()
+            assert len(data) == 1
+            assert 'image.data' in data['SPB_DET_AGIPD1M-1/DET/7CH0:xtdf']
 
 @lpd_single_file
 def test_get_train_per_id():
