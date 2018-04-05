@@ -130,20 +130,20 @@ def make_agipd_example_file(path):
                         (256,), 'u8', maxshape=(None,))  # Empty in example
 
 
+from .mockdata import FileBuilder
+from .mockdata.xgm import XGM
+from .mockdata.gec_camera import GECCamera
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
 
     Based on .../FXE/201830/p900023/r0450/RAW-R0450-DA01-S00001.h5
     """
-    from .mockdata import write_file
-    from .mockdata.xgm import XGM
-    from .mockdata.gec_camera import GECCamera
-    write_file(path, [
-        XGM('SA1_XTD2_XGM/DOOCS/MAIN', 400),
-        XGM('SPB_XTD9_XGM/DOOCS/MAIN', 400),
-        GECCamera('FXE_XAD_GEC/CAM/CAMERA', 400, nsamples=8)
-    ], ntrains=400, chunksize=200)
+    fb = FileBuilder(ntrains=400, chunksize=200)
+    fb.add_device(XGM, 'SA1_XTD2_XGM/DOOCS/MAIN')
+    fb.add_device(XGM, 'SPB_XTD9_XGM/DOOCS/MAIN')
+    fb.add_device(GECCamera, 'FXE_XAD_GEC/CAM/CAMERA')
+    fb.write(path)
 
 
 if __name__ == '__main__':

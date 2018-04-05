@@ -108,7 +108,7 @@ class DeviceBase:
 
 vlen_bytes = h5py.special_dtype(vlen=bytes)
 
-def make_metadata(h5file, data_sources, chunksize=16):
+def write_metadata(h5file, data_sources, chunksize=16):
     N = len(data_sources)
     if N % chunksize:
         N += chunksize - (N % chunksize)
@@ -138,18 +138,3 @@ def write_train_ids(f, path, N, chunksize=16):
         Npad = N
     ds = f.create_dataset(path, (Npad,), 'u8', maxshape=(None,))
     ds[:N] = np.arange(10000, 10000 + N)
-
-
-def write_file(filename, devices, ntrains, chunksize=200):
-    f = h5py.File(filename, 'w')
-
-    write_train_ids(f, 'INDEX/trainId', ntrains, chunksize=chunksize)
-
-    data_sources = []
-    for dev in devices:
-        #dev.ntrains = ntrains
-        dev.write_control(f)
-        dev.write_instrument(f)
-        data_sources.extend(dev.datasource_ids())
-    make_metadata(f, data_sources, chunksize=chunksize)
-
