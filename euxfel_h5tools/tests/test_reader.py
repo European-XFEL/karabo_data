@@ -31,6 +31,13 @@ def mock_agipd_data():
         make_examples.make_agipd_example_file(path)
         yield path
 
+@pytest.fixture(scope='module')
+def mock_fxe_control_data():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'RAW-R0450-DA01-S00001.h5')
+        make_examples.make_fxe_da_file(path)
+        yield path
+
 @lpd_single_file
 def test_H5File():
     f = H5File(FILEPATH)
@@ -80,6 +87,14 @@ def test_iterate_trains_mock_data(mock_agipd_data):
             assert 'SPB_DET_AGIPD1M-1/DET/7CH0:xtdf' in data.keys()
             assert len(data) == 1
             assert 'image.data' in data['SPB_DET_AGIPD1M-1/DET/7CH0:xtdf']
+
+def test_iterate_trains_fxe_mock(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        for data, train_id, index in f.trains():
+            assert index in range(0, 400)
+            assert train_id in range(10000, 10400)
+            assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
+            assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
 @lpd_single_file
 def test_get_train_per_id():
