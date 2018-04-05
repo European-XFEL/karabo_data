@@ -7,13 +7,17 @@ def hdf5_datasets(grp):
 
     path, shape, dtype
     """
-    writer = csv.writer(sys.stdout)
-    writer.writerow(['path', 'shape', 'dtype'])
+    all_datasets = []
 
     def visitor(path, item):
         if isinstance(item, h5py.Dataset):
-            writer.writerow([path, item.shape, item.dtype.str])
+            all_datasets.append([path, item.shape, item.dtype.str])
     grp.visititems(visitor)
+
+    writer = csv.writer(sys.stdout)
+    writer.writerow(['path', 'shape', 'dtype'])
+    for row in sorted(all_datasets):
+        writer.writerow(row)
 
 def main():
     file = h5py.File(sys.argv[1])
