@@ -75,7 +75,14 @@ class H5File:
         for device, source in zip(self.devices, self.sources):
             index = self.index[device]
             table = self.file[source]
-            status = index['status'][train_index]
+
+            # Which parts of the data to get for this train:
+            # Older (?) format: status (0/1), first, last
+            # Newer (?) format: first, count
+            if 'status' in index:
+                status = index['status'][train_index]
+            else:
+                status = True
 
             dev = device.split('/')
             src = '/'.join((dev[:3]))
@@ -90,7 +97,10 @@ class H5File:
 
             if status:
                 first = int(index['first'][train_index])
-                last = int(index['last'][train_index])
+                if 'last' in index:
+                    last = int(index['last'][train_index])
+                else:
+                    last = first + int(index['count'][train_index]) - 1
 
                 def append_data(key, value):
                     if isinstance(value, h5py.Dataset):
