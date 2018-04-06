@@ -9,7 +9,7 @@ def write_file(filename, devices, ntrains, chunksize=200):
     data_sources = []
     for dev in devices:
         dev.ntrains = ntrains
-        dev.chunksize = 200
+        dev.chunksize = chunksize
         dev.write_control(f)
         dev.write_instrument(f)
         data_sources.extend(dev.datasource_ids())
