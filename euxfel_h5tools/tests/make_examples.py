@@ -134,6 +134,8 @@ from .mockdata import write_file
 from .mockdata.xgm import XGM
 from .mockdata.gec_camera import GECCamera
 from .mockdata.adc import ADC
+from .mockdata.uvlamp import UVLamp
+from .mockdata.motor import Motor
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
@@ -157,7 +159,9 @@ def make_sa3_da_file(path):
             'channel_3.output/data',
             'channel_5.output/data',
             'channel_9.output/data',
-        ))
+        )),
+        UVLamp('SA3_XTD10_MCP/DCTRL/UVLAMP'),
+        Motor('SA3_XTD10_MCP/MOTOR/X2'),
     ], ntrains=500, chunksize=50)
 
 if __name__ == '__main__':

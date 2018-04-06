@@ -39,17 +39,17 @@ class DeviceBase:
 
         # CONTROL & RUN
         # Creating empty datasets for now.
-        for (topic, datatype) in self.control_keys:
+        for (topic, datatype, dims) in self.control_keys:
             f.create_dataset('CONTROL/%s/%s/timestamp' % (self.device_id, topic),
                              (N,), 'u8', maxshape=(None,))
             f.create_dataset('CONTROL/%s/%s/value' % (self.device_id, topic),
-                             (N,), datatype, maxshape=(None,))
+                             (N,)+dims, datatype, maxshape=((None,)+dims))
 
             # RUN is the value at the start of the run
             f.create_dataset('RUN/%s/%s/timestamp' % (self.device_id, topic),
                              (1,), 'u8', maxshape=(None,))
             f.create_dataset('RUN/%s/%s/value' % (self.device_id, topic),
-                             (1,), datatype, maxshape=(None,))
+                             (1,)+dims, datatype, maxshape=((None,)+dims))
 
     def write_instrument(self, f):
         """Write the INSTRUMENT data, and the relevants parts of INDEX"""
