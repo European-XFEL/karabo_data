@@ -136,6 +136,7 @@ from .mockdata.gec_camera import GECCamera
 from .mockdata.adc import ADC
 from .mockdata.uvlamp import UVLamp
 from .mockdata.motor import Motor
+from .mockdata.tsens import TemperatureSensor
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
@@ -162,6 +163,15 @@ def make_sa3_da_file(path):
         )),
         UVLamp('SA3_XTD10_MCP/DCTRL/UVLAMP'),
         Motor('SA3_XTD10_MCP/MOTOR/X2'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30100K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30160K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30180K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30190K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30200K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30250K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30260K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30280K'),
+        TemperatureSensor('SA3_XTD10_VAC/TSENS/S30300K'),
     ], ntrains=500, chunksize=50)
 
 if __name__ == '__main__':
