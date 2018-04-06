@@ -140,6 +140,7 @@ from .mockdata.tsens import TemperatureSensor
 from .mockdata.imgfel import IMGFELCamera, IMGFELMotor
 from .mockdata.gauge import Gauge
 from .mockdata.dctrl import DCtrl
+from .mockdata.mpod import MPOD
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
@@ -186,6 +187,7 @@ def make_sa3_da_file(path):
         IMGFELCamera('SA3_XTD10_IMGFEL/CAM/BEAMVIEW', nsamples=0),
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/FILTER'),
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/SCREEN'),
+        MPOD('SA3_XTD10_MCP/MCPS/MPOD'),
     ], ntrains=500, chunksize=50)
 
 if __name__ == '__main__':
