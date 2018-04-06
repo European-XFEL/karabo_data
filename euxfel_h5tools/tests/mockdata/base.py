@@ -7,7 +7,11 @@ class DeviceBase:
     output_channels = ()
     instrument_keys = []
 
-    def __init__(self, device_id, ntrains, nsamples=None, chunksize=200):
+    # These are set by write_file
+    ntrains = 400
+    chunksize = 200
+
+    def __init__(self, device_id, nsamples=None):
         """Create a dummy device
 
         :param str device_id: e.g. "SA1_XTD2_XGM/DOOCS/MAIN"
@@ -19,11 +23,7 @@ class DeviceBase:
             of this.
         """
         self.device_id = device_id
-        self.ntrains = ntrains
-        if nsamples is None:
-            nsamples = ntrains
         self.nsamples = nsamples
-        self.chunksize = chunksize
 
     def write_control(self, f):
         """Write the CONTROL and RUN data, and the relevant parts of INDEX"""
@@ -53,6 +53,9 @@ class DeviceBase:
 
     def write_instrument(self, f):
         """Write the INSTRUMENT data, and the relevants parts of INDEX"""
+        if self.nsamples is None:
+            self.nsamples = self.ntrains
+
         if self.nsamples == 0:
             first = count = 0
             trainids = []

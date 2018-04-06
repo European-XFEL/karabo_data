@@ -1,1 +1,1 @@
-from .mkfile import FileBuilder
+from .mkfile import write_file
