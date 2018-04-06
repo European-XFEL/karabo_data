@@ -133,6 +133,7 @@ def make_agipd_example_file(path):
 from .mockdata import write_file
 from .mockdata.xgm import XGM
 from .mockdata.gec_camera import GECCamera
+from .mockdata.adc import ADC
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
@@ -146,8 +147,21 @@ def make_fxe_da_file(path):
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
     ], ntrains=400, chunksize=200)
 
+def make_sa3_da_file(path):
+    """Make the structure of a file with non-detector data from SASE3 tunnel
+
+    Based on .../SA3/201830/p900026/r0317/RAW-R0317-DA01-S00000.h5
+    """
+    write_file(path, [
+        ADC('SA3_XTD10_MCP/ADC/1', nsamples=0, channels=(
+            'channel_3.output/data',
+            'channel_5.output/data',
+            'channel_9.output/data',
+        ))
+    ], ntrains=500, chunksize=50)
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
     make_fxe_da_file('fxe_control_example.h5')
+    make_sa3_da_file('sa3_control_example.h5')
     print("Written examples.")
