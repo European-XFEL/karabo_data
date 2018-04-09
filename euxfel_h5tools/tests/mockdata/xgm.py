@@ -36,6 +36,9 @@ class XGM(DeviceBase):
         ('signalAdaption/dig', 'i4', ()),
     ]
 
+    # Technically, only the part before the / is the output channel.
+    # But there is a structure associated with the part one level after that,
+    # and we don't know what else to call it.
     output_channels = ('output/data',)
 
     instrument_keys = [
