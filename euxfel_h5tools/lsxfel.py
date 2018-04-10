@@ -90,15 +90,15 @@ def count_trains(run_files, path):
     for f in sorted(run_files):
         m = re.match(r'(.+)-S\d+\.h5', osp.basename(f))
         if m:
-            segment_sequences[m.group(1)] = f
+            segment_sequences[m.group(1)].append(f)
 
     if len(segment_sequences) < 1:
         raise ValueError("No data files recognised in %s" % path)
 
     first_key, first_group = sorted(segment_sequences.items())[0]
     train_ids = set()
-    for path in first_group:
-        train_ids.update(H5File(path).train_ids)
+    for f in first_group:
+        train_ids.update(H5File(f).train_ids)
 
     return len(train_ids)
 
