@@ -6,32 +6,7 @@ import os
 import re
 import sys
 
-from .reader import H5File, RunHandler
-
-rawcorr_descr = {'RAW': 'Raw', 'CORR': 'Corrected'}
-detector_names = {'AGIPD', 'LPD'}
-
-
-class FileInfo:
-    is_detector = False
-
-    def __init__(self, basename):
-        self.basename = basename
-        nameparts = basename[:-3].split('-')
-        assert len(nameparts) == 4, basename
-        rawcorr, runno, datasrc, segment = nameparts
-        m = re.match(r'([A-Z]+)(\d+)', datasrc)
-
-        if m and m.group(1) == 'DA':
-            self.description = "Aggregated data"
-        elif m and m.group(1) in detector_names:
-            self.is_detector = True
-            name, moduleno = m.groups()
-            self.description = "{} detector data from {} module {}".format(
-                rawcorr_descr.get(rawcorr, '?'), name, moduleno
-            )
-        else:
-            self.description = "Unknown data source ({})", datasrc
+from .reader import H5File, RunHandler, FilenameInfo
 
 def find_image(h5file):
     """Find the image data in a detector file
@@ -48,7 +23,7 @@ def find_image(h5file):
 def describe_file(path):
     """Describe a single HDF5 data file"""
     basename = os.path.basename(path)
-    info = FileInfo(basename)
+    info = FilenameInfo(basename)
     print(basename, ":", info.description)
 
     h5file = H5File(path)
@@ -86,7 +61,7 @@ def describe_file(path):
 
 def summarise_file(path):
     basename = os.path.basename(path)
-    info = FileInfo(basename)
+    info = FilenameInfo(basename)
     print(basename, ":", info.description)
 
     h5file = H5File(path)
