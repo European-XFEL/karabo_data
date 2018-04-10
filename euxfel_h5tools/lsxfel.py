@@ -109,7 +109,7 @@ def summarise_run(path, indent=''):
     for f in first_group:
         train_ids.update(H5File(osp.join(path, f)).train_ids)
 
-    print("{}{} : Run of {} trains, with {} detector files and {} others".format(
+    print("{}{} : Run of {:>4} trains, with {:>3} detector files and {:>3} others".format(
         indent, basename, len(train_ids), n_detector, n_other
     ))
 
