@@ -67,6 +67,14 @@ def describe_file(path):
             print("  - ", dev)
         print()
 
+def describe_run(path):
+    basename = os.path.basename(path)
+    print(basename, ": Run directory")
+    print()
+
+    run = RunHandler(path)
+    run.info()
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='lsxfel',
         description="Summarise XFEL data in files or folders")
@@ -78,6 +86,9 @@ def main(argv=None):
         path = paths[0]
         if os.path.isdir(path):
             contents = os.listdir(path)
+            if any(f.endswith('.h5') for f in contents):
+                # Run directory
+                describe_run(path)
         elif os.path.isfile(path):
             if path.endswith('.h5'):
                 describe_file(path)
