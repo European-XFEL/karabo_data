@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import sys
 
 from .reader import H5File, RunHandler
 
@@ -31,7 +32,29 @@ def describe_file(path):
     print(basename, ":", file_descr)
 
     h5file = H5File(path)
+    print(len(h5file.train_ids), "trains")
+    print()
 
+    if is_detector:
+        pass
+    else:
+        ctrl, inst = set(), set()
+        for src in h5file.sources:
+            srcparts = src.split('/')
+            if srcparts[0] == 'CONTROL':
+                ctrl.add('/'.join(srcparts[1:4]))
+            elif srcparts[0] == 'INSTRUMENT':
+                inst.add('/'.join(srcparts[1:4]))
+
+        print(len(ctrl), "control devices")
+        for dev in sorted(ctrl):
+            print("  - ", dev)
+        print()
+
+        print(len(inst), "instrument devices")
+        for dev in sorted(inst):
+            print("  - ", dev)
+        print()
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='lsxfel',
@@ -44,13 +67,17 @@ def main(argv=None):
         path = paths[0]
         if os.path.isdir(path):
             contents = os.listdir(path)
-        elif path.endswith('.h5'):
-            describe_file(path)
+        elif os.path.isfile(path):
+            if path.endswith('.h5'):
+                describe_file(path)
+            else:
+                print(os.path.basename(path), ": Unrecognised file")
+                return 2
         else:
-            print(os.path.basename(path), ": Unrecognised file")
-            return 1
+            print(path, ': File/folder not found')
+            return 2
     else:
         print("TODO: Multiple files/folders")
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
