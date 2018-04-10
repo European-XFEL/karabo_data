@@ -45,13 +45,13 @@ def describe_file(path):
             elif srcparts[0] == 'INSTRUMENT':
                 inst.add('/'.join(srcparts[1:4]))
 
-        print(len(ctrl), "control devices")
-        for dev in sorted(ctrl):
+        print(len(inst), "instrument devices")
+        for dev in sorted(inst):
             print("  - ", dev)
         print()
 
-        print(len(inst), "instrument devices")
-        for dev in sorted(inst):
+        print(len(ctrl), "control devices")
+        for dev in sorted(ctrl):
             print("  - ", dev)
         print()
 
