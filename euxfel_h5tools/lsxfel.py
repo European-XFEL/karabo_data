@@ -1,7 +1,7 @@
 """Summarise XFEL data in files or folders
 """
 import argparse
-from enum import Enum
+from collections import defaultdict
 import os
 import os.path as osp
 import re
@@ -82,11 +82,32 @@ def describe_run(path):
     run = RunHandler(path)
     run.info()
 
+def count_trains(run_files, path):
+    # Accessing all the files in a run can be slow. To get the number of trains,
+    # pick one set of segments (time slices of data from the same source).
+    # This relies on each set of segments recording the same number of trains.
+    segment_sequences = defaultdict(list)
+    for f in sorted(run_files):
+        m = re.match(r'(.+)-S\d+\.h5', osp.basename(f))
+        if m:
+            segment_sequences[m.group(1)] = f
+
+    if len(segment_sequences) < 1:
+        raise ValueError("No data files recognised in %s" % path)
+
+    first_key, first_group = sorted(segment_sequences.items())[0]
+    train_ids = set()
+    for path in first_group:
+        train_ids.update(H5File(path).train_ids)
+
+    return len(train_ids)
+
 def summarise_run(path, indent=''):
     basename = os.path.basename(path)
-    run = RunHandler(path)
+    files = [osp.join(path, f) for f in os.listdir(path)]
+
     print("{}{} : Run of {} trains, with {} files".format(
-        indent, basename, len(run.ordered_trains), len(run.files)
+        indent, basename, count_trains(files, path), len(files)
     ))
 
 def main(argv=None):
