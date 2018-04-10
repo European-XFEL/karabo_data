@@ -32,6 +32,11 @@ setup(name="euxfel_h5tools",
       license="BSD-3-Clause",
       packages=find_packages(),
       scripts=["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
+      entry_points={
+          "console_scripts": [
+              "lsxfel = euxfel_h5tools.lsxfel:main",
+          ],
+      },
       install_requires=[r for r in read('requirements.txt').splitlines()],
       classifiers=[
           'Development Status :: 3 - Alpha',
