@@ -100,7 +100,7 @@ def main(argv=None):
         basename = os.path.basename(os.path.abspath(path))
 
         if os.path.isdir(path):
-            contents = os.listdir(path)
+            contents = sorted(os.listdir(path))
             if any(f.endswith('.h5') for f in contents):
                 # Run directory
                 describe_run(path)
