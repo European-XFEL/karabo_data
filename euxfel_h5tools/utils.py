@@ -10,7 +10,6 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 import fabio
 import h5py
-import matplotlib.pyplot as plot
 import numpy as np
 
 
@@ -95,6 +94,7 @@ class QuickView:
             self.display()
 
     def display(self, index=None):
+        import matplotlib.pyplot as plot
         if index is None:
             index = self._current_index
 
