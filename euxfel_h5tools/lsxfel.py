@@ -31,14 +31,10 @@ def describe_file(path):
     print()
 
     if info.is_detector:
-        img_data, img_index = find_image(h5file)
-        # Some trains have 0 frames; max is the interesting value
-        frames_per_train = img_index['count'][:].max()
-        total_frames = img_index['count'][:].sum()
-
-        print("{} × {}".format(*img_data.shape[-2:]), "pixels")
+        detector_info = h5file.detector_info()
+        print("{} × {} pixels".format(*detector_info['dims']))
         print("{} frames per train, {} total".format(
-            frames_per_train, total_frames,
+            detector_info['frames_per_train'], detector_info['total_frames'],
         ))
     else:
         ctrl, inst = set(), set()
@@ -68,13 +64,9 @@ def summarise_file(path):
     ntrains = len(h5file.train_ids)
 
     if info.is_detector:
-        img_data, img_index = find_image(h5file)
-        # Some trains have 0 frames; max is the interesting value
-        frames_per_train = img_index['count'][:].max()
-        total_frames = img_index['count'][:].sum()
-
+        dinfo = h5file.detector_info()
         print("  {} trains, {} frames/train, {} total frames".format(
-            len(h5file.train_ids), frames_per_train, total_frames,
+            len(h5file.train_ids), dinfo['frames_per_train'], dinfo['total_frames']
         ))
     else:
         print("  {} trains, {} devices".format(

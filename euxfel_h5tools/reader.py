@@ -267,6 +267,7 @@ class H5File:
 
         return {
             'dims': img_ds.shape[-2:],
+            # Some trains have 0 frames; max is the interesting value
             'frames_per_train': img_index['count'][:].max(),
             'total_frames': img_index['count'][:].sum(),
         }
