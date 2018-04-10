@@ -82,32 +82,35 @@ def describe_run(path):
     run = RunHandler(path)
     run.info()
 
-def count_trains(run_files, path):
+
+def summarise_run(path, indent=''):
+    basename = os.path.basename(path)
+
     # Accessing all the files in a run can be slow. To get the number of trains,
     # pick one set of segments (time slices of data from the same source).
     # This relies on each set of segments recording the same number of trains.
     segment_sequences = defaultdict(list)
-    for f in sorted(run_files):
+    n_detector = n_other = 0
+    for f in sorted(os.listdir(path)):
         m = re.match(r'(.+)-S\d+\.h5', osp.basename(f))
         if m:
             segment_sequences[m.group(1)].append(f)
+            if FilenameInfo(f).is_detector:
+                n_detector += 1
+            else:
+                n_other += 1
 
     if len(segment_sequences) < 1:
         raise ValueError("No data files recognised in %s" % path)
 
-    first_key, first_group = sorted(segment_sequences.items())[0]
+    # Take the shortest group of segments to make reading quicker
+    first_group = sorted(segment_sequences.values(), key=len)[0]
     train_ids = set()
     for f in first_group:
-        train_ids.update(H5File(f).train_ids)
+        train_ids.update(H5File(osp.join(path, f)).train_ids)
 
-    return len(train_ids)
-
-def summarise_run(path, indent=''):
-    basename = os.path.basename(path)
-    files = [osp.join(path, f) for f in os.listdir(path)]
-
-    print("{}{} : Run of {} trains, with {} files".format(
-        indent, basename, count_trains(files, path), len(files)
+    print("{}{} : Run of {} trains, with {} detector files and {} others".format(
+        indent, basename, len(train_ids), n_detector, n_other
     ))
 
 def main(argv=None):
