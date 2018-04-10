@@ -36,7 +36,18 @@ def describe_file(path):
     print()
 
     if is_detector:
-        pass
+        img_source = [src for src in h5file.sources
+                      if re.match(r'INSTRUMENT/.+/image', src)][0]
+        img_ds = h5file.file[img_source + '/data']
+        img_index_name = 'INDEX/' + img_source.split('/', 1)[1]
+        img_index_count = h5file.file[img_index_name + '/count']
+        # Some trains have 0 frames; max is the interesting value
+        frames_per_train = img_index_count[:].max()
+
+        print("{} × {}".format(*img_ds.shape[-2:]), "pixels")
+        print("{} frames per train, {} total".format(
+            frames_per_train, img_ds.shape[0]
+        ))
     else:
         ctrl, inst = set(), set()
         for src in h5file.sources:
