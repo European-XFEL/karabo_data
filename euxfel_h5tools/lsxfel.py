@@ -75,6 +75,13 @@ def describe_run(path):
     run = RunHandler(path)
     run.info()
 
+def summarise_run(path, indent=''):
+    basename = os.path.basename(path)
+    run = RunHandler(path)
+    print("{}{} : Run of {} trains, with {} files".format(
+        indent, basename, len(run.ordered_trains), len(run.files)
+    ))
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='lsxfel',
         description="Summarise XFEL data in files or folders")
@@ -84,16 +91,28 @@ def main(argv=None):
 
     if len(paths) == 1:
         path = paths[0]
+        basename = os.path.basename(path)
+
         if os.path.isdir(path):
             contents = os.listdir(path)
             if any(f.endswith('.h5') for f in contents):
                 # Run directory
                 describe_run(path)
+            elif any(re.match(r'r\d+', f) for f in contents):
+                # Proposal directory, containing runs
+                print(basename, ": Proposal directory")
+                print()
+                for f in contents:
+                    child_path = os.path.join(path, f)
+                    if re.match(r'r\d+', f) and os.path.isdir(child_path):
+                        summarise_run(child_path, indent='  ')
+            else:
+                print(basename, ": Unrecognised directory")
         elif os.path.isfile(path):
             if path.endswith('.h5'):
                 describe_file(path)
             else:
-                print(os.path.basename(path), ": Unrecognised file")
+                print(basename, ": Unrecognised file")
                 return 2
         else:
             print(path, ': File/folder not found')
