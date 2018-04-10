@@ -3,6 +3,7 @@
 import argparse
 from enum import Enum
 import os
+import os.path as osp
 import re
 import sys
 
@@ -106,10 +107,18 @@ def main(argv=None):
                 describe_run(path)
             elif any(re.match(r'r\d+', f) for f in contents):
                 # Proposal directory, containing runs
-                print(basename, ": Proposal directory")
+                print(basename, ": Proposal data directory")
                 print()
                 for f in contents:
                     child_path = os.path.join(path, f)
+                    if re.match(r'r\d+', f) and os.path.isdir(child_path):
+                        summarise_run(child_path, indent='  ')
+            elif osp.isdir(osp.join(path, 'raw')):
+                print(basename, ": Proposal directory")
+                print()
+                print('{}/raw/'.format(basename))
+                for f in sorted(os.listdir(osp.join(path, 'raw'))):
+                    child_path = os.path.join(path, 'raw', f)
                     if re.match(r'r\d+', f) and os.path.isdir(child_path):
                         summarise_run(child_path, indent='  ')
             else:
