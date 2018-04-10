@@ -97,7 +97,7 @@ def main(argv=None):
 
     if len(paths) == 1:
         path = paths[0]
-        basename = os.path.basename(os.path.abspath(path))
+        basename = os.path.basename(os.path.abspath(path.rstrip('/')))
 
         if os.path.isdir(path):
             contents = sorted(os.listdir(path))
