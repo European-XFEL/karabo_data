@@ -10,7 +10,7 @@ You should have received a copy of the 3-Clause BSD License along with this
 program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 """
 
-from contextlib import contextmanager
+from collections import defaultdict
 import datetime
 from glob import glob
 import h5py
@@ -27,6 +27,36 @@ __all__ = ['H5File', 'RunHandler', 'stack_data',
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
 METADATA = 'METADATA'
+
+DETECTOR_NAMES = {'AGIPD', 'LPD'}
+
+
+class FilenameInfo:
+    is_detector = False
+    detector_name = None
+    detector_moduleno = -1
+
+    _rawcorr_descr = {'RAW': 'Raw', 'CORR': 'Corrected'}
+
+    def __init__(self, path):
+        self.basename = osp.basename(path)
+        nameparts = self.basename[:-3].split('-')
+        assert len(nameparts) == 4, self.basename
+        rawcorr, runno, datasrc, segment = nameparts
+        m = re.match(r'([A-Z]+)(\d+)', datasrc)
+
+        if m and m.group(1) == 'DA':
+            self.description = "Aggregated data"
+        elif m and m.group(1) in DETECTOR_NAMES:
+            self.is_detector = True
+            name, moduleno = m.groups()
+            self.detector_name = name
+            self.detector_moduleno = moduleno
+            self.description = "{} detector data from {} module {}".format(
+                self._rawcorr_descr.get(rawcorr, '?'), name, moduleno
+            )
+        else:
+            self.description = "Unknown data source ({})", datasrc
 
 
 class H5File:
@@ -52,6 +82,7 @@ class H5File:
         If the provided path is not a valid HDF5 file.
     """
     def __init__(self, path, driver=None):
+        self.path = path
         if not h5py.is_hdf5(path):
             raise FileNotFoundError(path, 'is not a valid HDF5 file.')
         self.file = h5py.File(path, 'r', driver=driver)
@@ -220,6 +251,27 @@ class H5File:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def detector_info(self):
+        """Get statistics about the detector data.
+
+        Returns a dictionary with keys:
+        - 'dims' (pixel dimensions)
+        - 'frames_per_train'
+        - 'total_frames'
+        """
+
+        img_source = [src for src in self.sources
+                      if re.match(r'INSTRUMENT/.+/image', src)][0]
+        img_ds = self.file[img_source + '/data']
+        img_index = self.index[img_source.split('/', 1)[1]]
+
+        return {
+            'dims': img_ds.shape[-2:],
+            # Some trains have 0 frames; max is the interesting value
+            'frames_per_train': img_index['count'][:].max(),
+            'total_frames': img_index['count'][:].sum(),
+        }
+
 
 class RunHandler:
     """Handles a 'run' generated at the European XFEL.
@@ -360,21 +412,54 @@ class RunHandler:
         span_sec = (last_train - first_train) / 10
         span_txt = str(datetime.timedelta(seconds=span_sec))
 
+        detector_files, non_detector_files = [], []
+        detector_modules = defaultdict(list)
+        for f in self.files:
+            fni = FilenameInfo(f.path)
+            if fni.is_detector:
+                detector_files.append(f)
+                detector_modules[(fni.detector_name, fni.detector_moduleno)].append(f)
+            else:
+                non_detector_files.append(f)
+
+        # A run should only have one detector, but if that changes, don't hide it
+        detector_name = ','.join(sorted(set(k[0] for k in detector_modules)))
+
         # devices info
-        ctrl, inst = self._get_devices(self.files)
+        ctrl, inst = self._get_devices(non_detector_files)
 
         # disp
-        print('Run information')
-        print('\tDuration:      ', span_txt)
-        print('\tFirst train ID:', first_train)
-        print('\tLast train ID: ', last_train)
-        print('\t# of trains:   ', train_count)
+        print('# of trains:   ', train_count)
+        print('Duration:      ', span_txt)
+        print('First train ID:', first_train)
+        print('Last train ID: ', last_train)
         print()
-        print('Devices')
-        print('\tInstruments')
-        [print('\t-', d) for d in sorted(inst)] or print('\t-')
-        print('\tControls')
-        [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
+
+        print("{} detector modules ({})".format(
+            len(detector_modules), detector_name
+        ))
+        if len(detector_modules) > 0:
+            # Show detail on the first module (the others should be similar)
+            mod_key = sorted(detector_modules)[0]
+            mod_files = detector_modules[mod_key]
+            dinfo = [f.detector_info() for f in mod_files]
+            print("  e.g. module {}{} : {} × {} pixels".format(
+                *mod_key, *dinfo[0]['dims'],
+            ))
+            print("  {} frames per train, {} total frames".format(
+                max(i['frames_per_train'] for i in dinfo),
+                sum(i['total_frames'] for i in dinfo),
+            ))
+        print()
+
+        print(len(inst), 'instrument devices (excluding detectors):')
+        for d in sorted(inst):
+            print('  -', d)
+        print()
+        print(len(ctrl), 'control devices:')
+        for d in sorted(ctrl):
+            print('  -', d)
+        print()
 
     def train_info(self, train_id):
         """Show information about a specific train in the run.
