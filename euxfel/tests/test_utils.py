@@ -3,7 +3,7 @@ import os
 import pytest
 import subprocess
 
-from euxfel_h5tools.utils import QuickView
+from euxfel.utils import QuickView
 
 
 def test_summary_on_data_file():

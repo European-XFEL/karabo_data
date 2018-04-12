@@ -2,8 +2,7 @@ import os.path as osp
 import pytest
 from tempfile import TemporaryDirectory
 
-from euxfel_h5tools import (H5File, RunHandler, stack_data,
-                            stack_detector_data)
+from euxfel import (H5File, RunHandler, stack_data, stack_detector_data)
 from . import make_examples
 
 @pytest.fixture(scope='module')

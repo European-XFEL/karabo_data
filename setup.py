@@ -21,8 +21,8 @@ def find_version(*parts):
     raise RuntimeError("Unable to find version string.")
 
 
-setup(name="euxfel_h5tools",
-      version=find_version("euxfel_h5tools", "__init__.py"),
+setup(name="euxfel",
+      version=find_version("euxfel", "__init__.py"),
       author="European XFEL GmbH",
       author_email="cas-support@xfel.eu",
       maintainer="Thomas Michelat",
@@ -34,7 +34,7 @@ setup(name="euxfel_h5tools",
       scripts=["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
       entry_points={
           "console_scripts": [
-              "lsxfel = euxfel_h5tools.lsxfel:main",
+              "lsxfel = euxfel.lsxfel:main",
           ],
       },
       install_requires=[r for r in read('requirements.txt').splitlines()],
@@ -51,4 +51,4 @@ setup(name="euxfel_h5tools",
           'Topic :: Scientific/Engineering :: Information Analysis',
           'Topic :: Scientific/Engineering :: Physics',
       ]
-      )
+)
