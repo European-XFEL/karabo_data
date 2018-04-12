@@ -37,7 +37,16 @@ setup(name="euxfel",
               "lsxfel = euxfel.lsxfel:main",
           ],
       },
-      install_requires=[r for r in read('requirements.txt').splitlines()],
+      install_requires=[
+          'docopt',
+          'fabio',
+          'h5py>=2.7.1',
+          'matplotlib',
+          'msgpack>=0.5.4',
+          'msgpack-numpy>=0.4.3',
+          'numpy',
+          'pyzmq>=17.0.0',
+      ],
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Environment :: Console',
@@ -52,3 +61,4 @@ setup(name="euxfel",
           'Topic :: Scientific/Engineering :: Physics',
       ]
 )
+
