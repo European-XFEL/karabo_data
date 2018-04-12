@@ -6,3 +6,5 @@
 matplotlibrc
 data
 /.pytest_cache
+/build/
+/dist/
