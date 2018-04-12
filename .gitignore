@@ -1,6 +1,7 @@
 *.pyc
 *.swp
 *.egg-info
+*.h5
 .cache
 matplotlibrc
 data
