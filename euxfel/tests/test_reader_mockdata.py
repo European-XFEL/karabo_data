@@ -19,6 +19,12 @@ def mock_fxe_control_data():
         make_examples.make_fxe_da_file(path)
         yield path
 
+@pytest.fixture(scope='module')
+def mock_fxe_run():
+    with TemporaryDirectory() as td:
+        make_examples.make_fxe_run(td)
+        yield td
+
 def test_iterate_trains(mock_agipd_data):
     with H5File(mock_agipd_data) as f:
         for data, train_id, index in f.trains():
@@ -36,3 +42,8 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
             assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
+def test_read_fxe_run(mock_fxe_run):
+    run = RunHandler(mock_fxe_run)
+    assert len(run.files) == 17  # 16 detector modules + 1 control data file
+    assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
+    run.info()  # Smoke test

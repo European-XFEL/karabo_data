@@ -3,6 +3,7 @@ from .base import write_train_ids, write_metadata
 
 def write_file(filename, devices, ntrains, chunksize=200):
     f = h5py.File(filename, 'w')
+    f.create_group('RUN')  # Add this, even if it's left empty
 
     write_train_ids(f, 'INDEX/trainId', ntrains, chunksize=chunksize)
 

@@ -213,7 +213,11 @@ def make_fxe_run(dir_path):
             LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), frames_per_train=128)
         ], ntrains=480, chunksize=32)
 
-    make_fxe_da_file(osp.join(dir_path, 'RAW-R0450-DA01-S00000.h5'))
+    write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00000.h5'), [
+        XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+        XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+        GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
+    ], ntrains=480, chunksize=200)
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
