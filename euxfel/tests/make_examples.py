@@ -38,6 +38,9 @@ def make_agipd_example_file(path):
     """Make the structure of a data file from the AGIPD detector
 
     Based on /gpfs/exfel/d/proc/XMPL/201750/p700000/r0803/CORR-R0803-AGIPD07-S00000.h5
+
+    This has the old index format (first/last/status), whereas the other examples
+    have the newer (first/count) format.
     """
     f = h5py.File(path, 'w')
 
@@ -141,6 +144,7 @@ from .mockdata.imgfel import IMGFELCamera, IMGFELMotor
 from .mockdata.gauge import Gauge
 from .mockdata.dctrl import DCtrl
 from .mockdata.mpod import MPOD
+from .mockdata.detectors import AGIPDModule, LPDModule
 
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
@@ -190,8 +194,20 @@ def make_sa3_da_file(path):
         MPOD('SA3_XTD10_MCP/MCPS/MPOD'),
     ], ntrains=500, chunksize=50)
 
+def make_agipd_file(path):
+    write_file(path, [
+        AGIPDModule('SPB_DET_AGIPD1M-1/DET/0CH0', frames_per_train=64)
+    ], ntrains=486, chunksize=32)
+
+def make_lpd_file(path):
+    write_file(path, [
+        LPDModule('FXE_DET_LPD1M-1/DET/0CH0', frames_per_train=128)
+    ], ntrains=480, chunksize=32)
+
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
     make_fxe_da_file('fxe_control_example.h5')
     make_sa3_da_file('sa3_control_example.h5')
+    make_agipd_file('agipd_example2.h5')
+    make_lpd_file('lpd_example.h5')
     print("Written examples.")
