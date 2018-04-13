@@ -48,3 +48,30 @@ def test_read_fxe_run(mock_fxe_run):
     assert len(run.files) == 17  # 16 detector modules + 1 control data file
     assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
     run.info()  # Smoke test
+
+def test_iterate_fxe_run(mock_fxe_run):
+    run = RunHandler(mock_fxe_run)
+
+    trains_iter = run.trains()
+    tid, data = next(trains_iter)
+    assert tid == 10000
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' in data
+    assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_train_by_id_fxe_run(mock_fxe_run):
+    run = RunHandler(mock_fxe_run)
+    _, data = run.train_from_id(10024)
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' in data
+    assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_train_from_index_fxe_run(mock_fxe_run):
+    run = RunHandler(mock_fxe_run)
+    _, data = run.train_from_index(479)
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' in data
+    assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
