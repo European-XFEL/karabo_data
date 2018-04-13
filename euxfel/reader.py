@@ -558,9 +558,9 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
     dtype, shape = next(((d[data].dtype, d[data].shape) for d in train.values()
                         if data in d and 0 not in d[data].shape), (None, None))
     if dtype is None or shape is None:
-        return np.empty(0)
+        return np.array([])
 
-    combined = np.zeros((modules,) + shape, dtype=dtype)
+    combined = np.full((modules, ) + shape, np.nan, dtype=dtype)
     for device in devices:
         try:
             if 0 in train[device][data].shape:
