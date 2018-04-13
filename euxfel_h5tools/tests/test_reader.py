@@ -23,14 +23,6 @@ xgm_run = pytest.mark.skipif(not osp.exists(RUNPATH_SLOW),
 #                              reason="require data files.")
 
 
-def np_arrays_equal(a, b):
-    try:
-        np.testing.assert_equal(a, b)
-    except AssertionError:
-        return False
-    return True
-
-
 @lpd_single_file
 def test_H5File():
     f = H5File(FILEPATH)
@@ -184,7 +176,7 @@ def test_stack_data():
     comb = stack_data(data, 'image.data')
     print(comb.shape)
     assert comb.shape == (60, 10, 512, 128)
-    assert np_arrays_equal(comb[:, 0, ...], data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data'])
+    np.testing.assert_equal(comb[:, 0, ...], data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data'])
 
 
 @agipd_run
@@ -196,7 +188,7 @@ def test_stack_data_2():
     comb = stack_data(data, 'image.data', axis=0, xcept=skip)
     print(comb.shape)
     assert comb.shape == (8, 60, 512, 128)
-    assert np_arrays_equal(comb[0, ...], data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data'])
+    np.testing.assert_equal(comb[0, ...], data['SPB_DET_AGIPD1M-1/DET/1CH0:xtdf']['image.data'])
 
 
 @agipd_run
@@ -207,7 +199,7 @@ def test_stack_detector_data():
     comb = stack_detector_data(data, 'image.data', only='AGIPD1M-1')
     print(comb.shape)
     assert comb.shape == (60, 16, 512, 128)
-    assert np_arrays_equal(comb[:, 0, ...], data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data'])
+    np.testing.assert_equal(comb[:, 0, ...], data['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf']['image.data'])
 
 
 @agipd_run
@@ -220,9 +212,9 @@ def test_stack_detector_data_2():
     print(comb.shape)
     assert comb.shape == (16, 60, 512, 128)
     for i in (0, 1, 2, 8, 9, 10):
-        assert np.testing.assert_equal(comb[i, ...], data['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i)]['image.data'])
+        np.testing.assert_equal(comb[i, ...], data['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i)]['image.data'])
     for i in (3, 4, 5, 6, 7, 11, 12, 13, 14, 15):
-        assert np.testing.assert_equal(comb[i, ...], np.full((60, 512, 128), np.nan, dtype=np.float32))
+        np.testing.assert_equal(comb[i, ...], np.full((60, 512, 128), np.nan, dtype=np.float32))
 
 
 @xgm_run
