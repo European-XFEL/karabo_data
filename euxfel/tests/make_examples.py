@@ -1,4 +1,6 @@
 import h5py
+import os
+import os.path as osp
 import numpy as np
 
 vlen_bytes = h5py.special_dtype(vlen=bytes)
@@ -204,10 +206,21 @@ def make_lpd_file(path):
         LPDModule('FXE_DET_LPD1M-1/DET/0CH0', frames_per_train=128)
     ], ntrains=480, chunksize=32)
 
+def make_fxe_run(dir_path):
+    for modno in range(16):
+        path = osp.join(dir_path, 'RAW-R0445-LPD{:0>2}-S00000.h5'.format(modno))
+        write_file(path, [
+            LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), frames_per_train=128)
+        ], ntrains=480, chunksize=32)
+
+    make_fxe_da_file(osp.join(dir_path, 'RAW-R0450-DA01-S00000.h5'))
+
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
     make_fxe_da_file('fxe_control_example.h5')
     make_sa3_da_file('sa3_control_example.h5')
     make_agipd_file('agipd_example2.h5')
     make_lpd_file('lpd_example.h5')
+    os.makedirs('fxe_example_run')
+    make_fxe_run('fxe_example_run')
     print("Written examples.")
