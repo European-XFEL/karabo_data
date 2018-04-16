@@ -163,6 +163,8 @@ class H5File:
             keys are the devices names and values are set() of parameter names
             (or empty set if all parameters are requested)
 
+            ::
+
                 dev = {'device1: {'param_m, param_n}, 'device2': {}}
                 for tid, data in handler.trains(devices=dev):
                     ...
@@ -170,10 +172,12 @@ class H5File:
         Examples
         --------
         Iterate over all trains
+
         >>> for id, data in file_handler.trains():
                 pos = data['device_x']['param_n']
 
         Filter devices and parameters
+
         >>> dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'},
                    'sample_x': {}, sample_y: {}}
         >>> trains = file_handler.trains(devices=dev)
@@ -300,6 +304,8 @@ class RunHandler:
 
     def trains(self, devices=None):
         """Iterate over all trains in the run and gather all sources.
+
+        ::
 
             run = Run('/path/to/my/run/r0123')
             for data, train_id in run.trains():
