@@ -51,9 +51,11 @@ class REPInterface(Thread):
 
 
 class ZMQStreamer:
-    """ZeroMQ inteface exposing data to a tcp socket.
+    """ZeroMQ inteface sending data over a TCP socket.
 
-        # server
+    ::
+
+        # Server:
         serve = ZMQStreamer(1234)
         serve.start()
 
@@ -61,17 +63,17 @@ class ZMQStreamer:
             result = important_processing(data)
             serve.feed(result)
 
-        # client
-        from karabo_bridge import KaraboBridge
+        # Client:
+        from euxfel_karabo_bridge import KaraboBridge
         client = KaraboBridge('tcp://server.hostname:1234')
         data = client.next()
 
     Parameters
     ----------
     port: int
-        Port to bind socket to.
+        Local TCP port to bind socket to
     maxlen: int, optional
-        size of the buffer - default: 10.
+        How many trains to cache before sending (default: 10)
     """
     def __init__(self, port, maxlen=10):
         self._context = zmq.Context()
@@ -99,6 +101,6 @@ class ZMQStreamer:
     def feed(self, data):
         """Push data to the sending queue.
 
-        This call is blocking if the Queue is full.
+        This blocks if the queue already has *maxlen* items waiting to be sent.
         """
         self._buffer.put(self._serialize(data))

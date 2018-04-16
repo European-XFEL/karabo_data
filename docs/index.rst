@@ -7,6 +7,7 @@ Contents:
    :maxdepth: 2
 
    reading_files
+   streaming
    data_format
 
 Indices and tables
