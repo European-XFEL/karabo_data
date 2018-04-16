@@ -1,5 +1,5 @@
-European XFEL HDF5 data format
-==============================
+Data files format
+=================
 
 The main unit of data this tool works with is a *run*. A run is data collected
 in a specific period, and each research proposal given beantime at European XFEL

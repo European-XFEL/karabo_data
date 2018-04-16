@@ -8,3 +8,4 @@ data
 /.pytest_cache
 /build/
 /dist/
+/docs/_build/
