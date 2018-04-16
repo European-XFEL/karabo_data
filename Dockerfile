@@ -2,6 +2,7 @@
 FROM ubuntu:latest
 RUN apt-get update -y
 RUN apt-get install -y python3 python3-pip git
+RUN pip3 install --upgrade pip
 RUN pip3 install pytest
 # use /io to mount host file system later
 RUN mkdir /io
