@@ -165,7 +165,10 @@ class H5File:
 
             ::
 
-                dev = {'device1: {'param_m, param_n}, 'device2': {}}
+                dev = {
+                    'device1': {'param_m', 'param_n.subparam'},
+                    'device2': set(),
+                }
                 for tid, data in handler.trains(devices=dev):
                     ...
 
@@ -173,14 +176,14 @@ class H5File:
         --------
         Iterate over all trains
 
-        >>> for id, data in file_handler.trains():
+        >>> for id, data in h5file.trains():
                 pos = data['device_x']['param_n']
 
         Filter devices and parameters
 
         >>> dev = {'xray_monitor': {'pulseEnergy', 'beamPosition'},
-                   'sample_x': {}, sample_y: {}}
-        >>> trains = file_handler.trains(devices=dev)
+        ...        'sample_x': {}, 'sample_y': {}}
+        >>> trains = h5file.trains(devices=dev)
         >>> traind_id, train_1 = next(trains)
         >>> train_1.keys()
         dict_keys(['xray_monitor', 'sample_x', 'sample_y'])
@@ -198,18 +201,21 @@ class H5File:
         Parameters
         ----------
         train_id: int
-            the train ID you want to return
+            The train ID
         devices: dict, optional
             Filter data by devices and by parameters.
 
-            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
+            Refer to :meth:`~.H5File.trains` for how to use this.
 
-        returns
+        Returns
         -------
-        data, tid, index: tuple(dict, int, int)
-            data contains the train data.
-            tid is the train ID of the returned train.
-            index is the index of the train in the file.
+
+        data : dict
+            The data for this train, keyed by device name
+        tid : int
+            The train ID of the returned train
+        index : int
+            The index of the train within this file, starting from 0.
 
         Raises
         ------
@@ -234,14 +240,17 @@ class H5File:
         devices: dict, optional
             Filter data by devices and by parameters.
 
-            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
+            Refer to :meth:`~.H5File.trains` for how to use this.
 
-        returns
+        Returns
         -------
-        data, tid, index: tuple(dict, int, int)
-            data contains the train data.
-            tid is the train ID of the returned train.
-            index is the index of the train in the file.
+
+        data : dict
+            The data for this train, keyed by device name
+        tid : int
+            The train ID of the returned train
+        index : int
+            The index of the train within this file, starting from 0.
         """
         return self._gen_train_data(index, only_this=devices)
 
@@ -308,7 +317,7 @@ class RunHandler:
         ::
 
             run = Run('/path/to/my/run/r0123')
-            for data, train_id in run.trains():
+            for train_id, data in run.trains():
                 value = data['device']['parameter']
 
         Parameters
@@ -316,13 +325,15 @@ class RunHandler:
         devices: dict, optional
             Filter data by devices and by parameters.
 
-            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
+            Refer to :meth:`H5File.trains` for how to use this.
 
-        Returns
-        -------
-        (tid, data): tuple(int, dict)
-            tid is the train ID of the returned train
-            data contains data of the returned train for the selected run.
+        Yields
+        ------
+
+        tid : int
+            The train ID of the returned train
+        data : dict
+            The data for this train, keyed by device name
         """
         for tid, fhs in self.ordered_trains:
             train_data = {}
@@ -338,17 +349,19 @@ class RunHandler:
         Parameters
         ----------
         train_id: int
-            the train ID you want to return
+            The train ID
         devices: dict, optional
             Filter data by devices and by parameters.
 
-            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
+            Refer to :meth:`H5File.trains` for how to use this.
 
-        returns
+        Returns
         -------
-        train_id, data: tuple(int, dict)
-            train_id is the train ID of the returned train
-            data contains the train data.
+
+        tid : int
+            The train ID of the returned train
+        data : dict
+            The data for this train, keyed by device name
 
         Raises
         ------
@@ -371,17 +384,19 @@ class RunHandler:
         Parameters
         ----------
         index: int
-            the train ID you want to return
+            The train index within this run
         devices: dict, optional
             Filter data by devices and by parameters.
 
-            Refer to `euxfel_h5tools.H5File.trains` for full documentation.
+            Refer to :meth:`H5File.trains` for how to use this.
 
-        returns
+        Returns
         -------
-        train_id, data: tuple(int, dict)
-            train_id is the train ID of the returned train
-            data contains the train data.
+
+        tid : int
+            The train ID of the returned train
+        data : dict
+            The data for this train, keyed by device name
 
         Raises
         ------
