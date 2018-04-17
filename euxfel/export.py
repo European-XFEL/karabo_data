@@ -29,8 +29,8 @@ class REPInterface(Thread):
         self._stop_event = Event()
 
     def run(self):
+        interface = self.context.socket(zmq.REP)
         try:
-            interface = self.context.socket(zmq.REP)
             interface.bind('tcp://*:{}'.format(self.port))
 
             while not self.stopped():
@@ -39,9 +39,8 @@ class REPInterface(Thread):
                     raise RuntimeError('Unknown request:', req)
                 interface.send_multipart(self.buffer.get())
         finally:
-            if interface:
-                interface.setsockopt(zmq.LINGER, 0)
-                interface.close()
+            interface.setsockopt(zmq.LINGER, 0)
+            interface.close()
 
     def stop(self):
         self._stop_event.set()
