@@ -179,6 +179,9 @@ class H5File:
 
         Examples
         --------
+
+        >>> h5file = H5File('r0450/RAW-R0450-DA01-S00000.h5')
+
         Iterate over all trains
 
         >>> for id, data in h5file.trains():
@@ -518,7 +521,7 @@ class RunDirectory:
 # any code was already using it.
 RunHandler = RunDirectory
 
-def stack_data(train, data, axis=-3, xcept=[]):
+def stack_data(train, data, axis=-3, xcept=()):
     """Stack data from devices in a train.
 
     Parameters
@@ -558,7 +561,7 @@ def stack_data(train, data, axis=-3, xcept=[]):
     return np.moveaxis(combined, 0, axis)
 
 
-def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
+def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     """Stack data from detector modules in a train.
 
     Parameters
@@ -591,6 +594,7 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
 
     combined = np.full((modules, ) + shape, np.nan, dtype=dtype)
     for device in devices:
+        index = None
         try:
             if 0 in train[device][data].shape:
                 continue
