@@ -20,7 +20,7 @@ import re
 from time import time
 
 
-__all__ = ['H5File', 'RunHandler', 'stack_data',
+__all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
            'stack_detector_data']
 
 
@@ -60,10 +60,10 @@ class FilenameInfo:
 
 
 class H5File:
-    """Handles a HDF5 file generated at the European XFEL.
+    """Access an HDF5 file generated at European XFEL.
 
-    An HDF5 file contains in general several record of data. This helps
-    handling such file and extract back instrument data per XRAY train::
+    This class helps select data by train and by device ID, following the
+    file layout defined for European XFEL data::
 
         h5f = H5File('/path/to/my/file.h5')
         for data, train_id, index in h5f.trains():
@@ -291,12 +291,12 @@ class H5File:
         }
 
 
-class RunHandler:
-    """Handles a 'run' generated at the European XFEL.
+class RunDirectory:
+    """Access data from a 'run' generated at European XFEL.
 
-    A 'run' is a directory containing a various amount of HDF5 file recorded
-    in the European XFEL format. This class can iterate through the data
-    contained in the run and extract instrument data per XRAY train.
+    A 'run' is a directory containing a number of HDF5 files with data from the
+    same time period. This class can read data from the collection of files,
+    selected by train and by device.
 
     Parameters
     ----------
@@ -514,6 +514,9 @@ class RunHandler:
         print('\tControls')
         [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
 
+# RunDirectory was previously RunHandler; we'll leave it accessible in case
+# any code was already using it.
+RunHandler = RunDirectory
 
 def stack_data(train, data, axis=-3, xcept=[]):
     """Stack data from devices in a train.
@@ -602,6 +605,6 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=[]):
 
 
 if __name__ == '__main__':
-    r = RunHandler('./data/r0185')
+    r = RunDirectory('./data/r0185')
     for tid, d in r.trains():
         print(tid)

@@ -20,7 +20,7 @@ including the main detectors, record data more frequently.
 
    .. automethod:: train_from_index
 
-.. autoclass:: RunHandler
+.. autoclass:: RunDirectory
 
    .. automethod:: trains
 

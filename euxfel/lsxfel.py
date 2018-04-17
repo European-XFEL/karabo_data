@@ -7,7 +7,7 @@ import os.path as osp
 import re
 import sys
 
-from .reader import H5File, RunHandler, FilenameInfo
+from .reader import H5File, RunDirectory, FilenameInfo
 
 def find_image(h5file):
     """Find the image data in a detector file
@@ -79,7 +79,7 @@ def describe_run(path):
     print(basename, ": Run directory")
     print()
 
-    run = RunHandler(path)
+    run = RunDirectory(path)
     run.info()
 
 

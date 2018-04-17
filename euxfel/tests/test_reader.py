@@ -3,7 +3,7 @@ import os.path as osp
 import pytest
 from time import sleep
 
-from euxfel import (H5File, RunHandler, stack_data, stack_detector_data)
+from euxfel import (H5File, RunDirectory, stack_data, stack_detector_data)
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
 RUNPATH = '/home/tmichela/Downloads//data/r0185'
@@ -106,7 +106,7 @@ def test_read_metadata():
 
 @agipd_run
 def test_run():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
 
     train = test_run.trains()
 
@@ -131,7 +131,7 @@ def test_run():
 
 @agipd_run
 def test_run_single_train_from_id():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
 
     tid, data = test_run.train_from_id(1472810853)
     assert len(data) == 10
@@ -149,7 +149,7 @@ def test_run_single_train_from_id():
 
 @agipd_run
 def test_run_single_train_from_index():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
 
     tid, data = test_run.train_from_index(541)
     assert len(data) == 2
@@ -167,7 +167,7 @@ def test_run_single_train_from_index():
 
 @agipd_run
 def test_stack_data():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
 
     comb = stack_data(data, 'image.data')
@@ -178,7 +178,7 @@ def test_stack_data():
 
 @agipd_run
 def test_stack_data_2():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
 
     skip = ['SPB_DET_AGIPD1M-1/DET/0CH0:xtdf', 'SPB_DET_AGIPD1M-1/DET/9CH0:xtdf']
@@ -190,7 +190,7 @@ def test_stack_data_2():
 
 @agipd_run
 def test_stack_detector_data():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
 
     comb = stack_detector_data(data, 'image.data', only='AGIPD1M-1')
@@ -201,7 +201,7 @@ def test_stack_detector_data():
 
 @agipd_run
 def test_stack_detector_data_2():
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
     tid, data = test_run.train_from_id(1472810853)
 
     skip = ['SPB_DET_AGIPD1M-1/DET/{}CH0:xtdf'.format(i) for i in range(3,8)]
@@ -245,7 +245,7 @@ def test_filter_device():
 
 @agipd_run
 def test_run_info(capsys):
-    test_run = RunHandler(RUNPATH)
+    test_run = RunDirectory(RUNPATH)
     test_run.info()
     captured = capsys.readouterr()
     print(captured)

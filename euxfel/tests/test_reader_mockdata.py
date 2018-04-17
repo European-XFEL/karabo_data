@@ -3,7 +3,7 @@ import os.path as osp
 import pytest
 from tempfile import TemporaryDirectory
 
-from euxfel import (H5File, RunHandler, stack_data, stack_detector_data)
+from euxfel import (H5File, RunDirectory, stack_data, stack_detector_data)
 from . import make_examples
 
 @pytest.fixture(scope='module')
@@ -44,13 +44,13 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
 def test_read_fxe_run(mock_fxe_run):
-    run = RunHandler(mock_fxe_run)
+    run = RunDirectory(mock_fxe_run)
     assert len(run.files) == 17  # 16 detector modules + 1 control data file
     assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
     run.info()  # Smoke test
 
 def test_iterate_fxe_run(mock_fxe_run):
-    run = RunHandler(mock_fxe_run)
+    run = RunDirectory(mock_fxe_run)
 
     trains_iter = run.trains()
     tid, data = next(trains_iter)
@@ -61,7 +61,7 @@ def test_iterate_fxe_run(mock_fxe_run):
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
 
 def test_train_by_id_fxe_run(mock_fxe_run):
-    run = RunHandler(mock_fxe_run)
+    run = RunDirectory(mock_fxe_run)
     _, data = run.train_from_id(10024)
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
@@ -69,7 +69,7 @@ def test_train_by_id_fxe_run(mock_fxe_run):
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
 
 def test_train_from_index_fxe_run(mock_fxe_run):
-    run = RunHandler(mock_fxe_run)
+    run = RunDirectory(mock_fxe_run)
     _, data = run.train_from_index(479)
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
