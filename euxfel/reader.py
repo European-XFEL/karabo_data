@@ -72,19 +72,24 @@ class H5File:
     Parameters
     ----------
     path: str
-        Path to the HDF5 file.
+        Path to the HDF5 file
     driver: str, optional
-        HDF5 driver.
+        Driver option for h5py. You should usually not set this.
+        http://docs.h5py.org/en/latest/high/file.html#file-drivers
 
     Raises
     ------
     FileNotFoundError
-        If the provided path is not a valid HDF5 file.
+        If the provided path is not a file
+    ValueError
+        If the path exists but is not an HDF5 file
     """
     def __init__(self, path, driver=None):
         self.path = path
+        if not osp.isfile(path):
+            raise FileNotFoundError(path)
         if not h5py.is_hdf5(path):
-            raise FileNotFoundError(path, 'is not a valid HDF5 file.')
+            raise ValueError('%s is not a valid HDF5 file.' % path)
         self.file = h5py.File(path, 'r', driver=driver)
 
         self.metadata = self.file[METADATA]
