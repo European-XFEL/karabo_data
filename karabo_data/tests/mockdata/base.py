@@ -9,6 +9,7 @@ class DeviceBase:
 
     # These are set by write_file
     ntrains = 400
+    firsttrain = 10000
     chunksize = 200
 
     def __init__(self, device_id, nsamples=None):
@@ -53,6 +54,8 @@ class DeviceBase:
 
     def write_instrument(self, f):
         """Write the INSTRUMENT data, and the relevants parts of INDEX"""
+        train0 = self.firsttrain
+
         if self.nsamples is None:
             self.nsamples = self.ntrains
 
@@ -67,16 +70,16 @@ class DeviceBase:
             if count.sum() < self.nsamples:
                 count[-1] = 1
             assert count.sum() == self.nsamples
-            trainids = np.linspace(10000, 10000 + self.ntrains, endpoint=False,
+            trainids = np.linspace(train0, train0 + self.ntrains, endpoint=False,
                                    num=self.nsamples, dtype='u8')
         elif self.nsamples == self.ntrains:
             first = np.arange(self.ntrains)
             count = 1
-            trainids = np.arange(10000, 10000 + self.ntrains)
+            trainids = np.arange(train0, train0 + self.ntrains)
         else:  # nsamples > ntrains
             count = self.nsamples // self.ntrains
             first = np.arange(0, self.nsamples, step=count)
-            trainids = np.repeat(np.arange(10000, 10000 + self.ntrains), count)
+            trainids = np.repeat(np.arange(train0, train0 + self.ntrains), count)
 
         Npad = self.nsamples
         if Npad % self.chunksize:
@@ -129,7 +132,7 @@ def write_metadata(h5file, data_sources, chunksize=16):
                                        dtype=vlen_bytes, maxshape=(None,))
     devices_ds[:len(data_sources)] = devices
 
-def write_train_ids(f, path, N, chunksize=16):
+def write_train_ids(f, path, N, first=10000, chunksize=16):
     """Make a dataset of fake train IDs at the given path
 
     Real train IDs are much larger (~10^9), so hopefully these won't be mistaken
@@ -140,4 +143,4 @@ def write_train_ids(f, path, N, chunksize=16):
     else:
         Npad = N
     ds = f.create_dataset(path, (Npad,), 'u8', maxshape=(None,))
-    ds[:N] = np.arange(10000, 10000 + N)
+    ds[:N] = np.arange(first, first + N)

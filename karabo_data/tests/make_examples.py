@@ -225,7 +225,12 @@ def make_fxe_run(dir_path):
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
-    ], ntrains=480, chunksize=200)
+    ], ntrains=400, chunksize=200)
+    write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00001.h5'), [
+        XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+        XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+        GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
+    ], ntrains=80, firsttrain=10400, chunksize=200)
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')

@@ -85,7 +85,7 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
 
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    assert len(run.files) == 17  # 16 detector modules + 1 control data file
+    assert len(run.files) == 18  # 16 detector modules + 2 control data files
     assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
     run.info()  # Smoke test
 
@@ -143,3 +143,10 @@ def test_file_get_series_instrument(mock_agipd_data):
         assert isinstance(s2.index, pd.MultiIndex)
         assert len(s2) == 16000
         assert len(s2.loc[10000:10004]) == 5 * 64
+
+def test_run_get_series_control(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    s = run.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
+    assert isinstance(s, pd.Series)
+    assert len(s) == 480
+    assert list(s.index) == list(range(10000, 10480))
