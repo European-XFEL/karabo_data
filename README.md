@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/European-XFEL/h5tools-py.svg?branch=master)](https://travis-ci.org/European-XFEL/h5tools-py)
+[![Build Status](https://travis-ci.org/European-XFEL/euxfel-python.svg?branch=master)](https://travis-ci.org/European-XFEL/euxfel-python)
 
 Python 3 tools for reading European XFEL's HDF5 files.
 
