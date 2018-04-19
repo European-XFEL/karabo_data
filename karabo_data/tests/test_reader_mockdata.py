@@ -1,5 +1,6 @@
 from itertools import islice
 import os.path as osp
+import pandas as pd
 import pytest
 from tempfile import TemporaryDirectory
 
@@ -121,3 +122,24 @@ def test_train_from_index_fxe_run(mock_fxe_run):
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
     assert 'FXE_XAD_GEC/CAM/CAMERA' in data
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_file_get_series_control(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        s = f.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
+        assert isinstance(s, pd.Series)
+        assert len(s) == 400
+        assert s.index[0] == 10000
+
+def test_file_get_series_instrument(mock_agipd_data):
+    with H5File(mock_agipd_data) as f:
+        s = f.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'header.linkId')
+        assert isinstance(s, pd.Series)
+        assert len(s) == 250
+        assert s.index[0] == 10000
+
+        # Multiple readings per train
+        s2 = f.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'image.status')
+        assert isinstance(s2, pd.Series)
+        assert isinstance(s2.index, pd.MultiIndex)
+        assert len(s2) == 16000
+        assert len(s2.loc[10000:10004]) == 5 * 64

@@ -16,6 +16,7 @@ from glob import glob
 import h5py
 import numpy as np
 import os.path as osp
+import pandas as pd
 import re
 from time import time
 
@@ -278,6 +279,49 @@ class H5File:
             The data for this train, keyed by device name
         """
         return self._gen_train_data(index, only_this=devices)
+
+    def get_series(self, device, key):
+        """Return a pandas Series for a particular data field.
+
+        Parameters
+        ----------
+
+        device: str
+            Device name with optional output channel, e.g.
+            "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "beamPosition.iyPos.value"
+            or "header.linkId". The data must be 1D in the file.
+        """
+        name = device + '/' + key
+        if name.endswith('.value'):
+            name = name[:-6]
+
+        # Find the data
+        if ':' in device:  # INSTRUMENT data
+            keyhead, _, key = key.partition('.')
+            device += '/' + keyhead
+        data_src = self.sources[self.devices.index(device)]
+        data_path = "/{}/{}".format(data_src, key.replace('.', '/'))
+        ds = self.file[data_path]
+
+        # Get the index
+        if data_src.startswith('CONTROL'):
+            index = pd.Index(self.index['trainId'], name='trainId')
+        elif data_src.startswith('INSTRUMENT'):
+            ix_path = "/{}/trainId".format(data_src)
+            index_ds = self.file[ix_path]
+            index = pd.Index(index_ds[index_ds[:] != 0], name='trainId')
+            ds = ds[index_ds[:] != 0]
+            if not index.is_unique:
+                pulse_id = self.file['/{}/pulseId'.format(data_src)]
+                pulse_id = pulse_id[index_ds[:] != 0]
+                index = pd.MultiIndex.from_arrays([index, pulse_id],
+                                                  names=['trainId', 'pulseId'])
+        else:
+            raise ValueError("Unknown data source %r" % data_src)
+
+        return pd.Series(ds, name=name, index=index)
 
     def close(self):
         self.file.close()
