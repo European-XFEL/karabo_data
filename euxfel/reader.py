@@ -98,8 +98,16 @@ class H5File:
 
         self.sources = [source.decode() for source in
                         self.metadata['dataSourceId'].value if source]
-        self.devices = [device.decode() for device in
-                        self.metadata['deviceId'].value if device]
+        self.control_devices = set()
+        self.instrument_device_channels = set()
+        for src in self.sources:
+            category, *nameparts = src.split('/')
+            name = '/'.join(nameparts[:3])
+            if category == 'CONTROL':
+                self.control_devices.add(name)
+            elif category == 'INSTRUMENT':
+                self.instrument_device_channels.add(name)
+
         self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
                           if tid != 0]
         self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
@@ -108,8 +116,13 @@ class H5File:
         """Get data for the specified index in file.
         """
         train_data = {}
-        for device, source in zip(self.devices, self.sources):
-            index = self.index[device]
+        for source in self.sources:
+            # The 'deviceId' in the data file is not quite the same as a Karabo
+            # device name: for instrument devices it includes an output channel
+            # name and the first level key of the hash.
+            print(source)
+            h5_device = source.split('/', 1)[1]
+            index = self.index[h5_device]
             table = self.file[source]
 
             # Which parts of the data to get for this train:
@@ -124,7 +137,7 @@ class H5File:
                 last = first + count - 1
                 status = count > 0
 
-            dev = device.split('/')
+            dev = h5_device.split('/')
             src = '/'.join((dev[:3]))
             path_base = '.'.join((dev[3:]))
 
@@ -426,9 +439,10 @@ class RunDirectory:
         control: train data
         instrument: pulse data
         """
-        src = [s.split('/') for f in src for s in f.sources]
-        ctrl = set(['/'.join(c[1:4]) for c in src if c[0] == 'CONTROL'])
-        inst = set(['/'.join(i[1:4]) for i in src if i[0] == 'INSTRUMENT'])
+        ctrl, inst = set(), set()
+        for file in src:
+            ctrl.update(file.control_devices)
+            inst.update(file.instrument_device_channels)
         return ctrl, inst
 
     def info(self):

@@ -10,9 +10,15 @@ including the main detectors, record data more frequently.
 
 .. autoclass:: H5File
 
-   .. attribute:: devices
+   .. attribute:: control_devices
 
-      A list of the available device names in this file.
+      A set of the control device names in this file, in the format
+      ``"SA3_XTD10_VAC/TSENS/S30100K"``.
+
+   .. attribute:: instrument_device_channels
+
+      A set of the instrument devices and output channel names in this file,
+      in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
    .. automethod:: trains
 
