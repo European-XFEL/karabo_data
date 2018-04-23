@@ -301,7 +301,9 @@ class H5File:
         if ':' in device:  # INSTRUMENT data
             keyhead, _, key = key.partition('.')
             device += '/' + keyhead
-        data_src = self.sources[self.devices.index(device)]
+            data_src = 'INSTRUMENT/' + device
+        else:
+            data_src = 'CONTROL/' + device
         data_path = "/{}/{}".format(data_src, key.replace('.', '/'))
         ds = self.file[data_path]
 
