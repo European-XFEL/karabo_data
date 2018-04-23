@@ -548,7 +548,7 @@ class RunDirectory:
             find_device += '/' + key.split('.')[0]
 
         seq_series = [f.get_series(device, key) for f in self.files
-                      if find_device in f.devices]
+           if find_device in (f.control_devices | f.instrument_device_channels)]
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
 
