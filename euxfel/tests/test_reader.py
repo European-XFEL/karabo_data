@@ -53,9 +53,8 @@ def test_get_file_info():
 def test_iterate_trains():
     with H5File(FILEPATH) as f:
 
-        for data, train_id, index in f.trains():
-            print(index, train_id)
-            assert index in range(0, 20)
+        for train_id, data in f.trains():
+            print(train_id)
             assert train_id in range(1455918683, 1455918703)
             assert 'FXE_DET_LPD1M-1/DET/0CH0:xtdf' in data.keys()
             assert len(data) == 1
@@ -65,12 +64,10 @@ def test_iterate_trains():
 @lpd_single_file
 def test_get_train_per_id():
     with H5File(FILEPATH) as f:
-
-        data, train, idx = f.train_from_id(1455918700)
+        train, data = f.train_from_id(1455918700)
         print(data)
         assert data is not None
         assert train == 1455918700
-        assert idx == 17
 
         with pytest.raises(KeyError) as info:
             data = f.train_from_id(1234)  # train id not in file
@@ -80,11 +77,9 @@ def test_get_train_per_id():
 @lpd_single_file
 def test_get_train_per_index():
     with H5File(FILEPATH) as f:
-
-        data, train, idx = f.train_from_index(0)
+        train, data = f.train_from_index(0)
         assert data is not None
         assert train == 1455918683
-        assert idx == 0
 
         with pytest.raises(ValueError) as info:
             data, _, _ = f.train_from_index(20)  # index out of range
@@ -95,9 +90,9 @@ def test_get_train_per_index():
 def test_read_metadata():
     with H5File(FILEPATH) as f:
 
-        data1, _, _ = f.train_from_index(0)
+        _, data1 = f.train_from_index(0)
         sleep(2)
-        data2, _, _ = f.train_from_index(0)
+        _, data2 = f.train_from_index(0)
         assert 'metadata' in data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']
         assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['tid'] == 1455918683
         assert data1['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['sec'] != data2['FXE_DET_LPD1M-1/DET/0CH0:xtdf']['metadata']['timestamp']['sec']
@@ -224,7 +219,7 @@ def test_filter_device():
                     'SA1_XTD2_XGM/XGM/DOOCS': {'pulseEnergy.pulseEnergy.value'}}
 
     with H5File(RUNPATH_SLOW + '/RAW-R0115-DA01-S00000.h5') as f:
-        data, _, _ = f.train_from_index(500, devices=dev_filter_1)
+        _, data = f.train_from_index(500, devices=dev_filter_1)
 
         assert len(data) == 1
         assert 'SPB_XTD9_XGM/XGM/DOOCS' in data
@@ -234,10 +229,10 @@ def test_filter_device():
         # assert xgm['pulseEnergy.pulseEnergy.value'] == approx(0.06392462, rel=1e-7)
         # assert xgm['current.right.output.value'] == approx(-7.968561e-15, rel=1e-6)
 
-        data, _, _ = f.train_from_index(0, devices=dev_filter_2)
+        _, data = f.train_from_index(0, devices=dev_filter_2)
         assert len(data) == 0
 
-        data, _, _ = f.train_from_index(0, devices=dev_filter_3)
+        _, data = f.train_from_index(0, devices=dev_filter_3)
         assert len(data) == 2
         assert len(data['SPB_XTD9_XGM/XGM/DOOCS']) == 77
         assert len(data['SA1_XTD2_XGM/XGM/DOOCS']) == 2

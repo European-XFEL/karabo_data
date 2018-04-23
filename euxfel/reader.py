@@ -169,7 +169,7 @@ class H5File:
                          'sec': int(sec), 'frac': int(frac)}
             data.update({'metadata': {'source': src, 'timestamp': timestamp}})
 
-        return (train_data, self.train_ids[train_index], train_index)
+        return (self.train_ids[train_index], train_data)
 
     def trains(self, devices=None):
         """Iterate over all trains in the file.
@@ -231,12 +231,10 @@ class H5File:
         Returns
         -------
 
-        data : dict
-            The data for this train, keyed by device name
         tid : int
             The train ID of the returned train
-        index : int
-            The index of the train within this file, starting from 0.
+        data : dict
+            The data for this train, keyed by device name
 
         Raises
         ------
@@ -266,12 +264,10 @@ class H5File:
         Returns
         -------
 
-        data : dict
-            The data for this train, keyed by device name
         tid : int
             The train ID of the returned train
-        index : int
-            The index of the train within this file, starting from 0.
+        data : dict
+            The data for this train, keyed by device name
         """
         return self._gen_train_data(index, only_this=devices)
 
@@ -367,7 +363,7 @@ class RunDirectory:
         for tid, fhs in self.ordered_trains:
             train_data = {}
             for fh in fhs:
-                data, _, _ = fh.train_from_id(tid, devices=devices)
+                _, data = fh.train_from_id(tid, devices=devices)
                 train_data.update(data)
 
             yield (tid, train_data)
@@ -403,7 +399,7 @@ class RunDirectory:
             raise KeyError("train {} not found in run.".format(train_id))
         data = {}
         for fh in files:
-            d, _, _ = fh.train_from_id(train_id, devices=devices)
+            _, d = fh.train_from_id(train_id, devices=devices)
             data.update(d)
         return (train_id, data)
 
@@ -438,7 +434,7 @@ class RunDirectory:
             raise IndexError("Train index {} out of range.".format(index))
         data = {}
         for fh in files:
-            d, _, _ = fh.train_from_id(train_id, devices=devices)
+            _, d = fh.train_from_id(train_id, devices=devices)
             data.update(d)
         return (train_id, data)
 

@@ -37,8 +37,7 @@ def mock_fxe_run():
 
 def test_iterate_trains(mock_agipd_data):
     with H5File(mock_agipd_data) as f:
-        for data, train_id, index in islice(f.trains(), 10):
-            assert index in range(0, 250)
+        for train_id, data in islice(f.trains(), 10):
             assert train_id in range(10000, 10250)
             assert 'SPB_DET_AGIPD1M-1/DET/7CH0:xtdf' in data.keys()
             assert len(data) == 1
@@ -60,8 +59,7 @@ def test_detector_info(mock_lpd_data):
 
 def test_iterate_trains_fxe(mock_fxe_control_data):
     with H5File(mock_fxe_control_data) as f:
-        for data, train_id, index in islice(f.trains(), 10):
-            assert index in range(0, 400)
+        for train_id, data in islice(f.trains(), 10):
             assert train_id in range(10000, 10400)
             assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
