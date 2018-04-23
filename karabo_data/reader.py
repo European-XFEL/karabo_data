@@ -327,6 +327,19 @@ class H5File:
 
         return pd.Series(data, name=name, index=index)
 
+    def get_dataframe(self):
+        """Return a pandas dataframe for given data fields."""
+        control_fields = []
+
+        for dev in self.control_devices:
+            def append_ctrl_data(key, value):
+                if isinstance(value, h5py.Dataset) and key.endswith('/value'):
+                    key = key.replace('/', '.')
+                    control_fields.append(self.get_series(dev, key))
+            self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
+
+        return pd.concat(control_fields, axis=1)
+
     def close(self):
         self.file.close()
 
