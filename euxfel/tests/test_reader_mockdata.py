@@ -8,9 +8,18 @@ from . import make_examples
 
 @pytest.fixture(scope='module')
 def mock_agipd_data():
+    # This one uses the older index format
+    # (first/last/status instead of first/count)
     with TemporaryDirectory() as td:
         path = osp.join(td, 'CORR-R9999-AGIPD07-S00000.h5')
         make_examples.make_agipd_example_file(path)
+        yield path
+
+@pytest.fixture(scope='module')
+def mock_lpd_data():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'RAW-R9999-AGIPD00-S00000.h5')
+        make_examples.make_lpd_file(path)
         yield path
 
 @pytest.fixture(scope='module')
@@ -34,6 +43,20 @@ def test_iterate_trains(mock_agipd_data):
             assert 'SPB_DET_AGIPD1M-1/DET/7CH0:xtdf' in data.keys()
             assert len(data) == 1
             assert 'image.data' in data['SPB_DET_AGIPD1M-1/DET/7CH0:xtdf']
+
+def test_detector_info_oldfmt(mock_agipd_data):
+    with H5File(mock_agipd_data) as f:
+        di = f.detector_info()
+        assert di['dims'] == (512, 128)
+        assert di['frames_per_train'] == 64
+        assert di['total_frames'] == 16000
+
+def test_detector_info(mock_lpd_data):
+    with H5File(mock_lpd_data) as f:
+        di = f.detector_info()
+        assert di['dims'] == (256, 256)
+        assert di['frames_per_train'] == 128
+        assert di['total_frames'] == 128 * 480
 
 def test_iterate_trains_fxe(mock_fxe_control_data):
     with H5File(mock_fxe_control_data) as f:

@@ -299,11 +299,19 @@ class H5File:
         img_ds = self.file[img_source + '/data']
         img_index = self.index[img_source.split('/', 1)[1]]
 
+        if 'last' in img_index:
+            # Older (?) format: status (0/1), first, last
+            count = img_index['last'][:] + 1 - img_index['first'][:]
+            count[img_index['status'][:] == 0] = 0
+        else:
+            # Newer (?) format: first, count
+            count = img_index['count'][:]
+
         return {
             'dims': img_ds.shape[-2:],
             # Some trains have 0 frames; max is the interesting value
-            'frames_per_train': img_index['count'][:].max(),
-            'total_frames': img_index['count'][:].sum(),
+            'frames_per_train': count.max(),
+            'total_frames': count.sum(),
         }
 
 
