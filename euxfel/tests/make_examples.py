@@ -138,6 +138,7 @@ def make_agipd_example_file(path):
 from .mockdata import write_file
 from .mockdata.xgm import XGM
 from .mockdata.gec_camera import GECCamera
+from .mockdata.sidemic_camera import SidemicCamera
 from .mockdata.adc import ADC
 from .mockdata.uvlamp import UVLamp
 from .mockdata.motor import Motor
@@ -194,6 +195,12 @@ def make_sa3_da_file(path):
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/FILTER'),
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/SCREEN'),
         MPOD('SA3_XTD10_MCP/MCPS/MPOD'),
+    ], ntrains=500, chunksize=50)
+
+def make_data_file_bad_device_name(path):
+    """Not all devices have the Karabo standard A/B/C naming convention"""
+    write_file(path, [
+        SidemicCamera('SPB_IRU_SIDEMIC_CAM')
     ], ntrains=500, chunksize=50)
 
 def make_agipd_file(path):

@@ -30,6 +30,13 @@ def mock_fxe_control_data():
         yield path
 
 @pytest.fixture(scope='module')
+def mock_spb_control_data_badname():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'RAW-R0309-DA01-S00000.h5')
+        make_examples.make_data_file_bad_device_name(path)
+        yield path
+
+@pytest.fixture(scope='module')
 def mock_fxe_run():
     with TemporaryDirectory() as td:
         make_examples.make_fxe_run(td)
@@ -42,6 +49,17 @@ def test_iterate_trains(mock_agipd_data):
             assert 'SPB_DET_AGIPD1M-1/DET/7CH0:xtdf' in data.keys()
             assert len(data) == 1
             assert 'image.data' in data['SPB_DET_AGIPD1M-1/DET/7CH0:xtdf']
+
+def test_get_train_bad_device_name(mock_spb_control_data_badname):
+    # Check that we can handle devices which don't have the standard Karabo
+    # name structure A/B/C.
+    with H5File(mock_spb_control_data_badname) as f:
+        train_id, data = f.train_from_id(10004)
+        assert train_id == 10004
+        assert 'SPB_IRU_SIDEMIC_CAM:daqOutput' in data
+        assert 'data.image.dims' in data['SPB_IRU_SIDEMIC_CAM:daqOutput']
+        dims = data['SPB_IRU_SIDEMIC_CAM:daqOutput']['data.image.dims']
+        assert list(dims) == [1000, 1000]
 
 def test_detector_info_oldfmt(mock_agipd_data):
     with H5File(mock_agipd_data) as f:

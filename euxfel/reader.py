@@ -101,26 +101,36 @@ class H5File:
         self.control_devices = set()
         self.instrument_device_channels = set()
         for src in self.sources:
-            category, *nameparts = src.split('/')
-            name = '/'.join(nameparts[:3])
+            category, device, _ = self._parse_data_src(src)
             if category == 'CONTROL':
-                self.control_devices.add(name)
+                self.control_devices.add(device)
             elif category == 'INSTRUMENT':
-                self.instrument_device_channels.add(name)
+                self.instrument_device_channels.add(device)
+            else:
+                raise ValueError("Unknown data category %r" % category)
 
         self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
                           if tid != 0]
         self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
+
+    @staticmethod
+    def _parse_data_src(source):
+        # Device names for INSTRUMENT data in the file include the top level
+        # group (e.g. "FXE_DET_LPD1M-1/DET/15CH0:xtdf/image"). We want to
+        # separate this out ("FXE_DET_LPD1M-1/DET/15CH0:xtdf", "image")
+        category, _, h5_device = source.partition('/')
+        if category == 'INSTRUMENT':
+            device, _, chan_grp = h5_device.partition(':')
+            chan, _, group = chan_grp.partition('/')
+            return category, device + ':' + chan, group
+        else:
+            return category, h5_device, ''
 
     def _gen_train_data(self, train_index, only_this=None):
         """Get data for the specified index in file.
         """
         train_data = {}
         for source in self.sources:
-            # The 'deviceId' in the data file is not quite the same as a Karabo
-            # device name: for instrument devices it includes an output channel
-            # name and the first level key of the hash.
-            print(source)
             h5_device = source.split('/', 1)[1]
             index = self.index[h5_device]
             table = self.file[source]
@@ -137,24 +147,22 @@ class H5File:
                 last = first + count - 1
                 status = count > 0
 
-            dev = h5_device.split('/')
-            src = '/'.join((dev[:3]))
-            path_base = '.'.join((dev[3:]))
+            category, device, path_base = self._parse_data_src(source)
 
-            if only_this and src not in only_this:
+            if only_this and device not in only_this:
                 continue
 
-            if src not in train_data:
-                train_data[src] = {}
-            data = train_data[src]
+            if device not in train_data:
+                train_data[device] = {}
+            data = train_data[device]
 
             if status:
                 def append_data(key, value):
                     if isinstance(value, h5py.Dataset):
                         path = '.'.join(filter(None,
                                         (path_base,) + tuple(key.split('/'))))
-                        if (only_this and only_this[src] and
-                                path not in only_this[src]):
+                        if (only_this and only_this[device] and
+                                path not in only_this[device]):
                             return
 
                         if first == last:
@@ -167,7 +175,7 @@ class H5File:
             sec, frac = str(time()).split('.')
             timestamp = {'tid': int(self.train_ids[train_index]),
                          'sec': int(sec), 'frac': int(frac)}
-            data.update({'metadata': {'source': src, 'timestamp': timestamp}})
+            data.update({'metadata': {'source': device, 'timestamp': timestamp}})
 
         return (self.train_ids[train_index], train_data)
 
