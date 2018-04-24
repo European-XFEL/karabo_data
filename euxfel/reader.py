@@ -344,6 +344,24 @@ class RunDirectory:
 
         self.ordered_trains = list(sorted(self._trains.items()))
 
+    @property
+    def train_ids(self):
+        return [x[0] for x in self.ordered_trains]
+
+    @property
+    def control_devices(self):
+        r = set()
+        for f in self.files:
+            r.update(f.control_devices)
+        return r
+
+    @property
+    def instrument_device_channels(self):
+        r = set()
+        for f in self.files:
+            r.update(f.instrument_device_channels)
+        return r
+
     def trains(self, devices=None):
         """Iterate over all trains in the run and gather all sources.
 

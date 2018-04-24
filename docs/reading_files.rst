@@ -8,7 +8,35 @@ including the main detectors, record data more frequently.
 
 .. module:: euxfel
 
+.. autoclass:: RunDirectory
+
+   .. attribute:: train_ids
+
+      A list of the train IDs for which there is any data in this run.
+      The data recorded may not be the same for each train.
+
+   .. attribute:: control_devices
+
+      A set of the control device names in this run, in the format
+      ``"SA3_XTD10_VAC/TSENS/S30100K"``.
+
+   .. attribute:: instrument_device_channels
+
+      A set of the instrument devices and output channel names in this run,
+      in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
+
+   .. automethod:: trains
+
+   .. automethod:: train_from_id
+
+   .. automethod:: train_from_index
+
+
 .. autoclass:: H5File
+
+   .. attribute:: train_ids
+
+      A list of the train IDs for which there is data in this file.
 
    .. attribute:: control_devices
 
@@ -26,10 +54,3 @@ including the main detectors, record data more frequently.
 
    .. automethod:: train_from_index
 
-.. autoclass:: RunDirectory
-
-   .. automethod:: trains
-
-   .. automethod:: train_from_id
-
-   .. automethod:: train_from_index
