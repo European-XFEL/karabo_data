@@ -8,7 +8,7 @@ from queue import Full
 from struct import pack
 from time import sleep
 
-from euxfel_karabo_bridge import Client
+from karabo_bridge import Client
 
 from karabo_data import ZMQStreamer
 

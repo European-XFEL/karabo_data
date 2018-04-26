@@ -63,7 +63,7 @@ class ZMQStreamer:
             serve.feed(result)
 
         # Client:
-        from euxfel_karabo_bridge import Client
+        from karabo_bridge import Client
         client = Client('tcp://server.hostname:1234')
         data = client.next()
 
