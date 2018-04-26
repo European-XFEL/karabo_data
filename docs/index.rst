@@ -1,5 +1,5 @@
-European XFEL Python data tools
-===============================
+Karabo Python data tools
+========================
 
 Contents:
 

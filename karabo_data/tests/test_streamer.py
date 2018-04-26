@@ -10,7 +10,7 @@ from time import sleep
 
 from euxfel_karabo_bridge import Client
 
-from euxfel import ZMQStreamer
+from karabo_data import ZMQStreamer
 
 DATA = {'source1': {'parameter.1.value': 123,
                     'list.of.int': [1, 2, 3],

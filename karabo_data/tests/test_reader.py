@@ -3,7 +3,7 @@ import os.path as osp
 import pytest
 from time import sleep
 
-from euxfel import (H5File, RunDirectory, stack_data, stack_detector_data)
+from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
 
 FILEPATH = '/home/tmichela/Downloads/data/R0019-lpd00-S00000.h5'
 RUNPATH = '/home/tmichela/Downloads//data/r0185'

@@ -21,12 +21,12 @@ def find_version(*parts):
     raise RuntimeError("Unable to find version string.")
 
 
-setup(name="euxfel",
-      version=find_version("euxfel", "__init__.py"),
+setup(name="karabo_data",
+      version=find_version("karabo_data", "__init__.py"),
       author="European XFEL GmbH",
       author_email="cas-support@xfel.eu",
       maintainer="Thomas Michelat",
-      url="https://github.com/European-XFEL/euxfel-python",
+      url="https://github.com/European-XFEL/karabo_data-python",
       description="Tools to read and analyse data from European XFEL ",
       long_description=read("README.md"),
       license="BSD-3-Clause",
@@ -34,7 +34,7 @@ setup(name="euxfel",
       scripts=["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
       entry_points={
           "console_scripts": [
-              "lsxfel = euxfel.lsxfel:main",
+              "lsxfel = karabo_data.lsxfel:main",
           ],
       },
       install_requires=[

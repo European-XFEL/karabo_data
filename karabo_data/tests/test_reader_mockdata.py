@@ -3,7 +3,7 @@ import os.path as osp
 import pytest
 from tempfile import TemporaryDirectory
 
-from euxfel import (H5File, RunDirectory, stack_data, stack_detector_data)
+from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
 from . import make_examples
 
 @pytest.fixture(scope='module')

@@ -1,5 +1,5 @@
 # coding: utf-8
-"""The euxfel_h5tools package.
+"""The karabo_data package.
 
 Copyright (c) 2017, European X-Ray Free-Electron Laser Facility GmbH
 All rights reserved.
