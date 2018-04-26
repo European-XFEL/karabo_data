@@ -6,7 +6,7 @@ Each train has a unique train ID, which is used to match up corresponding data
 stored separately. Many data sources will make one reading per train, but some,
 including the main detectors, record data more frequently.
 
-.. module:: euxfel
+.. module:: karabo_data
 
 .. autoclass:: RunDirectory
 
