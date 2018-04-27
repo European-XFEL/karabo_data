@@ -516,9 +516,9 @@ class RunDirectory:
             mod_key = sorted(detector_modules)[0]
             mod_files = detector_modules[mod_key]
             dinfo = [f.detector_info() for f in mod_files]
-            print("  e.g. module {}{} : {} × {} pixels".format(
-                *mod_key, *dinfo[0]['dims'],
-            ))
+            module = ''.join(mod_key)
+            dims = ' x '.join(str(d) for d in dinfo[0]['dims'])
+            print("  e.g. module {} : {} pixels".format(module, dims))
             print("  {} frames per train, {} total frames".format(
                 max(i['frames_per_train'] for i in dinfo),
                 sum(i['total_frames'] for i in dinfo),
