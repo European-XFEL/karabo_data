@@ -150,3 +150,14 @@ def test_run_get_series_control(mock_fxe_run):
     assert isinstance(s, pd.Series)
     assert len(s) == 480
     assert list(s.index) == list(range(10000, 10480))
+
+def test_run_get_dataframe(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    df = run.get_dataframe(fields=["*_XGM/*.i[xy]Pos*"])
+    assert len(df.columns) == 4
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df.columns
+
+    df2 = run.get_dataframe(fields=["*_XGM/*.i[xy]Pos*"], timestamps=True)
+    assert len(df2.columns) == 8
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df2.columns
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos.timestamp" in df2.columns
