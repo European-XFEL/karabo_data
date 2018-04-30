@@ -338,6 +338,8 @@ class H5File:
                     control_fields.append(self.get_series(dev, key))
             self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
 
+        if not control_fields:
+            return None
         return pd.concat(control_fields, axis=1)
 
     def close(self):
@@ -551,6 +553,34 @@ class RunDirectory:
            if find_device in (f.control_devices | f.instrument_device_channels)]
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+
+    def get_dataframe(self):
+        """Return a pandas Dataframe for the 1D, train-oriented data in this run
+        """
+        group_dfs = []
+        for _, files in self._assemble_sequences().items():
+            file_dfs = []
+            for f in files:
+                df = f.get_dataframe()
+                if df is not None:
+                    file_dfs.append(df)
+            if file_dfs:
+                group_dfs.append(pd.concat(file_dfs))
+        return pd.concat(group_dfs, axis=1)
+
+    def _assemble_sequences(self):
+        """Assemble the sequences for each data recorder.
+
+        Returns a dict keyed by filename prefix, with ordered lists of the
+        H5File objects (...-S00000.h5, ...-S00001.h5, etc.)
+        """
+        segment_sequences = defaultdict(list)
+        for f in sorted(self.files, key=lambda f: osp.basename(f.file.filename)):
+            m = re.match(r'(.+)-S\d+\.h5', osp.basename(f.file.filename))
+            if not m:
+                raise ValueError("Unrecognised filename: %s" % f.file.filename)
+            segment_sequences[m.group(1)].append(f)
+        return dict(segment_sequences)
 
     def _get_devices(self, src):
         """Return sets of control and instrument device names.
