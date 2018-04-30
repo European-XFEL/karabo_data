@@ -44,7 +44,7 @@ setup(name="karabo_data",
           'msgpack-numpy>=0.4.3',
           'numpy',
           'pandas; python_version>="3.5"',
-          'pandas<0.21; python_version<"3.4"',
+          'pandas<0.21; python_version<"3.5"',
           'pyzmq>=17.0.0',
       ],
       classifiers=[
