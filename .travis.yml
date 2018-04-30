@@ -1,10 +1,15 @@
-sudo: required
+language: python
+python:
+  - 3.6
+  - 3.5
+  - 3.4
 
-services:
-  - docker
+env:
+  global:
+    - MPLBACKEND=agg
 
-before_install:
-  - make build-docker-image
+install:
+  - make install
 
 script:
-  - make ci-docker
+  - make test
