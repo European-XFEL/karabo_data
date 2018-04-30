@@ -31,14 +31,12 @@ setup(name="karabo_data",
       long_description=read("README.md"),
       license="BSD-3-Clause",
       packages=find_packages(),
-      scripts=["bin/euxfel_h5tool", "bin/euxfel_h5tool_tmp.py"],
       entry_points={
           "console_scripts": [
               "lsxfel = karabo_data.lsxfel:main",
           ],
       },
       install_requires=[
-          'docopt',
           'fabio',
           'h5py>=2.7.1',
           'matplotlib',
