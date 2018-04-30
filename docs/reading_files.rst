@@ -31,6 +31,10 @@ including the main detectors, record data more frequently.
 
    .. automethod:: train_from_index
 
+   .. automethod:: get_dataframe
+
+   .. automethod:: get_series
+
 
 .. autoclass:: H5File
 
@@ -54,3 +58,6 @@ including the main detectors, record data more frequently.
 
    .. automethod:: train_from_index
 
+   .. automethod:: get_dataframe
+
+   .. automethod:: get_series

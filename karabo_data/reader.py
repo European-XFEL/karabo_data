@@ -340,7 +340,7 @@ class H5File:
         ----------
         fields : list of str
             Glob patterns to match device and field names, e.g.
-            "*_XGM/*.i[xy]Pos" matches ixPos and iyPos from any XGM devices.
+            ``"*_XGM/*.i[xy]Pos"`` matches ixPos and iyPos from any XGM devices.
             By default, all fields from all control devices are matched.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
@@ -584,7 +584,7 @@ class RunDirectory:
         ----------
         fields : list of str
             Glob patterns to match device and field names, e.g.
-            "*_XGM/*.i[xy]Pos" matches ixPos and iyPos from any XGM devices.
+            ``"*_XGM/*.i[xy]Pos"`` matches ixPos and iyPos from any XGM devices.
             By default, all fields from all control devices are matched.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
