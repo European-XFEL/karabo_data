@@ -12,6 +12,7 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from collections import defaultdict
 import datetime
+from fnmatch import fnmatchcase
 from glob import glob
 import h5py
 import numpy as np
@@ -280,6 +281,13 @@ class H5File:
         """
         return self._gen_train_data(index, only_this=devices)
 
+    @staticmethod
+    def _make_field_name(device, key):
+        name = device + '/' + key
+        if name.endswith('.value'):
+            name = name[:-6]
+        return name
+
     def get_series(self, device, key):
         """Return a pandas Series for a particular data field.
 
@@ -293,9 +301,7 @@ class H5File:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
-        name = device + '/' + key
-        if name.endswith('.value'):
-            name = name[:-6]
+        name = self._make_field_name(device, key)
 
         # Find the data
         if ':' in device:  # INSTRUMENT data
@@ -327,20 +333,37 @@ class H5File:
 
         return pd.Series(data, name=name, index=index)
 
-    def get_dataframe(self):
-        """Return a pandas dataframe for given data fields."""
-        control_fields = []
+    def get_dataframe(self, fields=('*',), *, timestamps=False):
+        """Return a pandas dataframe for given data fields.
 
+        Parameters
+        ----------
+        fields : list of str
+            Glob patterns to match device and field names, e.g.
+            "*_XGM/*.i[xy]Pos" matches ixPos and iyPos from any XGM devices.
+            By default, all fields from all control devices are matched.
+        timestamps : bool
+            If false (the default), exclude the timestamps associated with each
+            control data field.
+        """
+        if isinstance(fields, str):
+            fields = [fields]
+
+        control_series = []
         for dev in self.control_devices:
             def append_ctrl_data(key, value):
-                if isinstance(value, h5py.Dataset) and key.endswith('/value'):
+                if (not timestamps) and key.endswith('/timestamp'):
+                    return
+                if isinstance(value, h5py.Dataset):
                     key = key.replace('/', '.')
-                    control_fields.append(self.get_series(dev, key))
+                    name = self._make_field_name(dev, key)
+                    if any(fnmatchcase(name, pat) for pat in fields):
+                        control_series.append(self.get_series(dev, key))
             self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
 
-        if not control_fields:
+        if not control_series:
             return None
-        return pd.concat(control_fields, axis=1)
+        return pd.concat(control_series, axis=1)
 
     def close(self):
         self.file.close()
@@ -554,14 +577,24 @@ class RunDirectory:
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
 
-    def get_dataframe(self):
+    def get_dataframe(self, fields=('*',), *, timestamps=False):
         """Return a pandas Dataframe for the 1D, train-oriented data in this run
+
+        Parameters
+        ----------
+        fields : list of str
+            Glob patterns to match device and field names, e.g.
+            "*_XGM/*.i[xy]Pos" matches ixPos and iyPos from any XGM devices.
+            By default, all fields from all control devices are matched.
+        timestamps : bool
+            If false (the default), exclude the timestamps associated with each
+            control data field.
         """
         group_dfs = []
         for _, files in self._assemble_sequences().items():
             file_dfs = []
             for f in files:
-                df = f.get_dataframe()
+                df = f.get_dataframe(fields=fields, timestamps=timestamps)
                 if df is not None:
                     file_dfs.append(df)
             if file_dfs:
