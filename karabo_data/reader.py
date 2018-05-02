@@ -288,6 +288,13 @@ class H5File:
             name = name[:-6]
         return name
 
+    @staticmethod
+    def _field_match(device, key, patterns):
+        if key.endswith('.value'):
+            key = key[:-6]
+        return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
+                   for p in patterns)
+
     def get_series(self, device, key):
         """Return a pandas Series for a particular data field.
 
@@ -333,14 +340,14 @@ class H5File:
 
         return pd.Series(data, name=name, index=index)
 
-    def get_dataframe(self, fields=('*',), *, timestamps=False):
+    def get_dataframe(self, fields=(('*', '*'),), *, timestamps=False):
         """Return a pandas dataframe for given data fields.
 
         Parameters
         ----------
-        fields : list of str
+        fields : list of 2-tuples
             Glob patterns to match device and field names, e.g.
-            ``"*_XGM/*.i[xy]Pos"`` matches ixPos and iyPos from any XGM devices.
+            ``("*_XGM/*", "*.i[xy]Pos")`` matches ixPos and iyPos from any XGM devices.
             By default, all fields from all control devices are matched.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
@@ -356,8 +363,7 @@ class H5File:
                     return
                 if isinstance(value, h5py.Dataset):
                     key = key.replace('/', '.')
-                    name = self._make_field_name(dev, key)
-                    if any(fnmatchcase(name, pat) for pat in fields):
+                    if self._field_match(dev, key, fields):
                         control_series.append(self.get_series(dev, key))
             self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
 
@@ -577,14 +583,14 @@ class RunDirectory:
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
 
-    def get_dataframe(self, fields=('*',), *, timestamps=False):
+    def get_dataframe(self, fields=(('*', '*'),), *, timestamps=False):
         """Return a pandas Dataframe for the 1D, train-oriented data in this run
 
         Parameters
         ----------
-        fields : list of str
+        fields : list of 2-tuples
             Glob patterns to match device and field names, e.g.
-            ``"*_XGM/*.i[xy]Pos"`` matches ixPos and iyPos from any XGM devices.
+            ``("*_XGM/*", "*.i[xy]Pos")`` matches ixPos and iyPos from any XGM devices.
             By default, all fields from all control devices are matched.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
