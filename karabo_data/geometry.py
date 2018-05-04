@@ -24,10 +24,12 @@ def splitChannelDataIntoTiles(channelData, clockwiseOrder=False):
     ndarray
         Same data, but reshaped into (12, 32, 128)
     """
-    tiles = np.asarray(np.split(channelData, 8, axis=1))
-    tiles = np.asarray(np.split(tiles, 2, axis=1))
-    orderedTiles = np.moveaxis(tiles.reshape(16, 128, 32, channelData.shape[2]),
-                               2, 1)
+    extra_dims = channelData.shape[:-2]
+    a = np.asarray(np.split(channelData, 8, axis=-2))
+    a = np.asarray(np.split(a, 2, axis=-1))
+    a = np.reshape(a, (16,) + extra_dims + (32, 128))
+    orderedTiles = np.moveaxis(a, -1, -2)
+
     if clockwiseOrder:
         # Naturally, the tile data after splitting is in reading
         # order (i.e. top left tile is first, top right tile is second,
@@ -35,7 +37,7 @@ def splitChannelDataIntoTiles(channelData, clockwiseOrder=False):
         # starting with the top right tile. The following array
         # contains indices of tiles in reading order as they would
         # be iterated in clockwise order (starting from the top right)
-        readingOrderToClockwise = list(range(8, 16)) + list(range(7, -1, -1))
+        readingOrderToClockwise = list(range(7, -1, -1)) + list(range(8, 16))
         # Return tiles in reading order
         orderedTiles = orderedTiles[readingOrderToClockwise]
     return orderedTiles
@@ -234,15 +236,21 @@ class LPDGeometry(GeometryFragment):
 
             Q = 'Q{:d}'.format(module_ix // 4 + 1)
             M = 'M{:d}'.format(module_ix % 4 + 1)
-            module_tiles_data = splitChannelDataIntoTiles(module_data)
+            module_tiles_data = splitChannelDataIntoTiles(module_data, clockwiseOrder=True)
             for tileno, tile_data in enumerate(module_tiles_data, start=1):
                 T = "T{:02d}".format(tileno)
                 position = self.find_offset((Q, M, T))
                 # Convert physical position (m) to pixel location:
-                x0, y0 = (position / self.pixel_size) + centre
+                x0, y0 = (position // self.pixel_size) + centre
+                x0, y0 = int(x0), int(y0)
+                x0 -= 750  # Offset
 
-                out[..., x0:x0 + tile_data.shape[0],
-                         y0:y0 + tile_data.shape[1]] = tile_data
+                # ???
+#                 if module_ix >= 8:
+#                     tile_data = tile_data[..., ::-1]
+
+                out[..., x0:x0 + tile_data.shape[-2],
+                         y0:y0 + tile_data.shape[-1]] = tile_data[..., ::-1, :]
 
         return out
 
