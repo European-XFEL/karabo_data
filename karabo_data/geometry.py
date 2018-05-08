@@ -234,34 +234,31 @@ class LPDGeometry(GeometryFragment):
         Parameters
         ----------
 
-        data : dict (int: numpy array)
-          Mapping of channel numbers (0-15 inclusive) to data.
-          Each array must be at least two dimensional, with the last two
-          dimensions being the pixel y and x.
+        data : ndarray
+          The last three dimensions should be channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
+          Other dimensions before these will be preserved in the output.
 
         Returns
         -------
         out : ndarray
-          Array with the same dimensionality as each module data passed in.
+          Array with the one dimension fewer than the input.
           The last two dimensions represent pixel y and x in the detector space.
         centre : ndarray
           (x, y) pixel location of the detector centre in this geometry.
         """
-        data_1mod = list(data.values())[0]
+        assert data.shape[-3:] == (16, 256, 256)
         size_xy, centre = self._plotting_dimensions()
         size_yx = size_xy[::-1]
-        out = np.empty(data_1mod.shape[:-2] + size_yx,
-                       dtype=data_1mod.dtype)
+        out = np.empty(data.shape[:-3] + size_yx,
+                       dtype=data.dtype)
         out[:] = np.nan
 
-        for module_ix in range(16):
-            try:
-                module_data = data[module_ix]
-            except KeyError:
-                continue
+        for channelno in range(16):
+            module_data = data[..., channelno, :, :]
 
-            Q = 'Q{:d}'.format(module_ix // 4 + 1)
-            M = 'M{:d}'.format(module_ix % 4 + 1)
+            Q = 'Q{:d}'.format(channelno // 4 + 1)
+            M = 'M{:d}'.format(channelno % 4 + 1)
             module_tiles_data = splitChannelDataIntoTiles(module_data, clockwiseOrder=True)
             for tileno, tile_data in enumerate(module_tiles_data, start=1):
                 T = "T{:02d}".format(tileno)
@@ -299,7 +296,7 @@ class LPDGeometry(GeometryFragment):
         centre = np.asarray([-min_x, -min_y])
         return size, centre
 
-    def plot_data(self, modules_data, slice=()):
+    def plot_data(self, modules_data):
         """Plot data from the detector using this geometry.
 
         Returns a matplotlib figure.
@@ -307,13 +304,9 @@ class LPDGeometry(GeometryFragment):
         Parameters
         ----------
 
-        modules_data : dict (int: ndarray)
-          Mapping of channel numbers (0-15 inclusive) to data.
-          Each array must be at least two dimensional, with the last two
-          dimensions being the pixel y and x.
-        slice
-          If the arrays have more than two dimensions, this should specify which
-          2D part is required. E.g. pulse number for train data.
+        data : ndarray
+          Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -326,8 +319,7 @@ class LPDGeometry(GeometryFragment):
         # Use a dark grey for missing data
         my_viridis.set_bad('0.25', 1.)
 
-        sliced_data = {k: v[slice] for (k, v) in modules_data.items()}
-        res, centre = self.position_all_modules(sliced_data)
+        res, centre = self.position_all_modules(modules_data)
         ax.imshow(res, cmap=my_viridis)
 
         cx, cy = centre
