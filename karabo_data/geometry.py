@@ -1,6 +1,8 @@
+from copy import copy
+import h5py
 from itertools import product
 import numpy as np
-import h5py, re
+import re
 import sys
 from textwrap import indent
 
@@ -228,9 +230,11 @@ class LPDGeometry(GeometryFragment):
 
     def position_all_modules(self, data):
         data_1mod = list(data.values())[0]
-        out = np.zeros(data_1mod.shape[:-2] + (1500, 1500),
+        size_xy, centre = self._plotting_dimensions()
+        size_yx = size_xy[::-1]
+        out = np.empty(data_1mod.shape[:-2] + size_yx,
                        dtype=data_1mod.dtype)
-        centre = np.asarray(out.shape[:2]) // 2
+        out[:] = np.nan
 
         for module_ix in range(16):
             try:
@@ -247,12 +251,11 @@ class LPDGeometry(GeometryFragment):
                 # Convert physical position (m) to pixel location:
                 x0, y0 = (position // self.pixel_size) + centre
                 x0, y0 = int(x0), int(y0)
-                x0 -= 750  # Offset
 
                 out[..., y0:y0 + tile_data.shape[-2],
                          x0:x0 + tile_data.shape[-1]] = tile_data[..., ::-1, ::-1]
 
-        return out
+        return out, centre
 
     def _plotting_dimensions(self):
         """Calculate appropriate dimensions for plotting assembled data
@@ -277,6 +280,27 @@ class LPDGeometry(GeometryFragment):
         size = (max_x - min_x), (max_y - min_y)
         centre = np.asarray([-min_x, -min_y])
         return size, centre
+
+    def plot_data(self, modules_data, slice=()):
+        from matplotlib.cm import viridis
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+        my_viridis = copy(viridis)
+        # Use a dark grey for missing data
+        my_viridis.set_bad('0.25', 1.)
+
+        sliced_data = {k: v[slice] for (k, v) in modules_data.items()}
+        res, centre = self.position_all_modules(sliced_data)
+        ax.imshow(res, cmap=my_viridis)
+
+        cx, cy = centre
+        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
+        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
+        return fig
 
     def inspect(self):
         """Plot the 2D layout of this detector geometry.
