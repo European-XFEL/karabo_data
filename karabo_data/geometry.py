@@ -28,17 +28,12 @@ def splitChannelDataIntoTiles(channelData, clockwiseOrder=False):
     a = np.asarray(np.split(channelData, 8, axis=-2))
     a = np.asarray(np.split(a, 2, axis=-1))
     a = np.reshape(a, (16,) + extra_dims + (32, 128))
-    orderedTiles = np.moveaxis(a, -1, -2)
+    orderedTiles = a
 
     if clockwiseOrder:
-        # Naturally, the tile data after splitting is in reading
-        # order (i.e. top left tile is first, top right tile is second,
-        # etc.). The official LPD tile order however is clockwise,
-        # starting with the top right tile. The following array
-        # contains indices of tiles in reading order as they would
-        # be iterated in clockwise order (starting from the top right)
+        # The official LPD tile order is clockwise from the top right tile.
+        # We need them in this order to apply the right offset to the right tile.
         readingOrderToClockwise = list(range(7, -1, -1)) + list(range(8, 16))
-        # Return tiles in reading order
         orderedTiles = orderedTiles[readingOrderToClockwise]
     return orderedTiles
 
@@ -249,8 +244,8 @@ class LPDGeometry(GeometryFragment):
 #                 if module_ix >= 8:
 #                     tile_data = tile_data[..., ::-1]
 
-                out[..., x0:x0 + tile_data.shape[-2],
-                         y0:y0 + tile_data.shape[-1]] = tile_data[..., ::-1, :]
+                out[..., y0:y0 + tile_data.shape[-2],
+                         x0:x0 + tile_data.shape[-1]] = tile_data[..., ::-1, ::-1]
 
         return out
 
