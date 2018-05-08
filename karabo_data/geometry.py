@@ -228,6 +228,63 @@ class LPDGeometry(GeometryFragment):
 
         return cls(np.asarray((0, 0)), children)
 
+    @classmethod
+    def approximate(cls):
+        """Return approximate LPD geometry
+
+        This allows you to visually inspect detector images if detailed
+        detector info is not available. It is not suitable for proper analysis.
+        """
+        hole_size = 0.015
+        quad_border = 0.004
+        module_border = 0.002
+        tile_border = 0.001
+
+        def make_tiles():
+            c = {}
+            for ix, T in enumerate(range(1, 9)):
+                x = (128 * cls.pixel_size) + tile_border
+                y = ((32 * cls.pixel_size) + tile_border) * ix
+                c['T%02d' % T] = GeometryFragment(np.asarray((x, y)), {})
+            for ix, T in enumerate(range(16, 8, -1)):
+                x = 0
+                y = ((32 * cls.pixel_size) + tile_border) * ix
+                c['T%02d' % T] = GeometryFragment(np.asarray((x, y)), {})
+            return c
+
+        def make_modules():
+            c = {}
+            for ix, T in enumerate(range(1, 3)):
+                x = (256 * cls.pixel_size) + (2 * tile_border) + module_border
+                y = ((256 * cls.pixel_size) + (8 * tile_border) + module_border) * ix
+                c['M%d' % T] = GeometryFragment(np.asarray((x, y)), make_tiles())
+            for ix, T in enumerate(range(4, 2, -1)):
+                x = 0
+                y = ((256 * cls.pixel_size) + (8 * tile_border) + module_border) * ix
+                c['M%d' % T] = GeometryFragment(np.asarray((x, y)), make_tiles())
+            return c
+
+        quad_w = ((256 * cls.pixel_size) + (2 * tile_border) + module_border) * 2
+        quad_h = ((256 * cls.pixel_size) + (8 * tile_border) + module_border) * 2
+        quads= {}
+        x1 = hole_size + quad_border
+        y1 = hole_size - quad_border - quad_h
+        quads['Q1'] = GeometryFragment(np.asarray((x1, y1)), make_modules())
+
+        x2 = - hole_size + quad_border
+        y2 = hole_size + quad_border
+        quads['Q2'] = GeometryFragment(np.asarray((x2, y2)), make_modules())
+
+        x3 = - hole_size - quad_border - quad_w
+        y3 = - hole_size + quad_border
+        quads['Q3'] = GeometryFragment(np.asarray((x3, y3)), make_modules())
+
+        x4 = hole_size - quad_border - quad_w
+        y4 = - hole_size - quad_border - quad_h
+        quads['Q4'] = GeometryFragment(np.asarray((x4, y4)), make_modules())
+        return cls(np.asarray((0, 0)), quads)
+
+
     def position_all_modules(self, data):
         """Assemble data from this detector according to where the pixels are.
 
