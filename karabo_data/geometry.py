@@ -1,3 +1,4 @@
+from itertools import product
 import numpy as np
 import h5py, re
 import sys
@@ -195,6 +196,14 @@ class GeometryFragment:
             return self.offset + child.find_offset(name_parts[1:])
         return self.offset
 
+    def iter_leaf_paths(self):
+        if not self.children:
+            yield ()
+            return
+        for k, v in sorted(self.children.items()):
+            for subpath in v.iter_leaf_paths():
+                yield (k,) + subpath
+
     @classmethod
     def from_h5_group(cls, group, unit=1e-3):
         children = {key: GeometryFragment.from_h5_group(val)
@@ -240,14 +249,75 @@ class LPDGeometry(GeometryFragment):
                 x0, y0 = int(x0), int(y0)
                 x0 -= 750  # Offset
 
-                # ???
-#                 if module_ix >= 8:
-#                     tile_data = tile_data[..., ::-1]
-
                 out[..., y0:y0 + tile_data.shape[-2],
                          x0:x0 + tile_data.shape[-1]] = tile_data[..., ::-1, ::-1]
 
         return out
+
+    def _plotting_dimensions(self):
+        """Calculate appropriate dimensions for plotting assembled data
+
+        Returns (size_x, size_y), (centre_x, centre_y)
+        """
+        min_x = max_x = min_y = max_y = 0
+        for path in self.iter_leaf_paths():
+            x, y = self.find_offset(path)
+            min_x = min(min_x, x)
+            max_x = max(max_x, x)
+            min_y = min(min_y, y)
+            max_y = max(max_y, y)
+
+        # Convert physical distances to pixels
+        # Add 20px margin, plus the 128*32 tile size
+        min_x = int(min_x // self.pixel_size) - 20
+        max_x = int(max_x // self.pixel_size) + 128 + 20
+        min_y = int(min_y // self.pixel_size) - 20
+        max_y = int(max_y // self.pixel_size) + 32 + 20
+
+        size = (max_x - min_x), (max_y - min_y)
+        centre = np.asarray([-min_x, -min_y])
+        return size, centre
+
+    def inspect(self):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Figure object.
+        """
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        from matplotlib.figure import Figure
+
+        fig = Figure((10, 10))
+        FigureCanvas(fig)
+        ax = fig.add_subplot(1, 1, 1)
+
+        size_xy, centre = self._plotting_dimensions()
+        size_yx = size_xy[::-1]  # Our array indexing is [y, x]
+        bg = np.ones(size_yx + (3,), dtype='f4')
+
+        # Mark the centre location
+        cx, cy = centre
+        ax.hlines(cy, cx - 100, cx + 100, colors='0.75', linewidths=2)
+        ax.vlines(cx, cy - 100, cy + 100, colors='0.75', linewidths=2)
+
+        # Show where detector elements (modules & tiles) are positioned.
+        for (Q, M) in product(range(1, 5), range(1, 5)):
+            position = self.find_offset(('Q%d' % Q, 'M%d' % M))
+            xm, ym = (position // self.pixel_size) + centre
+            ax.text(xm, ym, 'Q%dM%d' % (Q, M), color='k', ha='left', va='top',
+                    bbox={'facecolor': 'w'})
+            for T in range(1, 17):
+                position = self.find_offset(('Q%d' % Q, 'M%d' % M, 'T%02d' % T))
+                xt, yt = (position // self.pixel_size) + centre
+                xt, yt = int(xt), int(yt)
+                # Draw a light green block for each tile
+                bg[yt:yt + 32, xt:xt + 128] = (0.75, 1.0, 0.75)
+                # Label specific tiles to show the ordering
+                if T in [1, 8, 9]:
+                    ax.text(xt, yt, str(T), va='top', ha='left')
+
+        ax.imshow(bg, origin='upper')
+        ax.set_title('LPD detector geometry')
+        return fig
 
 
 if __name__ == '__main__':
