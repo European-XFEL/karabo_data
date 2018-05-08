@@ -229,6 +229,24 @@ class LPDGeometry(GeometryFragment):
         return cls(np.asarray((0, 0)), children)
 
     def position_all_modules(self, data):
+        """Assemble data from this detector according to where the pixels are.
+
+        Parameters
+        ----------
+
+        data : dict (int: numpy array)
+          Mapping of channel numbers (0-15 inclusive) to data.
+          Each array must be at least two dimensional, with the last two
+          dimensions being the pixel y and x.
+
+        Returns
+        -------
+        out : ndarray
+          Array with the same dimensionality as each module data passed in.
+          The last two dimensions represent pixel y and x in the detector space.
+        centre : ndarray
+          (x, y) pixel location of the detector centre in this geometry.
+        """
         data_1mod = list(data.values())[0]
         size_xy, centre = self._plotting_dimensions()
         size_yx = size_xy[::-1]
@@ -282,6 +300,21 @@ class LPDGeometry(GeometryFragment):
         return size, centre
 
     def plot_data(self, modules_data, slice=()):
+        """Plot data from the detector using this geometry.
+
+        Returns a matplotlib figure.
+
+        Parameters
+        ----------
+
+        modules_data : dict (int: ndarray)
+          Mapping of channel numbers (0-15 inclusive) to data.
+          Each array must be at least two dimensional, with the last two
+          dimensions being the pixel y and x.
+        slice
+          If the arrays have more than two dimensions, this should specify which
+          2D part is required. E.g. pulse number for train data.
+        """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         from matplotlib.figure import Figure
@@ -307,11 +340,11 @@ class LPDGeometry(GeometryFragment):
 
         Returns a matplotlib Figure object.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
         from matplotlib.figure import Figure
 
         fig = Figure((10, 10))
-        FigureCanvas(fig)
+        FigureCanvasAgg(fig)
         ax = fig.add_subplot(1, 1, 1)
 
         size_xy, centre = self._plotting_dimensions()
