@@ -224,7 +224,7 @@ class LPDGeometry(GeometryFragment):
         Parameters
         ----------
 
-        data : ndarray
+        modules_data : ndarray
           Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
           (lengths 16, 256, 256).
         """
