@@ -427,7 +427,7 @@ class LPDGeometry(GeometryFragment):
 
 
 if __name__ == '__main__':
-    quadpos = [(11.4, -299), (11.5, -8), (-254.5, 16), (-278.5, -275)]  # MAR 18
+    quadpos = [(-11.4, -299), (11.5, -8), (-254.5, 16), (-278.5, -275)]  # MAR 18
     with h5py.File(sys.argv[1], 'r') as f:
         geom = LPDGeometry.from_h5_file_and_quad_positions(f, quadpos, unit=1e-3)
 
