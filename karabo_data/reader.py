@@ -12,10 +12,12 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from collections import defaultdict
 import datetime
+from fnmatch import fnmatchcase
 from glob import glob
 import h5py
 import numpy as np
 import os.path as osp
+import pandas as pd
 import re
 from time import time
 
@@ -279,6 +281,96 @@ class H5File:
         """
         return self._gen_train_data(index, only_this=devices)
 
+    @staticmethod
+    def _make_field_name(device, key):
+        name = device + '/' + key
+        if name.endswith('.value'):
+            name = name[:-6]
+        return name
+
+    @staticmethod
+    def _field_match(device, key, patterns):
+        if key.endswith('.value'):
+            key = key[:-6]
+        return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
+                   for p in patterns)
+
+    def get_series(self, device, key):
+        """Return a pandas Series for a particular data field.
+
+        Parameters
+        ----------
+
+        device: str
+            Device name with optional output channel, e.g.
+            "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "beamPosition.iyPos.value"
+            or "header.linkId". The data must be 1D in the file.
+        """
+        name = self._make_field_name(device, key)
+
+        # Find the data
+        if ':' in device:  # INSTRUMENT data
+            keyhead, _, key = key.partition('.')
+            device += '/' + keyhead
+            data_src = 'INSTRUMENT/' + device
+        else:
+            data_src = 'CONTROL/' + device
+        data_path = "/{}/{}".format(data_src, key.replace('.', '/'))
+        ds = self.file[data_path]
+
+        # Get the index
+        if data_src.startswith('CONTROL'):
+            index_ds = self.index['trainId']
+            index = pd.Index(index_ds[index_ds[:] != 0], name='trainId')
+            data = ds[:len(index)]
+        elif data_src.startswith('INSTRUMENT'):
+            ix_path = "/{}/trainId".format(data_src)
+            index_ds = self.file[ix_path]
+            index = pd.Index(index_ds[index_ds[:] != 0], name='trainId')
+            data = ds[index_ds[:] != 0]
+            if not index.is_unique:
+                pulse_id = self.file['/{}/pulseId'.format(data_src)]
+                pulse_id = pulse_id[index_ds[:] != 0]
+                index = pd.MultiIndex.from_arrays([index, pulse_id],
+                                                  names=['trainId', 'pulseId'])
+        else:
+            raise ValueError("Unknown data source %r" % data_src)
+
+        return pd.Series(data, name=name, index=index)
+
+    def get_dataframe(self, fields=(('*', '*'),), *, timestamps=False):
+        """Return a pandas dataframe for given data fields.
+
+        Parameters
+        ----------
+        fields : list of 2-tuples
+            Glob patterns to match device and field names, e.g.
+            ``("*_XGM/*", "*.i[xy]Pos")`` matches ixPos and iyPos from any XGM devices.
+            By default, all fields from all control devices are matched.
+        timestamps : bool
+            If false (the default), exclude the timestamps associated with each
+            control data field.
+        """
+        if isinstance(fields, str):
+            fields = [fields]
+
+        control_series = []
+        for dev in self.control_devices:
+            def append_ctrl_data(key, value):
+                if (not timestamps) and key.endswith('/timestamp'):
+                    return
+                if isinstance(value, h5py.Dataset):
+                    key = key.replace('/', '.')
+                    if self._field_match(dev, key, fields):
+                        control_series.append(self.get_series(dev, key))
+            self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
+
+        if not control_series:
+            return None
+        return pd.concat(control_series, axis=1)
+
     def close(self):
         self.file.close()
 
@@ -463,6 +555,71 @@ class RunDirectory:
             _, d = fh.train_from_id(train_id, devices=devices)
             data.update(d)
         return (train_id, data)
+
+    def get_series(self, device, key):
+        """Return a pandas Series for a particular data field.
+
+        Parameters
+        ----------
+
+        device: str
+            Device name with optional output channel, e.g.
+            "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "beamPosition.iyPos.value"
+            or "header.linkId". The data must be 1D in the file.
+        """
+        name = device + '/' + key
+        if name.endswith('.value'):
+            name = name[:-6]
+
+        # Find the data
+        find_device = device
+        if ':' in find_device:  # INSTRUMENT data
+            find_device += '/' + key.split('.')[0]
+
+        seq_series = [f.get_series(device, key) for f in self.files
+           if find_device in (f.control_devices | f.instrument_device_channels)]
+
+        return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+
+    def get_dataframe(self, fields=(('*', '*'),), *, timestamps=False):
+        """Return a pandas Dataframe for the 1D, train-oriented data in this run
+
+        Parameters
+        ----------
+        fields : list of 2-tuples
+            Glob patterns to match device and field names, e.g.
+            ``("*_XGM/*", "*.i[xy]Pos")`` matches ixPos and iyPos from any XGM devices.
+            By default, all fields from all control devices are matched.
+        timestamps : bool
+            If false (the default), exclude the timestamps associated with each
+            control data field.
+        """
+        group_dfs = []
+        for _, files in self._assemble_sequences().items():
+            file_dfs = []
+            for f in files:
+                df = f.get_dataframe(fields=fields, timestamps=timestamps)
+                if df is not None:
+                    file_dfs.append(df)
+            if file_dfs:
+                group_dfs.append(pd.concat(file_dfs))
+        return pd.concat(group_dfs, axis=1)
+
+    def _assemble_sequences(self):
+        """Assemble the sequences for each data recorder.
+
+        Returns a dict keyed by filename prefix, with ordered lists of the
+        H5File objects (...-S00000.h5, ...-S00001.h5, etc.)
+        """
+        segment_sequences = defaultdict(list)
+        for f in sorted(self.files, key=lambda f: osp.basename(f.file.filename)):
+            m = re.match(r'(.+)-S\d+\.h5', osp.basename(f.file.filename))
+            if not m:
+                raise ValueError("Unrecognised filename: %s" % f.file.filename)
+            segment_sequences[m.group(1)].append(f)
+        return dict(segment_sequences)
 
     def _get_devices(self, src):
         """Return sets of control and instrument device names.

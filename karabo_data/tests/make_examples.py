@@ -109,8 +109,8 @@ def make_agipd_example_file(path):
                         (256, 16), 'u1', maxshape=(None, 16))  # Empty in example
 
     cellId = f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/cellId',
-                        (16000,), 'u2')
-    cellId[:] = np.tile(np.arange(64), 250)
+                        (16000, 1), 'u2')
+    cellId[:, 0] = np.tile(np.arange(64), 250)
     # The data itself
     f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/data',
                         (16000, 512, 128), 'f4')
@@ -121,9 +121,10 @@ def make_agipd_example_file(path):
     length[:] = 262144  # = 512*128*4(bytes) ?
     f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/mask',
                         (16000, 512, 128, 3), 'u1')  # TODO: values 128 or 0
-    # TODO: Repeated 64 numbers, unevenly spaced 0-125
-    f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/pulseId',
+    pulseId = f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/pulseId',
                         (16000, 1), 'u8')
+    # In the real data, these are unevenly spaced, but this is close enough
+    pulseId[:, 0] = np.tile(np.linspace(0, 125, 64, dtype='u8'), 250)
     f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/image/status',
                         (16000, 1), 'u2')  # Empty in example
 
@@ -224,7 +225,12 @@ def make_fxe_run(dir_path):
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
-    ], ntrains=480, chunksize=200)
+    ], ntrains=400, chunksize=200)
+    write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00001.h5'), [
+        XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+        XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+        GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
+    ], ntrains=80, firsttrain=10400, chunksize=200)
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')

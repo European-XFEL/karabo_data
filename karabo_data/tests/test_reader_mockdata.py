@@ -1,5 +1,6 @@
 from itertools import islice
 import os.path as osp
+import pandas as pd
 import pytest
 from tempfile import TemporaryDirectory
 
@@ -84,7 +85,7 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
 
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    assert len(run.files) == 17  # 16 detector modules + 1 control data file
+    assert len(run.files) == 18  # 16 detector modules + 2 control data files
     assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
     run.info()  # Smoke test
 
@@ -121,3 +122,42 @@ def test_train_from_index_fxe_run(mock_fxe_run):
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
     assert 'FXE_XAD_GEC/CAM/CAMERA' in data
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_file_get_series_control(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        s = f.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
+        assert isinstance(s, pd.Series)
+        assert len(s) == 400
+        assert s.index[0] == 10000
+
+def test_file_get_series_instrument(mock_agipd_data):
+    with H5File(mock_agipd_data) as f:
+        s = f.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'header.linkId')
+        assert isinstance(s, pd.Series)
+        assert len(s) == 250
+        assert s.index[0] == 10000
+
+        # Multiple readings per train
+        s2 = f.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'image.status')
+        assert isinstance(s2, pd.Series)
+        assert isinstance(s2.index, pd.MultiIndex)
+        assert len(s2) == 16000
+        assert len(s2.loc[10000:10004]) == 5 * 64
+
+def test_run_get_series_control(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    s = run.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
+    assert isinstance(s, pd.Series)
+    assert len(s) == 480
+    assert list(s.index) == list(range(10000, 10480))
+
+def test_run_get_dataframe(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    df = run.get_dataframe(fields=[("*_XGM/*", "*.i[xy]Pos*")])
+    assert len(df.columns) == 4
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df.columns
+
+    df2 = run.get_dataframe(fields=[("*_XGM/*", "*.i[xy]Pos*")], timestamps=True)
+    assert len(df2.columns) == 8
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df2.columns
+    assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos.timestamp" in df2.columns

@@ -7,6 +7,7 @@ class DetectorModule:
 
     # Set by write_file:
     ntrains = 100
+    firsttrain = 10000
     chunksize = 32
 
     output_parts = [
@@ -52,7 +53,7 @@ class DetectorModule:
 
     def write_instrument(self, f):
         """Write the INSTRUMENT data, and the relevants parts of INDEX"""
-        trainids = np.arange(10000, 10000 + self.ntrains)
+        trainids = np.arange(self.firsttrain, self.firsttrain + self.ntrains)
 
         ntrains_pad = self.ntrains
         if ntrains_pad % self.chunksize:
