@@ -216,7 +216,7 @@ def make_lpd_file(path):
 
 def make_fxe_run(dir_path):
     for modno in range(16):
-        path = osp.join(dir_path, 'RAW-R0445-LPD{:0>2}-S00000.h5'.format(modno))
+        path = osp.join(dir_path, 'RAW-R0450-LPD{:0>2}-S00000.h5'.format(modno))
         write_file(path, [
             LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), frames_per_train=128)
         ], ntrains=480, chunksize=32)
@@ -238,6 +238,6 @@ if __name__ == '__main__':
     make_sa3_da_file('sa3_control_example.h5')
     make_agipd_file('agipd_example2.h5')
     make_lpd_file('lpd_example.h5')
-    os.makedirs('fxe_example_run')
+    os.makedirs('fxe_example_run', exist_ok=True)
     make_fxe_run('fxe_example_run')
     print("Written examples.")
