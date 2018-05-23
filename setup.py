@@ -47,6 +47,12 @@ setup(name="karabo_data",
           'pandas<0.21; python_version<"3.5"',
           'pyzmq>=17.0.0',
       ],
+      extras_require={
+          'docs': [
+              'sphinx',
+              'nbsphinx',
+          ],
+      },
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Environment :: Console',

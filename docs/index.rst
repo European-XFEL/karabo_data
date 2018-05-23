@@ -10,6 +10,13 @@ Contents:
    streaming
    data_format
 
+.. toctree::
+   :caption: Examples
+
+   Demo
+   apply_geometry
+   examine_geometry
+
 Indices and tables
 ==================
 
