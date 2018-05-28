@@ -15,14 +15,14 @@ including the main detectors, record data more frequently.
       A list of the train IDs for which there is any data in this run.
       The data recorded may not be the same for each train.
 
-   .. attribute:: control_devices
+   .. attribute:: control_sources
 
-      A set of the control device names in this run, in the format
+      A set of the control source names in this run, in the format
       ``"SA3_XTD10_VAC/TSENS/S30100K"``.
 
-   .. attribute:: instrument_device_channels
+   .. attribute:: instrument_sources
 
-      A set of the instrument devices and output channel names in this run,
+      A set of the instrument source names in this run,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
    .. automethod:: trains
@@ -42,14 +42,14 @@ including the main detectors, record data more frequently.
 
       A list of the train IDs for which there is data in this file.
 
-   .. attribute:: control_devices
+   .. attribute:: control_sources
 
-      A set of the control device names in this file, in the format
+      A set of the control source names in this run, in the format
       ``"SA3_XTD10_VAC/TSENS/S30100K"``.
 
-   .. attribute:: instrument_device_channels
+   .. attribute:: instrument_sources
 
-      A set of the instrument devices and output channel names in this file,
+      A set of the instrument source names in this run,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
    .. automethod:: trains

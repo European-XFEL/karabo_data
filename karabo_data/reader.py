@@ -100,14 +100,14 @@ class H5File:
 
         self.sources = [source.decode() for source in
                         self.metadata['dataSourceId'].value if source]
-        self.control_devices = set()
-        self.instrument_device_channels = set()
+        self.control_sources = set()
+        self.instrument_sources = set()
         for src in self.sources:
             category, device, _ = self._parse_data_src(src)
             if category == 'CONTROL':
-                self.control_devices.add(device)
+                self.control_sources.add(device)
             elif category == 'INSTRUMENT':
-                self.instrument_device_channels.add(device)
+                self.instrument_sources.add(device)
             else:
                 raise ValueError("Unknown data category %r" % category)
 
@@ -357,7 +357,7 @@ class H5File:
             fields = [fields]
 
         control_series = []
-        for dev in self.control_devices:
+        for dev in self.control_sources:
             def append_ctrl_data(key, value):
                 if (not timestamps) and key.endswith('/timestamp'):
                     return
@@ -441,17 +441,17 @@ class RunDirectory:
         return [x[0] for x in self.ordered_trains]
 
     @property
-    def control_devices(self):
+    def control_sources(self):
         r = set()
         for f in self.files:
-            r.update(f.control_devices)
+            r.update(f.control_sources)
         return r
 
     @property
-    def instrument_device_channels(self):
+    def instrument_sources(self):
         r = set()
         for f in self.files:
-            r.update(f.instrument_device_channels)
+            r.update(f.instrument_sources)
         return r
 
     def trains(self, devices=None):
@@ -579,7 +579,7 @@ class RunDirectory:
             find_device += '/' + key.split('.')[0]
 
         seq_series = [f.get_series(device, key) for f in self.files
-           if find_device in (f.control_devices | f.instrument_device_channels)]
+                      if find_device in (f.control_sources | f.instrument_sources)]
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
 
@@ -621,15 +621,15 @@ class RunDirectory:
             segment_sequences[m.group(1)].append(f)
         return dict(segment_sequences)
 
-    def _get_devices(self, src):
-        """Return sets of control and instrument device names.
+    def _get_sources(self, src):
+        """Return sets of control and instrument source names.
         control: train data
         instrument: pulse data
         """
         ctrl, inst = set(), set()
         for file in src:
-            ctrl.update(file.control_devices)
-            inst.update(file.instrument_device_channels)
+            ctrl.update(file.control_sources)
+            inst.update(file.instrument_sources)
         return ctrl, inst
 
     def info(self):
@@ -656,7 +656,7 @@ class RunDirectory:
         detector_name = ','.join(sorted(set(k[0] for k in detector_modules)))
 
         # devices info
-        ctrl, inst = self._get_devices(non_detector_files)
+        ctrl, inst = self._get_sources(non_detector_files)
 
         # disp
         print('# of trains:   ', train_count)
@@ -708,7 +708,7 @@ class RunDirectory:
                           if t[0] == train_id), (None, None))
         if tid is None:
             raise ValueError("train {} not found in run.".format(train_id))
-        ctrl, inst = self._get_devices(files)
+        ctrl, inst = self._get_sources(files)
 
         # disp
         print('Train [{}] information'.format(train_id))
