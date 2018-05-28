@@ -682,11 +682,11 @@ class RunDirectory:
             ))
         print()
 
-        print(len(inst), 'instrument devices (excluding detectors):')
+        print(len(inst), 'instrument sources (excluding detectors):')
         for d in sorted(inst):
             print('  -', d)
         print()
-        print(len(ctrl), 'control devices:')
+        print(len(ctrl), 'control sources:')
         for d in sorted(ctrl):
             print('  -', d)
         print()
