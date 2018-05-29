@@ -93,8 +93,8 @@ def test_properties_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
 
     assert run.train_ids == list(range(10000, 10480))
-    assert 'SPB_XTD9_XGM/DOOCS/MAIN' in run.control_devices
-    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in run.instrument_device_channels
+    assert 'SPB_XTD9_XGM/DOOCS/MAIN' in run.control_sources
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in run.instrument_sources
 
 def test_iterate_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)

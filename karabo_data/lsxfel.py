@@ -46,12 +46,12 @@ def describe_file(path):
             elif srcparts[0] == 'INSTRUMENT':
                 inst.add('/'.join(srcparts[1:4]))
 
-        print(len(inst), "instrument devices")
+        print(len(inst), "instrument sources")
         for dev in sorted(inst):
             print("  - ", dev)
         print()
 
-        print(len(ctrl), "control devices")
+        print(len(ctrl), "control sources")
         for dev in sorted(ctrl):
             print("  - ", dev)
         print()
@@ -70,7 +70,7 @@ def summarise_file(path):
             len(h5file.train_ids), dinfo['frames_per_train'], dinfo['total_frames']
         ))
     else:
-        print("  {} trains, {} devices".format(
+        print("  {} trains, {} sources".format(
             ntrains, len(h5file.sources)
         ))
 
