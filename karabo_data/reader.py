@@ -654,6 +654,9 @@ class RunDirectory:
     def get_array(self, device, key, extra_dims=None):
         """Return a labelled array for a particular data field.
 
+        The data is loaded into memory, which might cause problems when working
+        with very large datasets, such as the main detector data.
+
         Parameters
         ----------
 
