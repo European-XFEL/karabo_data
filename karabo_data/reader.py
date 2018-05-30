@@ -20,6 +20,7 @@ import os.path as osp
 import pandas as pd
 import re
 from time import time
+import xarray as xr
 
 
 __all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
@@ -371,6 +372,52 @@ class H5File:
             return None
         return pd.concat(control_series, axis=1)
 
+    def get_array(self, device, key):
+        """Return a labelled array for a particular data field.
+
+        Parameters
+        ----------
+
+        device: str
+            Device name with optional output channel, e.g.
+            "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "beamPosition.iyPos.value"
+            or "header.linkId". The data must be 1D in the file.
+        """
+        name = self._make_field_name(device, key)
+
+        # Find the data
+        if ':' in device:  # INSTRUMENT data
+            keyhead, _, key = key.partition('.')
+            device += '/' + keyhead
+            data_src = 'INSTRUMENT/' + device
+        else:
+            data_src = 'CONTROL/' + device
+        data_path = "/{}/{}".format(data_src, key.replace('.', '/'))
+        ds = self.file[data_path]
+
+        # Get the index
+        if data_src.startswith('CONTROL'):
+            index_ds = self.index['trainId']
+            index = index_ds[index_ds[:] != 0]
+            data = ds[:len(index)]
+        elif data_src.startswith('INSTRUMENT'):
+            ix_path = "/{}/trainId".format(data_src)
+            index_ds = self.file[ix_path]
+            index = index_ds[index_ds[:] != 0]
+            data = ds[index_ds[:] != 0, ...]
+            if len(np.unique(index)) != len(index):
+                pulse_id = self.file['/{}/pulseId'.format(data_src)]
+                pulse_id = pulse_id[index_ds[:] != 0]
+                index = pd.MultiIndex.from_arrays([index, pulse_id],
+                                                  names=['trainId', 'pulseId'])
+        else:
+            raise ValueError("Unknown data source %r" % data_src)
+
+        dims = ['train'] + ['dim_%d' % i for i in range(data.ndim - 1)]
+        return xr.DataArray(data, dims=dims, coords={'train': index})
+
     def close(self):
         self.file.close()
 
@@ -606,6 +653,24 @@ class RunDirectory:
             if file_dfs:
                 group_dfs.append(pd.concat(file_dfs))
         return pd.concat(group_dfs, axis=1)
+
+    def get_array(self, device, key):
+        """Return a labelled array for a particular data field.
+
+        Parameters
+        ----------
+
+        device: str
+            Device name with optional output channel, e.g.
+            "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "beamPosition.iyPos.value"
+            or "header.linkId". The data must be 1D in the file.
+        """
+        seq_arrays = [f.get_array(device, key) for f in self.files
+                      if device in (f.control_sources | f.instrument_sources)]
+
+        return xr.concat(sorted(seq_arrays, key=lambda a: a.coords['train'][0]), dim='train')
 
     def _assemble_sequences(self):
         """Assemble the sequences for each data recorder.
