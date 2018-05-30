@@ -372,7 +372,7 @@ class H5File:
             return None
         return pd.concat(control_series, axis=1)
 
-    def get_array(self, device, key):
+    def get_array(self, device, key, extra_dims=None):
         """Return a labelled array for a particular data field.
 
         Parameters
@@ -415,7 +415,9 @@ class H5File:
         else:
             raise ValueError("Unknown data source %r" % data_src)
 
-        dims = ['train'] + ['dim_%d' % i for i in range(data.ndim - 1)]
+        if extra_dims is None:
+            extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
+        dims = ['train'] + extra_dims
         return xr.DataArray(data, dims=dims, coords={'train': index})
 
     def close(self):
@@ -645,7 +647,7 @@ class RunDirectory:
                 group_dfs.append(pd.concat(file_dfs))
         return pd.concat(group_dfs, axis=1)
 
-    def get_array(self, device, key):
+    def get_array(self, device, key, extra_dims=None):
         """Return a labelled array for a particular data field.
 
         Parameters
@@ -658,10 +660,12 @@ class RunDirectory:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
-        seq_arrays = [f.get_array(device, key) for f in self.files
+        seq_arrays = [f.get_array(device, key, extra_dims=extra_dims)
+                      for f in self.files
                       if device in (f.control_sources | f.instrument_sources)]
 
-        return xr.concat(sorted(seq_arrays, key=lambda a: a.coords['train'][0]), dim='train')
+        return xr.concat(sorted(seq_arrays, key=lambda a: a.coords['train'][0]),
+                         dim='train')
 
     def _assemble_sequences(self):
         """Assemble the sequences for each data recorder.
