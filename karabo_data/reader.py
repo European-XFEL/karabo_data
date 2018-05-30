@@ -616,17 +616,8 @@ class RunDirectory:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
-        name = device + '/' + key
-        if name.endswith('.value'):
-            name = name[:-6]
-
-        # Find the data
-        find_device = device
-        if ':' in find_device:  # INSTRUMENT data
-            find_device += '/' + key.split('.')[0]
-
         seq_series = [f.get_series(device, key) for f in self.files
-                      if find_device in (f.control_sources | f.instrument_sources)]
+                      if device in (f.control_sources | f.instrument_sources)]
 
         return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
 
