@@ -384,6 +384,10 @@ class H5File:
         key: str
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
+        extra_dims: list of str
+            Name extra dimensions in the array. The first dimension is
+            automatically called 'train'. The default for extra dimensions
+            is dim_0, dim_1, ...
         """
         name = self._make_field_name(device, key)
 
@@ -659,6 +663,10 @@ class RunDirectory:
         key: str
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
+        extra_dims: list of str
+            Name extra dimensions in the array. The first dimension is
+            automatically called 'train'. The default for extra dimensions
+            is dim_0, dim_1, ...
         """
         seq_arrays = [f.get_array(device, key, extra_dims=extra_dims)
                       for f in self.files
