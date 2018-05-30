@@ -46,6 +46,7 @@ setup(name="karabo_data",
           'pandas; python_version>="3.5"',
           'pandas<0.21; python_version<"3.5"',
           'pyzmq>=17.0.0',
+          'xarray',
       ],
       extras_require={
           'docs': [
