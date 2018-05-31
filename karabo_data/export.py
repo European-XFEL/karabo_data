@@ -12,7 +12,10 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from argparse import ArgumentParser
 import os.path as osp
+from functools import partial
+
 import msgpack
+import numpy as np
 import msgpack_numpy as numpack
 from queue import Queue
 from threading import Event, Thread
@@ -76,10 +79,15 @@ class ZMQStreamer:
         Local TCP port to bind socket to
     maxlen: int, optional
         How many trains to cache before sending (default: 10)
+    protocol_version: ('1.0' | '2.1' | 'latest')
+        Which version of the bridge protocol to use. Defaults to latest.
     """
-    def __init__(self, port, maxlen=10):
+    def __init__(self, port, maxlen=10, protocol_version='latest'):
         self._context = zmq.Context()
         self.port = port
+        if protocol_version == 'latest':
+            protocol_version = '2.1'
+        self.protocol_version = protocol_version
         self._buffer = Queue(maxsize=maxlen)
         self._interface = None
 
@@ -97,8 +105,34 @@ class ZMQStreamer:
             self._interface = None
 
     def _serialize(self, data):
-        # TODO: optimize this...
-        return [msgpack.dumps(data, use_bin_type=True, default=numpack.encode)]
+        if self.protocol_version == '1.0':
+            return [msgpack.dumps(data, use_bin_type=True, default=numpack.encode)]
+
+        pack = partial(msgpack.dumps, use_bin_type=True)
+        msg = []
+        for src, props in data.items():
+            main_data = {}
+            arrays = []
+            for key, value in props.items():
+                if isinstance(value, np.ndarray):
+                    arrays.append((key, value))
+                else:
+                    main_data[key] = value
+
+            msg.extend([
+                pack({'source': src, 'content': 'msgpack'}),
+                pack(main_data)
+            ])
+            for key, array in arrays:
+                if not array.flags['C_CONTIGUOUS']:
+                    array = np.ascontiguousarray(array)
+                msg.extend([
+                    pack({'source': src, 'content': 'array', 'path': key,
+                          'dtype': str(array.dtype), 'shape': array.shape}),
+                    memoryview(array),
+                ])
+
+        return msg
 
     def feed(self, data):
         """Push data to the sending queue.
