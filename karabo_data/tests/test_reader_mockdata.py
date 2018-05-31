@@ -3,6 +3,7 @@ import os.path as osp
 import pandas as pd
 import pytest
 from tempfile import TemporaryDirectory
+from xarray import DataArray
 
 from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
 from . import make_examples
@@ -161,3 +162,22 @@ def test_run_get_dataframe(mock_fxe_run):
     assert len(df2.columns) == 8
     assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df2.columns
     assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos.timestamp" in df2.columns
+
+def test_file_get_array(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        arr = f.get_array('FXE_XAD_GEC/CAM/CAMERA:daqOutput', 'data.image.pixels')
+
+    assert isinstance(arr, DataArray)
+    assert arr.dims == ('train', 'dim_0', 'dim_1')
+    assert arr.shape == (400, 255, 1024)
+    assert arr.coords['train'][0] == 10000
+
+def test_run_get_array(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    arr = run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD',
+                        extra_dims=['pulse'])
+
+    assert isinstance(arr, DataArray)
+    assert arr.dims == ('train', 'pulse')
+    assert arr.shape == (480, 1000)
+    assert arr.coords['train'][0] == 10000
