@@ -110,7 +110,7 @@ class ZMQStreamer:
 
         pack = partial(msgpack.dumps, use_bin_type=True)
         msg = []
-        for src, props in data.items():
+        for src, props in sorted(data.items()):
             main_data = {}
             arrays = []
             for key, value in props.items():
