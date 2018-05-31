@@ -34,6 +34,7 @@ setup(name="karabo_data",
       entry_points={
           "console_scripts": [
               "lsxfel = karabo_data.lsxfel:main",
+              "karabo-bridge-serve-files = karabo_data.export:main",
           ],
       },
       install_requires=[

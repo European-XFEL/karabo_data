@@ -10,12 +10,15 @@ You should have received a copy of the 3-Clause BSD License along with this
 program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 """
 
+from argparse import ArgumentParser
+import os.path as osp
 import msgpack
 import msgpack_numpy as numpack
 from queue import Queue
 from threading import Event, Thread
 import zmq
 
+from .reader import RunDirectory, H5File
 
 __all__ = ['ZMQStreamer']
 
@@ -103,3 +106,23 @@ class ZMQStreamer:
         This blocks if the queue already has *maxlen* items waiting to be sent.
         """
         self._buffer.put(self._serialize(data))
+
+
+def main(argv=None):
+    ap = ArgumentParser(prog="karabo-bridge-serve-files")
+    ap.add_argument("path", help="Path of a file or run directory to serve")
+    ap.add_argument("port", help="TCP port to run server on")
+    args = ap.parse_args(argv)
+
+
+    if osp.isdir(args.path):
+        data = RunDirectory(args.path)
+    else:
+        data = H5File(args.path)
+
+    streamer = ZMQStreamer(args.port)
+    streamer.start()
+    for tid, train_data in data.trains():
+        streamer.feed(train_data)
+
+    streamer.stop()
