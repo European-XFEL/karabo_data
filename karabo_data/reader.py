@@ -415,7 +415,7 @@ class H5File:
             index = index_ds[index_ds[:] != 0]
             data = ds[index_ds[:] != 0, ...]
             if len(np.unique(index)) != len(index):
-                raise ValueError("Train IDs are not unique for %s" % data_src)
+                raise ValueError("%s has more than one data point per train" % data_src)
         else:
             raise ValueError("Unknown data source %r" % data_src)
 
