@@ -673,7 +673,7 @@ class RunDirectory:
                       if device in (f.control_sources | f.instrument_sources)]
 
         return xr.concat(sorted(seq_arrays, key=lambda a: a.coords['train'][0]),
-                         dim='train')
+                         dim='trainId')
 
     def _assemble_sequences(self):
         """Assemble the sequences for each data recorder.
