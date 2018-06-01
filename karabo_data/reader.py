@@ -159,20 +159,29 @@ class H5File:
             data = train_data[device]
 
             if status:
-                def append_data(key, value):
-                    if isinstance(value, h5py.Dataset):
-                        path = '.'.join(filter(None,
-                                        (path_base,) + tuple(key.split('/'))))
-                        if (only_this and only_this[device] and
-                                path not in only_this[device]):
-                            return
+                def add_to_dict(path, value):
+                    if first == last:
+                        data[path] = value[first]
+                    else:
+                        data[path] = value[first:last + 1, ]
 
-                        if first == last:
-                            data[path] = value[first]
-                        else:
-                            data[path] = value[first:last+1, ]
+                if only_this:
+                    for path in only_this[device]:
+                        parts = path.split('.')
+                        if path_base:
+                            if parts[0] != path_base:
+                                continue
+                            parts = parts[1:]
+                        h5_path = '/'.join(parts)
+                        add_to_dict(path, table[h5_path])
+                else:
+                    def append_data(key, value):
+                        if isinstance(value, h5py.Dataset):
+                            path = '.'.join(
+                                filter(None, (path_base,) + tuple(key.split('/'))))
+                            add_to_dict(path, value)
 
-                table.visititems(append_data)
+                    table.visititems(append_data)
 
             sec, frac = str(time()).split('.')
             timestamp = {'tid': int(self.train_ids[train_index]),
