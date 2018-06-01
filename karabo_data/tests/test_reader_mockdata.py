@@ -168,7 +168,7 @@ def test_file_get_array(mock_fxe_control_data):
         arr = f.get_array('FXE_XAD_GEC/CAM/CAMERA:daqOutput', 'data.image.pixels')
 
     assert isinstance(arr, DataArray)
-    assert arr.dims == ('train', 'dim_0', 'dim_1')
+    assert arr.dims == ('trainId', 'dim_0', 'dim_1')
     assert arr.shape == (400, 255, 1024)
     assert arr.coords['train'][0] == 10000
 
@@ -178,6 +178,6 @@ def test_run_get_array(mock_fxe_run):
                         extra_dims=['pulse'])
 
     assert isinstance(arr, DataArray)
-    assert arr.dims == ('train', 'pulse')
+    assert arr.dims == ('trainId', 'pulse')
     assert arr.shape == (480, 1000)
     assert arr.coords['train'][0] == 10000

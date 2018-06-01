@@ -412,17 +412,14 @@ class H5File:
             index = index_ds[index_ds[:] != 0]
             data = ds[index_ds[:] != 0, ...]
             if len(np.unique(index)) != len(index):
-                pulse_id = self.file['/{}/pulseId'.format(data_src)]
-                pulse_id = pulse_id[index_ds[:] != 0]
-                index = pd.MultiIndex.from_arrays([index, pulse_id],
-                                                  names=['trainId', 'pulseId'])
+                raise ValueError("Train IDs are not unique for %s" % data_src)
         else:
             raise ValueError("Unknown data source %r" % data_src)
 
         if extra_dims is None:
             extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-        dims = ['train'] + extra_dims
-        return xr.DataArray(data, dims=dims, coords={'train': index})
+        dims = ['trainId'] + extra_dims
+        return xr.DataArray(data, dims=dims, coords={'trainId': index})
 
     def close(self):
         self.file.close()
