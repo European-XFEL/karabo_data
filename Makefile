@@ -1,7 +1,7 @@
 # makefile used for testing
 
 install:
-	python3 -m pip install .
+	python3 -m pip install .[test]
 	python3 -m pip install -e git+https://github.com/European-XFEL/karabo-bridge-py.git#egg=karabo_bridge
 
 dev-install:

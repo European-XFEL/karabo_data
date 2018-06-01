@@ -10,7 +10,6 @@ env:
 
 install:
   - make install
-  - pip install nbval
 
 script:
   - make test
