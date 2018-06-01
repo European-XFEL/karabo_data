@@ -53,7 +53,7 @@ def compare_nested_dict(d1, d2, path=''):
 @pytest.yield_fixture
 @pytest.fixture(scope="session")
 def server():
-    serve = ZMQStreamer(1234, maxlen=10)
+    serve = ZMQStreamer(1234, maxlen=10, protocol_version='1.0')
     yield serve
 
 
@@ -65,6 +65,24 @@ def test_serialize(server):
     assert len(msg) == 1
     assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True,
                                     default=numpack.encode)
+
+    proto_2_server = ZMQStreamer(1235, protocol_version='2.1')
+    msg = proto_2_server._serialize(DATA)
+    assert isinstance(msg, list)
+    assert len(msg) == 6
+
+    m0 = msgpack.loads(msg[0], raw=False)
+    assert m0['source'] == 'XMPL/DET/MOD0'
+    assert m0['content'] == 'msgpack'
+    m2 = msgpack.loads(msg[2], raw=False)
+    assert m2['source'] == 'XMPL/DET/MOD0'
+    assert m2['path'] == 'image.data'
+    assert m2['content'] == 'array'
+
+    m2 = msgpack.loads(msg[4], raw=False)
+    print(m2)
+    assert m2['source'] == 'source1'
+    assert m2['content'] == 'msgpack'
 
 
 def test_fill_queue(server):
