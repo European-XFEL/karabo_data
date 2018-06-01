@@ -1,0 +1,2 @@
+[run]
+omit = karabo_data/tests/*
