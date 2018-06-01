@@ -3,6 +3,7 @@
 *.egg-info
 *.h5
 .cache
+.coverage
 matplotlibrc
 data
 /.pytest_cache

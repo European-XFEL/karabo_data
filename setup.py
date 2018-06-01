@@ -55,6 +55,7 @@ setup(name="karabo_data",
           ],
           'test': [
               'pytest',
+              'pytest-cov',
               'nbval',
           ]
       },
