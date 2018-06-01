@@ -5,7 +5,7 @@ Python 3 tools for reading European XFEL's HDF5 files.
 
 Installing
 ==========
-This package is dependent on fabio, h5py, matplotlib, numpy.
+This package is dependent on fabio, h5py, matplotlib, numpy, pandas.
 
 Installing h5py on EuXFEL computer may require installing the *libhdf5-dev*
 package from the ubuntu repositories.
