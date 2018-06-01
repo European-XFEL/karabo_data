@@ -375,6 +375,9 @@ class H5File:
     def get_array(self, device, key, extra_dims=None):
         """Return a labelled array for a particular data field.
 
+        The first axis of the returned data will be the train IDs.
+        Datasets which are per-pulse in the first dimension are not supported.
+
         Parameters
         ----------
 
@@ -651,8 +654,8 @@ class RunDirectory:
     def get_array(self, device, key, extra_dims=None):
         """Return a labelled array for a particular data field.
 
-        The data is loaded into memory, which might cause problems when working
-        with very large datasets, such as the main detector data.
+        The first axis of the returned data will be the train IDs.
+        Datasets which are per-pulse in the first dimension are not supported.
 
         Parameters
         ----------
