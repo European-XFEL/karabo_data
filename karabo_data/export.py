@@ -79,14 +79,15 @@ class ZMQStreamer:
         Local TCP port to bind socket to
     maxlen: int, optional
         How many trains to cache before sending (default: 10)
-    protocol_version: ('1.0' | '2.1' | 'latest')
-        Which version of the bridge protocol to use. Defaults to latest.
+    protocol_version: ('1.0' | '2.1')
+        Which version of the bridge protocol to use. Defaults to the latest
+        version implemented.
     """
-    def __init__(self, port, maxlen=10, protocol_version='latest'):
+    def __init__(self, port, maxlen=10, protocol_version='2.1'):
         self._context = zmq.Context()
         self.port = port
-        if protocol_version == 'latest':
-            protocol_version = '2.1'
+        if protocol_version not in {'1.0', '2.1'}:
+            raise ValueError("Unknown protocol version %r" % protocol_version)
         self.protocol_version = protocol_version
         self._buffer = Queue(maxsize=maxlen)
         self._interface = None
