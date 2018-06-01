@@ -129,7 +129,7 @@ class ZMQStreamer:
                 msg.extend([
                     pack({'source': src, 'content': 'array', 'path': key,
                           'dtype': str(array.dtype), 'shape': array.shape}),
-                    memoryview(array),
+                    array.data,
                 ])
 
         return msg
