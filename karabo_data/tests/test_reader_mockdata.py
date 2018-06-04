@@ -83,6 +83,24 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
             assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
+
+def test_iterate_trains_select_keys(mock_fxe_control_data):
+    sel = {
+        'SA1_XTD2_XGM/DOOCS/MAIN': {
+            'beamPosition.ixPos.value',
+            'beamPosition.ixPos.timestamp',
+        }
+    }
+
+    with H5File(mock_fxe_control_data) as f:
+        for train_id, data in islice(f.trains(devices=sel), 10):
+            assert train_id in range(10000, 10400)
+            assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
+            assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
+            assert 'beamPosition.ixPos.timestamp' in data['SA1_XTD2_XGM/DOOCS/MAIN']
+            assert 'beamPosition.iyPos.value' not in data['SA1_XTD2_XGM/DOOCS/MAIN']
+            assert 'SA3_XTD10_VAC/TSENS/S30160K' not in data
+
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     assert len(run.files) == 18  # 16 detector modules + 2 control data files
