@@ -35,6 +35,8 @@ including the main detectors, record data more frequently.
 
    .. automethod:: get_series
 
+   .. automethod:: get_array
+
 
 .. autoclass:: H5File
 
@@ -61,3 +63,5 @@ including the main detectors, record data more frequently.
    .. automethod:: get_dataframe
 
    .. automethod:: get_series
+
+   .. automethod:: get_array
