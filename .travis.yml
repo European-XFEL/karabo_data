@@ -10,7 +10,9 @@ env:
 
 install:
   - make install
-  - pip install nbval
+  - pip install codecov
 
 script:
   - make test
+
+after_success: codecov

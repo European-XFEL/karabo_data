@@ -53,6 +53,11 @@ setup(name="karabo_data",
               'sphinx',
               'nbsphinx',
           ],
+          'test': [
+              'pytest',
+              'pytest-cov',
+              'nbval',
+          ]
       },
       classifiers=[
           'Development Status :: 3 - Alpha',
