@@ -50,7 +50,6 @@ def compare_nested_dict(d1, d2, path=''):
                 raise ValueError('diff: {}{}'.format(path, key), v1, v2)
 
 
-@pytest.yield_fixture
 @pytest.fixture(scope="session")
 def server():
     serve = ZMQStreamer(1234, maxlen=10, protocol_version='1.0')
