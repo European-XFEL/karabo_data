@@ -9,7 +9,7 @@ env:
     - MPLBACKEND=agg
 
 install:
-  - make install
+  - make dev-install
   - pip install codecov
 
 script:
