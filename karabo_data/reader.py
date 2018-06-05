@@ -296,6 +296,31 @@ class H5File:
         return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
                    for p in patterns)
 
+    def _index_to_trainids(self, ix_group, check_unique=True):
+        if 'count' in ix_group:
+            count = ix_group['count'][:]
+        else:
+            first = ix_group['first'][:]
+            count = (ix_group['last'][:] - first + 1) * ix_group['status'][:]
+
+        if check_unique and (count > 1).any():
+            data_src = ix_group.name.split('INDEX/', 1)[1]
+            raise ValueError("%s data has more than one data point per train" % data_src)
+
+        trainId = self.index['trainId'][:]
+        n = min(len(count), len(trainId))
+
+        res = np.repeat(trainId[:n], count.astype(np.intp)[:n])
+
+        # The output should contain valid train IDs, without zeroes.
+        # If not, something has gone wrong, and it needs to be debugged.
+        if (res == 0).any():
+            data_src = ix_group.name.split('INDEX/', 1)[1]
+            raise ValueError("Error calculating train IDs for %s: 0 in index"
+                             % data_src)
+
+        return res
+
     def get_series(self, device, key):
         """Return a pandas Series for a particular data field.
 
@@ -327,15 +352,19 @@ class H5File:
             index = pd.Index(index_ds[index_ds[:] != 0], name='trainId')
             data = ds[:len(index)]
         elif data_src.startswith('INSTRUMENT'):
-            ix_path = "/{}/trainId".format(data_src)
-            index_ds = self.file[ix_path]
-            index = pd.Index(index_ds[index_ds[:] != 0], name='trainId')
-            data = ds[index_ds[:] != 0]
+            trainids = self._index_to_trainids(self.index[device],
+                                               check_unique=False)
+            index = pd.Index(trainids, name='trainId')
+            data = ds[:]
             if not index.is_unique:
                 pulse_id = self.file['/{}/pulseId'.format(data_src)]
-                pulse_id = pulse_id[index_ds[:] != 0]
-                index = pd.MultiIndex.from_arrays([index, pulse_id],
+                pulse_id = pulse_id[:len(index), 0]
+                index = pd.MultiIndex.from_arrays([trainids, pulse_id],
                                                   names=['trainId', 'pulseId'])
+                # Does pulse-oriented data always have an extra dimension?
+                assert data.shape[1] == 1
+                data = data[:, 0]
+            data = data[:len(index)]
         else:
             raise ValueError("Unknown data source %r" % data_src)
 
@@ -407,22 +436,18 @@ class H5File:
         # Get the index
         if data_src.startswith('CONTROL'):
             index_ds = self.index['trainId']
-            index = index_ds[index_ds[:] != 0]
-            data = ds[:len(index)]
+            trainids = index_ds[index_ds[:] != 0]
+            data = ds[:len(trainids), ...]
         elif data_src.startswith('INSTRUMENT'):
-            ix_path = "/{}/trainId".format(data_src)
-            index_ds = self.file[ix_path]
-            index = index_ds[index_ds[:] != 0]
-            data = ds[index_ds[:] != 0, ...]
-            if len(np.unique(index)) != len(index):
-                raise ValueError("%s has more than one data point per train" % data_src)
+            trainids = self._index_to_trainids(self.index[device])
+            data = ds[:len(trainids), ...]
         else:
             raise ValueError("Unknown data source %r" % data_src)
 
         if extra_dims is None:
             extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
         dims = ['trainId'] + extra_dims
-        return xr.DataArray(data, dims=dims, coords={'trainId': index})
+        return xr.DataArray(data, dims=dims, coords={'trainId': trainids})
 
     def close(self):
         self.file.close()
