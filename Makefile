@@ -11,10 +11,11 @@ dev-install:
 test:
 	python3 -m pytest -v --nbval-lax --cov=karabo_data
 
-build-docker-image:
+docker-build:
+	@# build docker image
 	docker build -t image .
 
-ci-docker:
+docker-test:
 	@# uses normal targets, but executes in container
 
 	@# use matplotlib backend that does not require X (or TK)
