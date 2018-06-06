@@ -22,7 +22,7 @@ docker-test:
 	echo "backend      : Agg" > matplotlibrc
 
 	@# make the install part of the testing process ^
-	docker run -v `pwd`:/io image make install test
+	docker run -tv `pwd`:/io image make install test
 
 	@# remove matplotlibrc file again (or should we leave it?)
 	@# would be better to do this via environment variable in
