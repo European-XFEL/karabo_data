@@ -117,6 +117,9 @@ class ZMQStreamer:
             for key, value in props.items():
                 if isinstance(value, np.ndarray):
                     arrays.append((key, value))
+                elif isinstance(value, np.number):
+                    # Convert numpy type to native Python type
+                    main_data[key] = value.item()
                 else:
                     main_data[key] = value
 
