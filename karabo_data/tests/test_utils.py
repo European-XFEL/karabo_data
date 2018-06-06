@@ -3,6 +3,7 @@ import os
 import pytest
 import subprocess
 
+from karabo_data import utils
 from karabo_data.utils import QuickView
 
 
@@ -82,6 +83,12 @@ def test_init_quick_view():
     with pytest.raises(TypeError) as info:
         qv.data = np.empty((1,1,1,1), dtype=np.int8)
 
+
+def test_hdf5_file_info(mock_lpd_data, capsys):
+    utils.hdf5_file_info([mock_lpd_data])
+
+    out, err = capsys.readouterr()
+    assert "Entries: 480" in out
 
 if __name__ == "__main__":
     pytest.main(["-v"])
