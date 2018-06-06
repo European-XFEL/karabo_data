@@ -107,7 +107,7 @@ def test_req_rep(server):
 
     client = Client('tcp://localhost:1234')
     for i in range(3):
-        data = client.next()
+        data, metadata = client.next()
         compare_nested_dict(data, DATA)
 
 
