@@ -82,10 +82,10 @@ class ZMQStreamer:
         Which version of the bridge protocol to use. Defaults to the latest
         version implemented.
     """
-    def __init__(self, port, maxlen=10, protocol_version='2.1'):
+    def __init__(self, port, maxlen=10, protocol_version='2.2'):
         self._context = zmq.Context()
         self.port = port
-        if protocol_version not in {'1.0', '2.1'}:
+        if protocol_version not in {'1.0', '2.2'}:
             raise ValueError("Unknown protocol version %r" % protocol_version)
         elif protocol_version == '1.0':
             import msgpack_numpy

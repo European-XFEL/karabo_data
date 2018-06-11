@@ -51,22 +51,37 @@ def compare_nested_dict(d1, d2, path=''):
 
 
 @pytest.fixture(scope="session")
-def server():
-    serve = ZMQStreamer(1234, maxlen=10, protocol_version='1.0')
-    yield serve
+def server_1():
+    server = ZMQStreamer(4545, maxlen=10, protocol_version='1.0')
+    yield server
 
 
-def test_serialize(server):
-    serve = server
-    msg = serve._serialize(DATA)
+@pytest.fixture(scope="session")
+def server_2_2():
+    server = ZMQStreamer(4545, maxlen=10, protocol_version='2.2')
+    yield server
+
+
+@pytest.fixture(scope="session")
+def client():
+    client = Client('tcp://localhost:4545')
+    yield client
+
+
+def test_serialize_1(server_1, client):
+    msg = server_1._serialize(DATA)
     
     assert isinstance(msg, list)
     assert len(msg) == 1
     assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True,
                                     default=numpack.encode)
 
-    proto_2_server = ZMQStreamer(1235, protocol_version='2.1')
-    msg = proto_2_server._serialize(DATA)
+    data, meta = client._deserialize(msg)
+    compare_nested_dict(data, DATA)
+
+
+def test_serialize_2_2(server_2_2, client):
+    msg = server_2_2._serialize(DATA)
     assert isinstance(msg, list)
     assert len(msg) == 6
 
@@ -83,29 +98,30 @@ def test_serialize(server):
     assert m2['source'] == 'source1'
     assert m2['content'] == 'msgpack'
 
+    data, meta = client._deserialize(msg)
+    compare_nested_dict(data, DATA)
 
-def test_fill_queue(server):
-    serve = server
+    assert meta['source1']['timestamp.tid'] == 0
 
+
+def test_fill_queue(server_2_2):
     for i in range(10):
-        serve.feed(i)
+        server_2_2.feed({str(i): {str(i): i}})
 
-    assert serve._buffer.full()
+    assert server_2_2._buffer.full()
     with pytest.raises(Full):
-        serve._buffer.put_nowait(b'too much')
+        server_2_2._buffer.put_nowait({'too much': {'prop': 0}})
 
     for i in range(10):
-        assert serve._buffer.get() == [msgpack.dumps(i)]
+        assert server_2_2._buffer.get()[1] == msgpack.dumps({str(i): i})
 
 
-def test_req_rep(server):
-    serve = server
-    serve.start()
+def test_req_rep(server_2_2, client):
+    server_2_2.start()
 
     for i in range(3):
-        serve.feed(DATA)
+        server_2_2.feed(DATA)
 
-    client = Client('tcp://localhost:1234')
     for i in range(3):
         data, metadata = client.next()
         compare_nested_dict(data, DATA)
