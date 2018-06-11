@@ -27,6 +27,13 @@ def mock_fxe_control_data():
         yield path
 
 @pytest.fixture(scope='module')
+def mock_sa3_control_data():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'RAW-R0450-DA01-S00001.h5')
+        make_examples.make_sa3_da_file(path)
+        yield path
+
+@pytest.fixture(scope='module')
 def mock_spb_control_data_badname():
     with TemporaryDirectory() as td:
         path = osp.join(td, 'RAW-R0309-DA01-S00000.h5')

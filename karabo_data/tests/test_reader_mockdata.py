@@ -64,6 +64,15 @@ def test_iterate_trains_select_keys(mock_fxe_control_data):
             assert 'beamPosition.iyPos.value' not in data['SA1_XTD2_XGM/DOOCS/MAIN']
             assert 'SA3_XTD10_VAC/TSENS/S30160K' not in data
 
+def test_iterate_trains_partial(mock_sa3_control_data):
+    with H5File(mock_sa3_control_data) as f:
+        trains_iter = f.trains(devices=[('*/CAM/BEAMVIEW:daqOutput', 'data.image.dims')], partial=False)
+        tids = [t for (t, _) in trains_iter]
+        assert tids == []
+        trains_iter = f.trains(devices=[('*/CAM/BEAMVIEW:daqOutput', 'data.image.dims')], partial=True)
+        tids = [t for (t, _) in trains_iter]
+        assert tids != []
+
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     assert len(run.files) == 18  # 16 detector modules + 2 control data files

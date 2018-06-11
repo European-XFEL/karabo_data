@@ -189,6 +189,24 @@ class H5File:
             raise KeyError("Source {} not in file".format(source))
         return res
 
+    def _check_data_missing(self, selection, tid):
+        missing = set()
+        for source, key in selection:
+            if source in self.instrument_sources:
+                key_head, _, h5_key = key.partition('.')
+                h5_source = source + '/' + key_head
+            elif source in self.control_sources:
+                h5_source = source
+            else:
+                missing.add((source, key))
+                continue
+
+            _, count = self._read_index(h5_source, self._trains[tid])
+            if count < 1:
+               missing.add((source, key))
+
+        return missing
+
     def _gen_train_data(self, train_index, only_this=None):
         """Get data for the specified index in file.
         """
@@ -208,7 +226,6 @@ class H5File:
                     path = '/INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
                 else:
                     path = '/CONTROL/{}/{}'.format(source, key.replace('.', '/'))
-                index = self.index[h5_source]
 
                 # Which parts of the data to get for this train:
                 first, count = self._read_index(h5_source, train_index)
@@ -256,7 +273,6 @@ class H5File:
                     if count == 1:
                         data[path] = value[first]
                     else:
-                        print(first, count)
                         data[path] = value[first:first + count, ]
 
             table.visititems(append_data)
@@ -272,7 +288,7 @@ class H5File:
 
         return train_id, train_data
 
-    def trains(self, devices=None):
+    def trains(self, devices=None, *, train_range=None, partial=True):
         """Iterate over all trains in the file.
 
         Parameters
@@ -294,6 +310,14 @@ class H5File:
                 }
                 for tid, data in handler.trains(devices=dev):
                     ...
+
+        train_range: range object, optional
+            Iterate over only these train IDs.
+
+        partial: bool
+            True (default) returns any data available for the requested trains.
+            False skips trains which don't have all the requested data;
+            this requires that you specify required data using *devices*.
 
         Examples
         --------
@@ -318,10 +342,26 @@ class H5File:
         it's parameters (pulseEnergy and beamPosition), sample_x and
         sample_y (with all of their parameters). All other devices are ignored.
         """
-        if devices is not None:
-            devices = _normalize_data_selection(devices, self)
 
-        for index in range(len(self.train_ids)):
+        tids = self.train_ids
+        if train_range is None:
+            train_range = range(tids[0], tids[-1] + 1)
+        elif (train_range.start > tids[-1]) or (train_range.stop <= tids[0]):
+            raise ValueError("Train range {} does not overlap this run ({}-{})"
+                             .format(train_range, tids[0], tids[-1]))
+
+        if devices:
+            devices = _normalize_data_selection(devices, self)
+        elif not partial:
+            raise ValueError("Cannot skip partial data without devices= parameter")
+
+        for index, tid in enumerate(tids):
+            if tid not in train_range:
+                continue
+
+            if (not partial) and self._check_data_missing(devices, tid):
+                continue
+
             yield self._gen_train_data(index, only_this=devices)
 
     def train_from_id(self, train_id, devices=None):
@@ -654,8 +694,13 @@ class RunDirectory:
 
         raise ValueError("No keys found for source {}".format(source))
 
+    def _check_data_missing(self, selection, tid, fhs):
+        missing = selection.copy()
+        for file in fhs:
+            missing = file._check_data_missing(missing, tid)
+        return missing
 
-    def trains(self, devices=None, *, train_range=None):
+    def trains(self, devices=None, *, train_range=None, partial=True):
         """Iterate over all trains in the run and gather all sources.
 
         ::
@@ -672,7 +717,12 @@ class RunDirectory:
             Refer to :meth:`H5File.trains` for how to use this.
 
         train_range: range object, optional
-            Iterate over only these train IDs
+            Iterate over only these train IDs.
+
+        partial: bool
+            True (default) returns any data available for the requested trains.
+            False skips trains which don't have all the requested data;
+            this requires that you specify required data using *devices*.
 
         Yields
         ------
@@ -690,10 +740,15 @@ class RunDirectory:
                              .format(train_range, tids[0], tids[-1]))
 
         if devices:
-            devices = self._normalize_data_selection(devices)
+            devices = _normalize_data_selection(devices, self)
+        elif not partial:
+            raise ValueError("Cannot skip partial data without devices= parameter")
 
         for tid, fhs in self.ordered_trains:
             if tid not in train_range:
+                continue
+
+            if (not partial) and self._check_data_missing(devices, tid, fhs):
                 continue
 
             train_data = {}
