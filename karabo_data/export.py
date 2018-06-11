@@ -19,6 +19,7 @@ import numpy as np
 import msgpack_numpy as numpack
 from queue import Queue
 from threading import Event, Thread
+from time import time
 import zmq
 
 from .reader import RunDirectory, H5File
@@ -105,9 +106,23 @@ class ZMQStreamer:
             self._interface.join()
             self._interface = None
 
-    def _serialize(self, data):
+    def _serialize(self, data, metadata=None):
+        def mock_metadata():
+            ts = time()
+            sec, frac = str(ts).split('.')
+            return {'timestamp': ts,
+                    'timestamp.sec': sec,
+                    'timestamp.frac': frac.zfill(18),
+                    'timestamp.tid': 0}
+        if not metadata:
+            mock_meta = mock_metadata()
+            metadata = {src: mock_meta for src in data}
+
         if self.protocol_version == '1.0':
-            return [msgpack.dumps(data, use_bin_type=True, default=numpack.encode)]
+            for src, value in data.items():
+                value['metadata'] = metadata.get(src, mock_metadata())
+            return [msgpack.dumps(data, use_bin_type=True,
+                                  default=numpack.encode)]
 
         pack = partial(msgpack.dumps, use_bin_type=True)
         msg = []
@@ -124,7 +139,8 @@ class ZMQStreamer:
                     main_data[key] = value
 
             msg.extend([
-                pack({'source': src, 'content': 'msgpack'}),
+                pack({'source': src, 'content': 'msgpack',
+                      'metadata': metadata[src]}),
                 pack(main_data)
             ])
             for key, array in arrays:
@@ -138,12 +154,42 @@ class ZMQStreamer:
 
         return msg
 
-    def feed(self, data):
+    def feed(self, data, metadata=None):
         """Push data to the sending queue.
 
         This blocks if the queue already has *maxlen* items waiting to be sent.
+
+        Parameters
+        ----------
+        data : dict
+            Contains train data. The dictionary has to follow the karabo_bridge
+            protocol structure:
+            - keys are source names
+            - values are dict, where the keys are the parameter names and
+              values must be python built-in types or numpy.ndarray.
+        metadata : dict, optional
+            Contains train metadata. The dictionary has to follow the
+            karabo_bridge protocol structure:
+            - keys are (str) source names
+            - values (dict) should contain the following items:
+              {
+                  'timestamp': 1234.567890  # float
+                  'timestamp.sec': '1234'  # str
+                  'timestamp.frac': '567890000000000000'  # str
+                  'timestamp.tid': 1234567890  # int
+              }
+
+            'timestamp' is the Unix epoch
+            'timestamp.sec' is the seconds of Unix epoch
+            'timestamp.frac' is the fractional part of Unix epoch with
+            attosecond resolution
+            'timestamp.tid' is European XFEL train unique ID
+
+            If the metadata dict is not provided it will be generated with:
+            - timestamp: the time when this function is called
+            - train ID: 0
         """
-        self._buffer.put(self._serialize(data))
+        self._buffer.put(self._serialize(data, metadata))
 
 
 def main(argv=None):
@@ -151,7 +197,6 @@ def main(argv=None):
     ap.add_argument("path", help="Path of a file or run directory to serve")
     ap.add_argument("port", help="TCP port to run server on")
     args = ap.parse_args(argv)
-
 
     if osp.isdir(args.path):
         data = RunDirectory(args.path)
