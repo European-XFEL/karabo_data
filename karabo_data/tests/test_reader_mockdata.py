@@ -103,6 +103,16 @@ def test_iterate_select_trains(mock_fxe_run):
     tids = [tid for (tid, _) in run.trains(train_range=range(10004, 10006))]
     assert tids == [10004, 10005]
 
+def test_iterate_run_glob_devices(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    trains_iter = run.trains([("*/DET/*", "image.data")])
+    tid, data = next(trains_iter)
+    assert tid == 10000
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'detector.data' not in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' not in data
+
 def test_train_by_id_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     _, data = run.train_from_id(10024)

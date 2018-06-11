@@ -753,7 +753,14 @@ class RunDirectory:
 
             train_data = {}
             for fh in fhs:
-                _, data = fh.train_from_id(tid, devices=devices)
+                if devices is None:
+                    file_selection = None
+                else:
+                    file_selection = {(src, key) for (src, key) in devices
+                        if src in (fh.control_sources | fh.instrument_sources)}
+                    if not file_selection:
+                        continue
+                _, data = fh.train_from_id(tid, devices=file_selection)
                 train_data.update(data)
 
             yield (tid, train_data)
