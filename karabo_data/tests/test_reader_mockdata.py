@@ -1,5 +1,6 @@
 from itertools import islice
 import pandas as pd
+import pytest
 from xarray import DataArray
 
 from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
@@ -86,6 +87,12 @@ def test_iterate_fxe_run(mock_fxe_run):
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
     assert 'FXE_XAD_GEC/CAM/CAMERA' in data
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_iterate_select_trains(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    tids = [tid for (tid, _) in run.trains(train_range=range(10004, 10006))]
+    assert tids == [10004, 10005]
 
 def test_train_by_id_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)

@@ -532,7 +532,7 @@ class RunDirectory:
             r.update(f.instrument_sources)
         return r
 
-    def trains(self, devices=None):
+    def trains(self, devices=None, *, train_range=None):
         """Iterate over all trains in the run and gather all sources.
 
         ::
@@ -548,6 +548,9 @@ class RunDirectory:
 
             Refer to :meth:`H5File.trains` for how to use this.
 
+        train_range: range object, optional
+            Iterate over only these train IDs
+
         Yields
         ------
 
@@ -556,7 +559,17 @@ class RunDirectory:
         data : dict
             The data for this train, keyed by device name
         """
+        tids = self.train_ids
+        if train_range is None:
+            train_range = range(tids[0], tids[-1] + 1)
+        elif (train_range.start > tids[-1]) or (train_range.stop <= tids[0]):
+            raise ValueError("Train range {} does not overlap this run ({}-{})"
+                             .format(train_range, tids[0], tids[-1]))
+
         for tid, fhs in self.ordered_trains:
+            if tid not in train_range:
+                continue
+
             train_data = {}
             for fh in fhs:
                 _, data = fh.train_from_id(tid, devices=devices)
