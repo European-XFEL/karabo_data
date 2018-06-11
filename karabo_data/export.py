@@ -12,14 +12,12 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from argparse import ArgumentParser
 import os.path as osp
-from functools import partial
-
-import msgpack
-import numpy as np
-import msgpack_numpy as numpack
 from queue import Queue
 from threading import Event, Thread
 from time import time
+
+import msgpack
+import numpy as np
 import zmq
 
 from .reader import RunDirectory, H5File
@@ -89,6 +87,12 @@ class ZMQStreamer:
         self.port = port
         if protocol_version not in {'1.0', '2.1'}:
             raise ValueError("Unknown protocol version %r" % protocol_version)
+        elif protocol_version == '1.0':
+            import msgpack_numpy
+            self.pack = msgpack.Packer(use_bin_type=True,
+                                       default=msgpack_numpy.encode).pack
+        else:
+            self.pack = msgpack.Packer(use_bin_type=True).pack
         self.protocol_version = protocol_version
         self._buffer = Queue(maxsize=maxlen)
         self._interface = None
@@ -121,10 +125,8 @@ class ZMQStreamer:
         if self.protocol_version == '1.0':
             for src, value in data.items():
                 value['metadata'] = metadata.get(src, mock_metadata())
-            return [msgpack.dumps(data, use_bin_type=True,
-                                  default=numpack.encode)]
+            return [self.pack(data)]
 
-        pack = partial(msgpack.dumps, use_bin_type=True)
         msg = []
         for src, props in sorted(data.items()):
             main_data = {}
@@ -139,16 +141,20 @@ class ZMQStreamer:
                     main_data[key] = value
 
             msg.extend([
-                pack({'source': src, 'content': 'msgpack',
-                      'metadata': metadata[src]}),
-                pack(main_data)
+                self.pack({
+                    'source': src, 'content': 'msgpack',
+                    'metadata': metadata[src]
+                }),
+                self.pack(main_data)
             ])
             for key, array in arrays:
                 if not array.flags['C_CONTIGUOUS']:
                     array = np.ascontiguousarray(array)
                 msg.extend([
-                    pack({'source': src, 'content': 'array', 'path': key,
-                          'dtype': str(array.dtype), 'shape': array.shape}),
+                    self.pack({
+                        'source': src, 'content': 'array', 'path': key,
+                        'dtype': str(array.dtype), 'shape': array.shape
+                    }),
                     array.data,
                 ])
 
