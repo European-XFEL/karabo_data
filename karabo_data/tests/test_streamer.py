@@ -15,7 +15,8 @@ from karabo_data import ZMQStreamer
 DATA = {'source1': {'parameter.1.value': 123,
                     'list.of.int': [1, 2, 3],
                     'string.param': 'True',
-                    'boolean': False},
+                    'boolean': False,
+                    'metadata': {'timestamp.tid': 9876543210}},
         'XMPL/DET/MOD0': {'image.data': np.random.randint(255, size=(2, 3, 4), 
                                                           dtype=np.uint8),
                           'something.else': ['a', 'bc', 'd']}
@@ -101,7 +102,7 @@ def test_serialize_2_2(server_2_2, client):
     data, meta = client._deserialize(msg)
     compare_nested_dict(data, DATA)
 
-    assert meta['source1']['timestamp.tid'] == 0
+    assert meta['source1']['timestamp.tid'] == 9876543210
 
 
 def test_fill_queue(server_2_2):
