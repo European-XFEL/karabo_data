@@ -52,19 +52,19 @@ def compare_nested_dict(d1, d2, path=''):
 
 @pytest.fixture(scope="session")
 def server_1():
-    server = ZMQStreamer(4545, maxlen=10, protocol_version='1.0')
+    server = ZMQStreamer(4444, maxlen=10, protocol_version='1.0')
     yield server
 
 
 @pytest.fixture(scope="session")
 def server_2_2():
-    server = ZMQStreamer(4545, maxlen=10, protocol_version='2.2')
+    server = ZMQStreamer(5555, maxlen=10, protocol_version='2.2')
     yield server
 
 
 @pytest.fixture(scope="session")
 def client():
-    client = Client('tcp://localhost:4545')
+    client = Client('tcp://localhost:5555')
     yield client
 
 

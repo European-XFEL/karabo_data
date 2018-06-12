@@ -111,20 +111,10 @@ class ZMQStreamer:
             self._interface = None
 
     def _serialize(self, data, metadata=None):
-        def mock_metadata():
-            ts = time()
-            sec, frac = str(ts).split('.')
-            return {'timestamp': ts,
-                    'timestamp.sec': sec,
-                    'timestamp.frac': frac.zfill(18),
-                    'timestamp.tid': 0}
         if not metadata:
-            mock_meta = mock_metadata()
-            metadata = {src: mock_meta for src in data}
+            metadata = {src: v.get('metadata', {}) for src, v in data.items()}
 
         if self.protocol_version == '1.0':
-            for src, value in data.items():
-                value['metadata'] = metadata.get(src, mock_metadata())
             return [self.pack(data)]
 
         msg = []
@@ -179,21 +169,21 @@ class ZMQStreamer:
             - keys are (str) source names
             - values (dict) should contain the following items:
               {
+                  'source': 'sourceName'  # str
                   'timestamp': 1234.567890  # float
                   'timestamp.sec': '1234'  # str
                   'timestamp.frac': '567890000000000000'  # str
                   'timestamp.tid': 1234567890  # int
               }
 
-            'timestamp' is the Unix epoch
-            'timestamp.sec' is the seconds of Unix epoch
-            'timestamp.frac' is the fractional part of Unix epoch with
-            attosecond resolution
+            'timestamp' Unix time with subsecond resolution
+            'timestamp.sec' Unix time with second resolution
+            'timestamp.frac' fractional part with attosecond resolution
             'timestamp.tid' is European XFEL train unique ID
 
-            If the metadata dict is not provided it will be generated with:
-            - timestamp: the time when this function is called
-            - train ID: 0
+            If the metadata dict is not provided it will be extracted from
+            'data' or an empty dict if 'metadata' key is missing from a data
+            source.
         """
         self._buffer.put(self._serialize(data, metadata))
 
