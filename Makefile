@@ -2,11 +2,9 @@
 
 install:
 	python3 -m pip install .[test]
-	python3 -m pip install -e git+https://github.com/European-XFEL/karabo-bridge-py.git#egg=karabo_bridge
 
 dev-install:
 	python3 -m pip install -U -e .[test]
-	python3 -m pip install -e git+https://github.com/European-XFEL/karabo-bridge-py.git#egg=karabo_bridge
 
 test:
 	python3 -m pytest -v --nbval-lax --cov=karabo_data
