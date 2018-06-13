@@ -281,7 +281,7 @@ class H5File:
             train_data[device]['metadata'] = {
                 'source': source,
                 'timestamp': ts,
-                'timestamp.tid': int(self.train_ids[train_index]),
+                'timestamp.tid': train_id,
                 'timestamp.sec': sec,
                 'frac': frac,
             }
