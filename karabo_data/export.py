@@ -12,13 +12,12 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from argparse import ArgumentParser
 import os.path as osp
-from functools import partial
+from queue import Queue
+from threading import Event, Thread
+from time import time
 
 import msgpack
 import numpy as np
-import msgpack_numpy as numpack
-from queue import Queue
-from threading import Event, Thread
 import zmq
 
 from .reader import RunDirectory, H5File
@@ -83,11 +82,17 @@ class ZMQStreamer:
         Which version of the bridge protocol to use. Defaults to the latest
         version implemented.
     """
-    def __init__(self, port, maxlen=10, protocol_version='2.1'):
+    def __init__(self, port, maxlen=10, protocol_version='2.2'):
         self._context = zmq.Context()
         self.port = port
-        if protocol_version not in {'1.0', '2.1'}:
+        if protocol_version not in {'1.0', '2.2'}:
             raise ValueError("Unknown protocol version %r" % protocol_version)
+        elif protocol_version == '1.0':
+            import msgpack_numpy
+            self.pack = msgpack.Packer(use_bin_type=True,
+                                       default=msgpack_numpy.encode).pack
+        else:
+            self.pack = msgpack.Packer(use_bin_type=True).pack
         self.protocol_version = protocol_version
         self._buffer = Queue(maxsize=maxlen)
         self._interface = None
@@ -105,11 +110,13 @@ class ZMQStreamer:
             self._interface.join()
             self._interface = None
 
-    def _serialize(self, data):
-        if self.protocol_version == '1.0':
-            return [msgpack.dumps(data, use_bin_type=True, default=numpack.encode)]
+    def _serialize(self, data, metadata=None):
+        if not metadata:
+            metadata = {src: v.get('metadata', {}) for src, v in data.items()}
 
-        pack = partial(msgpack.dumps, use_bin_type=True)
+        if self.protocol_version == '1.0':
+            return [self.pack(data)]
+
         msg = []
         for src, props in sorted(data.items()):
             main_data = {}
@@ -124,26 +131,61 @@ class ZMQStreamer:
                     main_data[key] = value
 
             msg.extend([
-                pack({'source': src, 'content': 'msgpack'}),
-                pack(main_data)
+                self.pack({
+                    'source': src, 'content': 'msgpack',
+                    'metadata': metadata[src]
+                }),
+                self.pack(main_data)
             ])
             for key, array in arrays:
                 if not array.flags['C_CONTIGUOUS']:
                     array = np.ascontiguousarray(array)
                 msg.extend([
-                    pack({'source': src, 'content': 'array', 'path': key,
-                          'dtype': str(array.dtype), 'shape': array.shape}),
+                    self.pack({
+                        'source': src, 'content': 'array', 'path': key,
+                        'dtype': str(array.dtype), 'shape': array.shape
+                    }),
                     array.data,
                 ])
 
         return msg
 
-    def feed(self, data):
+    def feed(self, data, metadata=None):
         """Push data to the sending queue.
 
         This blocks if the queue already has *maxlen* items waiting to be sent.
+
+        Parameters
+        ----------
+        data : dict
+            Contains train data. The dictionary has to follow the karabo_bridge
+            protocol structure:
+            - keys are source names
+            - values are dict, where the keys are the parameter names and
+              values must be python built-in types or numpy.ndarray.
+        metadata : dict, optional
+            Contains train metadata. The dictionary has to follow the
+            karabo_bridge protocol structure:
+            - keys are (str) source names
+            - values (dict) should contain the following items:
+              {
+                  'source': 'sourceName'  # str
+                  'timestamp': 1234.567890  # float
+                  'timestamp.sec': '1234'  # str
+                  'timestamp.frac': '567890000000000000'  # str
+                  'timestamp.tid': 1234567890  # int
+              }
+
+            'timestamp' Unix time with subsecond resolution
+            'timestamp.sec' Unix time with second resolution
+            'timestamp.frac' fractional part with attosecond resolution
+            'timestamp.tid' is European XFEL train unique ID
+
+            If the metadata dict is not provided it will be extracted from
+            'data' or an empty dict if 'metadata' key is missing from a data
+            source.
         """
-        self._buffer.put(self._serialize(data))
+        self._buffer.put(self._serialize(data, metadata))
 
 
 def main(argv=None):
@@ -151,7 +193,6 @@ def main(argv=None):
     ap.add_argument("path", help="Path of a file or run directory to serve")
     ap.add_argument("port", help="TCP port to run server on")
     args = ap.parse_args(argv)
-
 
     if osp.isdir(args.path):
         data = RunDirectory(args.path)
