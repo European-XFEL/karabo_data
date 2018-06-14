@@ -162,6 +162,8 @@ class H5File:
                           if tid != 0]
         self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
+        self._index_cache = {}
+
     @staticmethod
     def _parse_data_src(source):
         # Device names for INSTRUMENT data in the file include the top level
@@ -440,13 +442,29 @@ class H5File:
                    for p in patterns)
 
     def _read_index(self, h5_source, train_ix=slice(None, None)):
+        """Get first index & count for a source and for a specific train ID.
+
+        Indices are cached; this appears to provide some performance benefit.
+        """
+        try:
+            first, count = self._index_cache[h5_source]
+        except KeyError:
+            first, count = self._read_index_real(h5_source)
+            self._index_cache[h5_source] = (first, count)
+        return first[train_ix], count[train_ix]
+
+    def _read_index_real(self, h5_source):
+        """Get first index & count for a source.
+
+        This is 'real' reading when the requested index is not in the cache.
+        """
         ix_group = self.index[h5_source]
-        first = ix_group['first'][train_ix]
+        first = ix_group['first'][:]
         if 'count' in ix_group:
-            count = ix_group['count'][train_ix]
+            count = ix_group['count'][:]
         else:
-            status = ix_group['status'][train_ix]
-            count = np.uint64((ix_group['last'][train_ix] - first + 1) * status)
+            status = ix_group['status'][:]
+            count = np.uint64((ix_group['last'][:] - first + 1) * status)
         return first, count
 
     def _index_to_trainids(self, ix_group, check_unique=True):
