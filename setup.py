@@ -40,6 +40,7 @@ setup(name="karabo_data",
       install_requires=[
           'fabio',
           'h5py>=2.7.1',
+          'karabo-bridge',
           'matplotlib',
           'msgpack>=0.5.4',
           'msgpack-numpy>=0.4.3',
