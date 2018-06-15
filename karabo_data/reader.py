@@ -61,17 +61,17 @@ class FilenameInfo:
         else:
             self.description = "Unknown data source ({})", datasrc
 
-class _SliceContstructor(type):
+class _SliceConstructor(type):
     """Allows instantiation like subclass[1:5]
     """
     def __getitem__(self, item):
         return self(item)
 
-class by_id(metaclass=_SliceContstructor):
+class by_id(metaclass=_SliceConstructor):
     def __init__(self, value):
         self.value = value
 
-class by_index(metaclass=_SliceContstructor):
+class by_index(metaclass=_SliceConstructor):
     def __init__(self, value):
         self.value = value
 
