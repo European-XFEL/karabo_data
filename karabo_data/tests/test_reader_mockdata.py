@@ -3,7 +3,9 @@ import pandas as pd
 import pytest
 from xarray import DataArray
 
-from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
+from karabo_data import (
+    H5File, RunDirectory, stack_data, stack_detector_data, by_index, by_id,
+)
 
 
 def test_iterate_trains(mock_agipd_data):
@@ -46,6 +48,14 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
             assert 'SA1_XTD2_XGM/DOOCS/MAIN' in data.keys()
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
+
+def test_iterate_file_select_trains(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        tids = [tid for (tid, _) in f.trains(train_range=by_id[:10003])]
+        assert tids == [10000, 10001, 10002]
+
+        tids = [tid for (tid, _) in f.trains(train_range=by_index[-2:])]
+        assert tids == [10398, 10399]
 
 def test_iterate_trains_select_keys(mock_fxe_control_data):
     sel = {
@@ -100,7 +110,13 @@ def test_iterate_fxe_run(mock_fxe_run):
 def test_iterate_select_trains(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
 
-    tids = [tid for (tid, _) in run.trains(train_range=range(10004, 10006))]
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[10004:10006])]
+    assert tids == [10004, 10005]
+
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[:10003])]
+    assert tids == [10000, 10001, 10002]
+
+    tids = [tid for (tid, _) in run.trains(train_range=by_index[4:6])]
     assert tids == [10004, 10005]
 
 def test_iterate_run_glob_devices(mock_fxe_run):

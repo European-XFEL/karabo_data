@@ -24,7 +24,7 @@ import xarray as xr
 
 
 __all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
-           'stack_detector_data']
+           'stack_detector_data', 'by_id', 'by_index']
 
 
 RUN_DATA = 'RUN'
@@ -60,6 +60,52 @@ class FilenameInfo:
             )
         else:
             self.description = "Unknown data source ({})", datasrc
+
+class _SliceContstructor(type):
+    """Allows instantiation like subclass[1:5]
+    """
+    def __getitem__(self, item):
+        return self(item)
+
+class by_id(metaclass=_SliceContstructor):
+    def __init__(self, value):
+        self.value = value
+
+class by_index(metaclass=_SliceContstructor):
+    def __init__(self, value):
+        self.value = value
+
+def _tid_to_slice_ix(tid, dataset, stop=False):
+    """Convert a train ID to an integer index for slicing the dataset
+
+    Throws ValueError if the slice won't overlap the trains in the data.
+    The *stop* parameter tells it which end of the slice it is making.
+    """
+    if tid is None:
+        return None
+
+    try:
+        return dataset.train_indices[tid]
+    except KeyError:
+        if tid < dataset.train_ids[0]:
+            if stop:
+                raise ValueError("Train ID {} is before this run (starts at {})"
+                                 .format(tid, dataset.train_ids[0]))
+            else:
+                return None
+        elif tid > dataset.train_ids[-1]:
+            if stop:
+                return None
+            else:
+                raise ValueError("Train ID {} is after this run (ends at {})"
+                                 .format(tid, dataset.train_ids[-1]))
+        else:
+            # This train ID is within the run, but doesn't have an entry
+            for ix, tid_cmp in enumerate(dataset.train_ids):
+                if tid_cmp > tid:
+                    return ix
+
+    raise Exception("Shouldn't reach here. tid={}".format(tid))
 
 
 def _normalize_data_selection(selection, dataset):
@@ -160,7 +206,7 @@ class H5File:
 
         self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
                           if tid != 0]
-        self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
+        self.train_indices = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
         self._index_cache = {}
 
@@ -203,7 +249,7 @@ class H5File:
                 missing.add((source, key))
                 continue
 
-            _, count = self._read_index(h5_source, self._trains[tid])
+            _, count = self._read_index(h5_source, self.train_indices[tid])
             if count < 1:
                missing.add((source, key))
 
@@ -290,7 +336,7 @@ class H5File:
 
         return train_id, train_data
 
-    def trains(self, devices=None, *, train_range=None, require_all=False):
+    def trains(self, devices=None, train_range=None, *, require_all=False):
         """Iterate over all trains in the file.
 
         Parameters
@@ -313,8 +359,10 @@ class H5File:
                 for tid, data in handler.trains(devices=dev):
                     ...
 
-        train_range: range object, optional
-            Iterate over only these train IDs.
+        train_range: by_id or by_index object, optional
+            Iterate over only selected trains, by train ID or by index::
+
+                f.trains(train_range=by_index[20:])
 
         require_all: bool
             False (default) returns any data available for the requested trains.
@@ -344,26 +392,27 @@ class H5File:
         it's parameters (pulseEnergy and beamPosition), sample_x and
         sample_y (with all of their parameters). All other devices are ignored.
         """
-
-        tids = self.train_ids
-        if train_range is None:
-            train_range = range(tids[0], tids[-1] + 1)
-        elif (train_range.start > tids[-1]) or (train_range.stop <= tids[0]):
-            raise ValueError("Train range {} does not overlap this run ({}-{})"
-                             .format(train_range, tids[0], tids[-1]))
+        if isinstance(train_range, by_id):
+            start_ix = _tid_to_slice_ix(train_range.value.start, self, stop=False)
+            stop_ix = _tid_to_slice_ix(train_range.value.stop, self, stop=True)
+            ix_slice = slice(start_ix, stop_ix, train_range.value.step)
+        elif isinstance(train_range, by_index):
+            ix_slice = train_range.value
+        elif train_range is None:
+            ix_slice = slice(None, None)
+        else:
+            raise TypeError(train_range)
 
         if devices:
             devices = _normalize_data_selection(devices, self)
         elif require_all:
             raise ValueError("Cannot skip partial data without devices= parameter")
 
-        for index, tid in enumerate(tids):
-            if tid not in train_range:
-                continue
-
+        for tid in self.train_ids[ix_slice]:
             if require_all and self._check_data_missing(devices, tid):
                 continue
 
+            index = self.train_indices[tid]
             yield self._gen_train_data(index, only_this=devices)
 
     def train_from_id(self, train_id, devices=None):
@@ -395,7 +444,7 @@ class H5File:
             devices = _normalize_data_selection(devices, self)
 
         try:
-            index = self._trains[train_id]
+            index = self.train_indices[train_id]
         except KeyError:
             raise KeyError("train {} not found in {}.".format(
                             train_id, self.file.filename))
@@ -684,6 +733,7 @@ class RunDirectory:
                 self._trains[train].append(fhandler)
 
         self.ordered_trains = list(sorted(self._trains.items()))
+        self.train_indices = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
     @property
     def train_ids(self):
@@ -718,7 +768,7 @@ class RunDirectory:
             missing = file._check_data_missing(missing, tid)
         return missing
 
-    def trains(self, devices=None, *, train_range=None, require_all=False):
+    def trains(self, devices=None, train_range=None, *, require_all=False):
         """Iterate over all trains in the run and gather all sources.
 
         ::
@@ -734,8 +784,10 @@ class RunDirectory:
 
             Refer to :meth:`H5File.trains` for how to use this.
 
-        train_range: range object, optional
-            Iterate over only these train IDs.
+        train_range: by_id or by_index object, optional
+            Iterate over only selected trains, by train ID or by index::
+
+                f.trains(train_range=by_index[20:])
 
         require_all: bool
             False (default) returns any data available for the requested trains.
@@ -750,22 +802,23 @@ class RunDirectory:
         data : dict
             The data for this train, keyed by device name
         """
-        tids = self.train_ids
-        if train_range is None:
-            train_range = range(tids[0], tids[-1] + 1)
-        elif (train_range.start > tids[-1]) or (train_range.stop <= tids[0]):
-            raise ValueError("Train range {} does not overlap this run ({}-{})"
-                             .format(train_range, tids[0], tids[-1]))
+        if isinstance(train_range, by_id):
+            start_ix = _tid_to_slice_ix(train_range.value.start, self, stop=False)
+            stop_ix = _tid_to_slice_ix(train_range.value.stop, self, stop=True)
+            ix_slice = slice(start_ix, stop_ix, train_range.value.step)
+        elif isinstance(train_range, by_index):
+            ix_slice = train_range.value
+        elif train_range is None:
+            ix_slice = slice(None, None)
+        else:
+            raise TypeError(train_range)
 
         if devices:
             devices = _normalize_data_selection(devices, self)
         elif require_all:
             raise ValueError("Cannot skip partial data without devices= parameter")
 
-        for tid, fhs in self.ordered_trains:
-            if tid not in train_range:
-                continue
-
+        for tid, fhs in self.ordered_trains[ix_slice]:
             if require_all and self._check_data_missing(devices, tid, fhs):
                 continue
 
