@@ -290,7 +290,7 @@ class H5File:
 
         return train_id, train_data
 
-    def trains(self, devices=None, *, train_range=None, partial=True):
+    def trains(self, devices=None, *, train_range=None, require_all=False):
         """Iterate over all trains in the file.
 
         Parameters
@@ -316,9 +316,9 @@ class H5File:
         train_range: range object, optional
             Iterate over only these train IDs.
 
-        partial: bool
-            True (default) returns any data available for the requested trains.
-            False skips trains which don't have all the requested data;
+        require_all: bool
+            False (default) returns any data available for the requested trains.
+            True skips trains which don't have all the requested data;
             this requires that you specify required data using *devices*.
 
         Examples
@@ -354,14 +354,14 @@ class H5File:
 
         if devices:
             devices = _normalize_data_selection(devices, self)
-        elif not partial:
+        elif require_all:
             raise ValueError("Cannot skip partial data without devices= parameter")
 
         for index, tid in enumerate(tids):
             if tid not in train_range:
                 continue
 
-            if (not partial) and self._check_data_missing(devices, tid):
+            if require_all and self._check_data_missing(devices, tid):
                 continue
 
             yield self._gen_train_data(index, only_this=devices)
@@ -718,7 +718,7 @@ class RunDirectory:
             missing = file._check_data_missing(missing, tid)
         return missing
 
-    def trains(self, devices=None, *, train_range=None, partial=True):
+    def trains(self, devices=None, *, train_range=None, require_all=False):
         """Iterate over all trains in the run and gather all sources.
 
         ::
@@ -737,9 +737,9 @@ class RunDirectory:
         train_range: range object, optional
             Iterate over only these train IDs.
 
-        partial: bool
-            True (default) returns any data available for the requested trains.
-            False skips trains which don't have all the requested data;
+        require_all: bool
+            False (default) returns any data available for the requested trains.
+            True skips trains which don't have all the requested data;
             this requires that you specify required data using *devices*.
 
         Yields
@@ -759,14 +759,14 @@ class RunDirectory:
 
         if devices:
             devices = _normalize_data_selection(devices, self)
-        elif not partial:
+        elif require_all:
             raise ValueError("Cannot skip partial data without devices= parameter")
 
         for tid, fhs in self.ordered_trains:
             if tid not in train_range:
                 continue
 
-            if (not partial) and self._check_data_missing(devices, tid, fhs):
+            if require_all and self._check_data_missing(devices, tid, fhs):
                 continue
 
             train_data = {}
