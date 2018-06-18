@@ -14,7 +14,7 @@ class FileValidator:
     def check_indices(self):
         for src in self.file.instrument_sources:
             h5_sources = set()
-            for key in self.file._keys_for_source():
+            for key in self.file._keys_for_source(src):
                 ds_path = 'INSTRUMENT/{}/{}'.format(src, key.replace('.', '/'))
                 h5_source = src + '/' + key.split('.', 1)[0]
                 first, count = self.file._read_index(h5_source)
