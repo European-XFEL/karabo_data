@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import sys
 
 class ValidationError(Exception):
     def __init__(self, problems):
@@ -104,3 +106,27 @@ class RunValidator:
             fv = FileValidator(f)
             fv.validate()
             self.problems.extend(fv.problems)
+
+def main(argv=None):
+    from .reader import RunDirectory, H5File
+    if argv is None:
+        argv = sys.argv[1:]
+
+    path = argv[0]
+    if os.path.isdir(path):
+        print("Checking run directory:", path)
+        validator = RunValidator(RunDirectory(path))
+    else:
+        print("Checking file:", path)
+        validator = FileValidator(H5File(path))
+
+    try:
+        validator.validate()
+        print("No problems found")
+    except ValidationError as ve:
+        print("Validation failed!")
+        print(str(ve))
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
