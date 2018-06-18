@@ -9,7 +9,8 @@ class ValidationError(Exception):
         for prob in self.problems:
             lines.extend(['', prob['msg']])
             for k, v in sorted(prob.items()):
-                lines.append("  {}: {}".format(k, v))
+                if k != 'msg':
+                    lines.append("  {}: {}".format(k, v))
 
         return '\n'.join(lines)
 
