@@ -1,8 +1,11 @@
 from itertools import islice
 import pandas as pd
+import pytest
 from xarray import DataArray
 
-from karabo_data import (H5File, RunDirectory, stack_data, stack_detector_data)
+from karabo_data import (
+    H5File, RunDirectory, stack_data, stack_detector_data, by_index, by_id,
+)
 
 
 def test_iterate_trains(mock_agipd_data):
@@ -46,6 +49,14 @@ def test_iterate_trains_fxe(mock_fxe_control_data):
             assert 'beamPosition.ixPos.value' in data['SA1_XTD2_XGM/DOOCS/MAIN']
 
 
+def test_iterate_file_select_trains(mock_fxe_control_data):
+    with H5File(mock_fxe_control_data) as f:
+        tids = [tid for (tid, _) in f.trains(train_range=by_id[:10003])]
+        assert tids == [10000, 10001, 10002]
+
+        tids = [tid for (tid, _) in f.trains(train_range=by_index[-2:])]
+        assert tids == [10398, 10399]
+
 def test_iterate_trains_select_keys(mock_fxe_control_data):
     sel = {
         'SA1_XTD2_XGM/DOOCS/MAIN': {
@@ -62,6 +73,15 @@ def test_iterate_trains_select_keys(mock_fxe_control_data):
             assert 'beamPosition.ixPos.timestamp' in data['SA1_XTD2_XGM/DOOCS/MAIN']
             assert 'beamPosition.iyPos.value' not in data['SA1_XTD2_XGM/DOOCS/MAIN']
             assert 'SA3_XTD10_VAC/TSENS/S30160K' not in data
+
+def test_iterate_trains_require_all(mock_sa3_control_data):
+    with H5File(mock_sa3_control_data) as f:
+        trains_iter = f.trains(devices=[('*/CAM/BEAMVIEW:daqOutput', 'data.image.dims')], require_all=True)
+        tids = [t for (t, _) in trains_iter]
+        assert tids == []
+        trains_iter = f.trains(devices=[('*/CAM/BEAMVIEW:daqOutput', 'data.image.dims')], require_all=False)
+        tids = [t for (t, _) in trains_iter]
+        assert tids != []
 
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
@@ -86,6 +106,28 @@ def test_iterate_fxe_run(mock_fxe_run):
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
     assert 'FXE_XAD_GEC/CAM/CAMERA' in data
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
+
+def test_iterate_select_trains(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[10004:10006])]
+    assert tids == [10004, 10005]
+
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[:10003])]
+    assert tids == [10000, 10001, 10002]
+
+    tids = [tid for (tid, _) in run.trains(train_range=by_index[4:6])]
+    assert tids == [10004, 10005]
+
+def test_iterate_run_glob_devices(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    trains_iter = run.trains([("*/DET/*", "image.data")])
+    tid, data = next(trains_iter)
+    assert tid == 10000
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'detector.data' not in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' not in data
 
 def test_train_by_id_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)

@@ -24,7 +24,7 @@ import xarray as xr
 
 
 __all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
-           'stack_detector_data']
+           'stack_detector_data', 'by_id', 'by_index']
 
 
 RUN_DATA = 'RUN'
@@ -60,6 +60,98 @@ class FilenameInfo:
             )
         else:
             self.description = "Unknown data source ({})", datasrc
+
+class _SliceConstructor(type):
+    """Allows instantiation like subclass[1:5]
+    """
+    def __getitem__(self, item):
+        return self(item)
+
+class by_id(metaclass=_SliceConstructor):
+    def __init__(self, value):
+        self.value = value
+
+class by_index(metaclass=_SliceConstructor):
+    def __init__(self, value):
+        self.value = value
+
+def _tid_to_slice_ix(tid, dataset, stop=False):
+    """Convert a train ID to an integer index for slicing the dataset
+
+    Throws ValueError if the slice won't overlap the trains in the data.
+    The *stop* parameter tells it which end of the slice it is making.
+    """
+    if tid is None:
+        return None
+
+    try:
+        return dataset.train_indices[tid]
+    except KeyError:
+        if tid < dataset.train_ids[0]:
+            if stop:
+                raise ValueError("Train ID {} is before this run (starts at {})"
+                                 .format(tid, dataset.train_ids[0]))
+            else:
+                return None
+        elif tid > dataset.train_ids[-1]:
+            if stop:
+                return None
+            else:
+                raise ValueError("Train ID {} is after this run (ends at {})"
+                                 .format(tid, dataset.train_ids[-1]))
+        else:
+            # This train ID is within the run, but doesn't have an entry
+            for ix, tid_cmp in enumerate(dataset.train_ids):
+                if tid_cmp > tid:
+                    return ix
+
+    raise Exception("Shouldn't reach here. tid={}".format(tid))
+
+
+def _normalize_data_selection(selection, dataset):
+    """Normalize selected data fields
+
+    We offer different ways to select sources and keys from the data.
+    This function normalises the different inputs to a set containing
+    (source, key) tuples.
+
+    dataset is meant to be a H5File or RunDirectory object
+    """
+    if isinstance(selection, set):
+        return selection
+
+    res = set()
+    if isinstance(selection, dict):
+        # {source: {key1, key2}}
+        # {source: {}} -> all keys for this source
+        for source, keys in selection.items():#
+            if source not in (dataset.control_sources | dataset.instrument_sources):
+                raise ValueError("Source {} not in this run".format(source))
+
+            for k in (keys or dataset._keys_for_source(source)):
+                res.add((source, k))
+
+    elif isinstance(selection, list):
+        # [('src_glob', 'key_glob'), ...]
+        for src_glob, key_glob in selection:
+            matched = set()
+            for source in (dataset.control_sources | dataset.instrument_sources):
+                if not fnmatchcase(source, src_glob):
+                    continue
+
+                for key in dataset._keys_for_source(source):
+                    if fnmatchcase(key, key_glob):
+                        matched.add((source, key))
+
+            if not matched:
+                raise ValueError("No matches for pattern {}"
+                                 .format((src_glob, key_glob)))
+
+            res.update(matched)
+    else:
+        TypeError("Unknown selection type: {}".format(type(selection)))
+
+    return res
 
 
 class H5File:
@@ -114,7 +206,9 @@ class H5File:
 
         self.train_ids = [tid for tid in self.index['trainId'][()].tolist()
                           if tid != 0]
-        self._trains = {tid: idx for idx, tid in enumerate(self.train_ids)}
+        self.train_indices = {tid: idx for idx, tid in enumerate(self.train_ids)}
+
+        self._index_cache = {}
 
     @staticmethod
     def _parse_data_src(source):
@@ -129,70 +223,134 @@ class H5File:
         else:
             return category, h5_device, ''
 
+    def _keys_for_source(self, source):
+        res = set()
+        def add_key(key, value):
+            if isinstance(value, h5py.Dataset):
+                res.add(key.replace('/', '.'))
+
+        if source in self.control_sources:
+            self.file['/CONTROL/' + source].visititems(add_key)
+        elif source in self.instrument_sources:
+            self.file['/INSTRUMENT/' + source].visititems(add_key)
+        else:
+            raise KeyError("Source {} not in file".format(source))
+        return res
+
+    def _check_data_missing(self, selection, tid):
+        missing = set()
+        for source, key in selection:
+            if source in self.instrument_sources:
+                key_head, _, h5_key = key.partition('.')
+                h5_source = source + '/' + key_head
+            elif source in self.control_sources:
+                h5_source = source
+            else:
+                missing.add((source, key))
+                continue
+
+            _, count = self._read_index(h5_source, self.train_indices[tid])
+            if count < 1:
+               missing.add((source, key))
+
+        return missing
+
     def _gen_train_data(self, train_index, only_this=None):
         """Get data for the specified index in file.
         """
-        train_data = {}
+        train_data = defaultdict(dict)
+
+        train_id = self.train_ids[train_index]
+        ts = time()
+        sec, frac = str(ts).split('.')
+        frac = frac.ljust(18, '0')
+
+        if only_this:
+            for source, key in only_this:
+                h5_source, h5_key = source, key
+                if source in self.instrument_sources:
+                    key_head, _, h5_key = key.partition('.')
+                    h5_source = source + '/' + key_head
+                    path = '/INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
+                else:
+                    path = '/CONTROL/{}/{}'.format(source, key.replace('.', '/'))
+
+                # Which parts of the data to get for this train:
+                first, count = self._read_index(h5_source, train_index)
+
+                if not count:
+                    # No data here
+                    continue
+
+                ds = self.file[path]
+                if count == 1:
+                    data = ds[first]
+                else:
+                    data = ds[first:first + count, ]
+                train_data[source][key] = data
+
+                train_data[source]['metadata'] = {
+                    'source': source,
+                    'timestamp': ts,
+                    'timestamp.tid': train_id,
+                    'timestamp.sec': sec,
+                    'frac': frac,
+                }
+            return train_id, train_data
+
         for source in self.sources:
-            h5_device = source.split('/', 1)[1]
-            index = self.index[h5_device]
+            h5_source = source.split('/', 1)[1]
+            index = self.index[h5_source]
             table = self.file[source]
 
             # Which parts of the data to get for this train:
-            first = int(index['first'][train_index])
-            if 'last' in index:
-                # Older (?) format: status (0/1), first, last
-                last = int(index['last'][train_index])
-                status = index['status'][train_index]
-            else:
-                # Newer (?) format: first, count
-                count = int(index['count'][train_index])
-                last = first + count - 1
-                status = count > 0
+            first, count = self._read_index(h5_source, train_index)
 
             category, device, path_base = self._parse_data_src(source)
 
-            if only_this and device not in only_this:
+            if not count:
                 continue
 
-            if device not in train_data:
-                train_data[device] = {}
             data = train_data[device]
 
-            if status:
-                def append_data(key, value):
-                    if isinstance(value, h5py.Dataset):
-                        path = '.'.join(filter(None,
-                                        (path_base,) + tuple(key.split('/'))))
-                        if (only_this and only_this[device] and
-                                path not in only_this[device]):
-                            return
+            def append_data(key, value):
+                if isinstance(value, h5py.Dataset):
+                    path = '.'.join(filter(None,
+                                    (path_base,) + tuple(key.split('/'))))
 
-                        if first == last:
-                            data[path] = value[first]
-                        else:
-                            data[path] = value[first:last+1, ]
+                    if count == 1:
+                        data[path] = value[first]
+                    else:
+                        data[path] = value[first:first + count, ]
 
-                table.visititems(append_data)
+            table.visititems(append_data)
 
-            sec, frac = str(time()).split('.')
-            timestamp = {'tid': int(self.train_ids[train_index]),
-                         'sec': int(sec), 'frac': int(frac)}
-            data.update({'metadata': {'source': device, 'timestamp': timestamp}})
 
-        return (self.train_ids[train_index], train_data)
+            train_data[device]['metadata'] = {
+                'source': source,
+                'timestamp': ts,
+                'timestamp.tid': train_id,
+                'timestamp.sec': sec,
+                'frac': frac,
+            }
 
-    def trains(self, devices=None):
+        return train_id, train_data
+
+    def trains(self, devices=None, train_range=None, *, require_all=False):
         """Iterate over all trains in the file.
 
         Parameters
         ----------
-        devices: dict, optional
-            Filter data by devices and by parameters.
-            keys are the devices names and values are set() of parameter names
-            (or empty set if all parameters are requested)
+        devices: dict or list, optional
+            Filter data by sources and by parameters.
+            There are two ways to do this:
 
-            ::
+            1. With a list of (source, key) glob patterns::
+
+                f.trains([('*/DET/*', 'image.*')])
+
+            2. With a dict of source names mapped to sets of key names
+               (or empty sets to get all keys)::
 
                 dev = {
                     'device1': {'param_m', 'param_n.subparam'},
@@ -200,6 +358,16 @@ class H5File:
                 }
                 for tid, data in handler.trains(devices=dev):
                     ...
+
+        train_range: by_id or by_index object, optional
+            Iterate over only selected trains, by train ID or by index::
+
+                f.trains(train_range=by_index[20:])
+
+        require_all: bool
+            False (default) returns any data available for the requested trains.
+            True skips trains which don't have all the requested data;
+            this requires that you specify required data using *devices*.
 
         Examples
         --------
@@ -224,7 +392,27 @@ class H5File:
         it's parameters (pulseEnergy and beamPosition), sample_x and
         sample_y (with all of their parameters). All other devices are ignored.
         """
-        for index in range(len(self.train_ids)):
+        if isinstance(train_range, by_id):
+            start_ix = _tid_to_slice_ix(train_range.value.start, self, stop=False)
+            stop_ix = _tid_to_slice_ix(train_range.value.stop, self, stop=True)
+            ix_slice = slice(start_ix, stop_ix, train_range.value.step)
+        elif isinstance(train_range, by_index):
+            ix_slice = train_range.value
+        elif train_range is None:
+            ix_slice = slice(None, None)
+        else:
+            raise TypeError(train_range)
+
+        if devices:
+            devices = _normalize_data_selection(devices, self)
+        elif require_all:
+            raise ValueError("Cannot skip partial data without devices= parameter")
+
+        for tid in self.train_ids[ix_slice]:
+            if require_all and self._check_data_missing(devices, tid):
+                continue
+
+            index = self.train_indices[tid]
             yield self._gen_train_data(index, only_this=devices)
 
     def train_from_id(self, train_id, devices=None):
@@ -234,7 +422,7 @@ class H5File:
         ----------
         train_id: int
             The train ID
-        devices: dict, optional
+        devices: dict or list, optional
             Filter data by devices and by parameters.
 
             Refer to :meth:`~.H5File.trains` for how to use this.
@@ -252,8 +440,11 @@ class H5File:
         KeyError
             if `train_id` is not found in the file.
         """
+        if devices is not None:
+            devices = _normalize_data_selection(devices, self)
+
         try:
-            index = self._trains[train_id]
+            index = self.train_indices[train_id]
         except KeyError:
             raise KeyError("train {} not found in {}.".format(
                             train_id, self.file.filename))
@@ -267,7 +458,7 @@ class H5File:
         ----------
         index: int
             Index of the train in the file.
-        devices: dict, optional
+        devices: dict or list, optional
             Filter data by devices and by parameters.
 
             Refer to :meth:`~.H5File.trains` for how to use this.
@@ -280,6 +471,9 @@ class H5File:
         data : dict
             The data for this train, keyed by device name
         """
+        if devices is not None:
+            devices = _normalize_data_selection(devices, self)
+
         return self._gen_train_data(index, only_this=devices)
 
     @staticmethod
@@ -295,6 +489,32 @@ class H5File:
             key = key[:-6]
         return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
                    for p in patterns)
+
+    def _read_index(self, h5_source, train_ix=slice(None, None)):
+        """Get first index & count for a source and for a specific train ID.
+
+        Indices are cached; this appears to provide some performance benefit.
+        """
+        try:
+            first, count = self._index_cache[h5_source]
+        except KeyError:
+            first, count = self._read_index_real(h5_source)
+            self._index_cache[h5_source] = (first, count)
+        return first[train_ix], count[train_ix]
+
+    def _read_index_real(self, h5_source):
+        """Get first index & count for a source.
+
+        This is 'real' reading when the requested index is not in the cache.
+        """
+        ix_group = self.index[h5_source]
+        first = ix_group['first'][:]
+        if 'count' in ix_group:
+            count = ix_group['count'][:]
+        else:
+            status = ix_group['status'][:]
+            count = np.uint64((ix_group['last'][:] - first + 1) * status)
+        return first, count
 
     def _index_to_trainids(self, ix_group, check_unique=True):
         if 'count' in ix_group:
@@ -513,6 +733,7 @@ class RunDirectory:
                 self._trains[train].append(fhandler)
 
         self.ordered_trains = list(sorted(self._trains.items()))
+        self.train_indices = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
     @property
     def train_ids(self):
@@ -532,7 +753,22 @@ class RunDirectory:
             r.update(f.instrument_sources)
         return r
 
-    def trains(self, devices=None):
+    def _keys_for_source(self, source):
+        # The same source may be in multiple files, but this assumes it has
+        # the same keys in all files that it appears in.
+        for f in self.files:
+            if source in (f.control_sources | f.instrument_sources):
+                return f._keys_for_source(source)
+
+        raise ValueError("No keys found for source {}".format(source))
+
+    def _check_data_missing(self, selection, tid, fhs):
+        missing = selection.copy()
+        for file in fhs:
+            missing = file._check_data_missing(missing, tid)
+        return missing
+
+    def trains(self, devices=None, train_range=None, *, require_all=False):
         """Iterate over all trains in the run and gather all sources.
 
         ::
@@ -543,10 +779,20 @@ class RunDirectory:
 
         Parameters
         ----------
-        devices: dict, optional
+        devices: dict or list, optional
             Filter data by devices and by parameters.
 
             Refer to :meth:`H5File.trains` for how to use this.
+
+        train_range: by_id or by_index object, optional
+            Iterate over only selected trains, by train ID or by index::
+
+                f.trains(train_range=by_index[20:])
+
+        require_all: bool
+            False (default) returns any data available for the requested trains.
+            True skips trains which don't have all the requested data;
+            this requires that you specify required data using *devices*.
 
         Yields
         ------
@@ -556,10 +802,36 @@ class RunDirectory:
         data : dict
             The data for this train, keyed by device name
         """
-        for tid, fhs in self.ordered_trains:
+        if isinstance(train_range, by_id):
+            start_ix = _tid_to_slice_ix(train_range.value.start, self, stop=False)
+            stop_ix = _tid_to_slice_ix(train_range.value.stop, self, stop=True)
+            ix_slice = slice(start_ix, stop_ix, train_range.value.step)
+        elif isinstance(train_range, by_index):
+            ix_slice = train_range.value
+        elif train_range is None:
+            ix_slice = slice(None, None)
+        else:
+            raise TypeError(train_range)
+
+        if devices:
+            devices = _normalize_data_selection(devices, self)
+        elif require_all:
+            raise ValueError("Cannot skip partial data without devices= parameter")
+
+        for tid, fhs in self.ordered_trains[ix_slice]:
+            if require_all and self._check_data_missing(devices, tid, fhs):
+                continue
+
             train_data = {}
             for fh in fhs:
-                _, data = fh.train_from_id(tid, devices=devices)
+                if devices is None:
+                    file_selection = None
+                else:
+                    file_selection = {(src, key) for (src, key) in devices
+                        if src in (fh.control_sources | fh.instrument_sources)}
+                    if not file_selection:
+                        continue
+                _, data = fh.train_from_id(tid, devices=file_selection)
                 train_data.update(data)
 
             yield (tid, train_data)
@@ -571,7 +843,7 @@ class RunDirectory:
         ----------
         train_id: int
             The train ID
-        devices: dict, optional
+        devices: dict or list, optional
             Filter data by devices and by parameters.
 
             Refer to :meth:`H5File.trains` for how to use this.
@@ -593,6 +865,10 @@ class RunDirectory:
             files = self._trains[train_id]
         except KeyError:
             raise KeyError("train {} not found in run.".format(train_id))
+
+        if devices is not None:
+            devices = _normalize_data_selection(devices, self)
+
         data = {}
         for fh in files:
             _, d = fh.train_from_id(train_id, devices=devices)
@@ -606,7 +882,7 @@ class RunDirectory:
         ----------
         index: int
             The train index within this run
-        devices: dict, optional
+        devices: dict or list, optional
             Filter data by devices and by parameters.
 
             Refer to :meth:`H5File.trains` for how to use this.
@@ -628,6 +904,10 @@ class RunDirectory:
             train_id, files = self.ordered_trains[index]
         except IndexError:
             raise IndexError("Train index {} out of range.".format(index))
+
+        if devices is not None:
+            devices = _normalize_data_selection(devices, self)
+
         data = {}
         for fh in files:
             _, d = fh.train_from_id(train_id, devices=devices)
