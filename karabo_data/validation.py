@@ -1,5 +1,18 @@
 import numpy as np
 
+class ValidationError(Exception):
+    def __init__(self, problems):
+        self.problems = problems
+
+    def __str__(self):
+        lines = []
+        for prob in self.problems:
+            lines.extend(['', prob['msg']])
+            for k, v in sorted(prob.items()):
+                lines.append("  {}: {}".format(k, v))
+
+        return '\n'.join(lines)
+
 class FileValidator:
     def __init__(self, file):
         self.file = file
@@ -7,6 +20,11 @@ class FileValidator:
         self.problems = []
 
     def validate(self):
+        problems = self.run_checks()
+        if problems:
+            raise ValidationError(problems)
+
+    def run_checks(self):
         self.problems = []
         self.check_indices()
         return self.problems
@@ -69,6 +87,16 @@ class RunValidator:
     def __init__(self, run):
         self.run = run
         self.problems = []
+
+    def validate(self):
+        problems = self.run_checks()
+        if problems:
+            raise ValidationError(problems)
+
+    def run_checks(self):
+        self.problems = []
+        self.check_files()
+        return self.problems
 
     def check_files(self):
         for f in self.run.files:
