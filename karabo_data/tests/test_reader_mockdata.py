@@ -137,6 +137,13 @@ def test_train_by_id_fxe_run(mock_fxe_run):
     assert 'FXE_XAD_GEC/CAM/CAMERA' in data
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
 
+def test_train_by_id_fxe_run_selection(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    _, data = run.train_from_id(10024, [('*/DET/*', 'image.data')])
+    assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
+    assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
+    assert 'FXE_XAD_GEC/CAM/CAMERA' not in data
+
 def test_train_from_index_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     _, data = run.train_from_index(479)

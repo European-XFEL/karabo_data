@@ -255,6 +255,15 @@ class H5File:
 
         return missing
 
+    def _filter_selection(self, selection=None):
+        """Filter sources in this file from selected data for a run.
+        """
+        if selection is None:
+            return None
+
+        return {(src, key) for (src, key) in selection
+                if src in (self.instrument_sources | self.control_sources)}
+
     def _gen_train_data(self, train_index, only_this=None):
         """Get data for the specified index in file.
         """
@@ -265,7 +274,7 @@ class H5File:
         sec, frac = str(ts).split('.')
         frac = frac.ljust(18, '0')
 
-        if only_this:
+        if only_this is not None:
             for source, key in only_this:
                 h5_source, h5_key = source, key
                 if source in self.instrument_sources:
@@ -824,13 +833,7 @@ class RunDirectory:
 
             train_data = {}
             for fh in fhs:
-                if devices is None:
-                    file_selection = None
-                else:
-                    file_selection = {(src, key) for (src, key) in devices
-                        if src in (fh.control_sources | fh.instrument_sources)}
-                    if not file_selection:
-                        continue
+                file_selection = fh._filter_selection(devices)
                 _, data = fh.train_from_id(tid, devices=file_selection)
                 train_data.update(data)
 
@@ -871,7 +874,8 @@ class RunDirectory:
 
         data = {}
         for fh in files:
-            _, d = fh.train_from_id(train_id, devices=devices)
+            file_selection = fh._filter_selection(devices)
+            _, d = fh.train_from_id(train_id, devices=file_selection)
             data.update(d)
         return (train_id, data)
 
@@ -910,7 +914,8 @@ class RunDirectory:
 
         data = {}
         for fh in files:
-            _, d = fh.train_from_id(train_id, devices=devices)
+            file_selection = fh._filter_selection(devices)
+            _, d = fh.train_from_id(train_id, devices=file_selection)
             data.update(d)
         return (train_id, data)
 
