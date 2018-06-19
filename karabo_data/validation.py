@@ -1,3 +1,4 @@
+from functools import partial
 import numpy as np
 import os
 import sys
@@ -30,7 +31,35 @@ class FileValidator:
     def run_checks(self):
         self.problems = []
         self.check_indices()
+        self.check_trainids()
         return self.problems
+
+    def record(self, msg, **kwargs):
+        self.problems.append(dict(
+            msg=msg, file=self.filename, **kwargs
+        ))
+
+    def check_trainids(self):
+        ds_path = 'INDEX/trainId'
+        train_ids = self.file.file[ds_path][:]
+
+        if (train_ids == 0).any():
+            first0 = train_ids.tolist().index(0)
+            if not (train_ids[first0:] == 0).all():
+                self.record(
+                    'Zeroes in trainId index before last train ID',
+                    dataset=ds_path,
+                )
+            nonzero_tids = train_ids[train_ids != 0]
+        else:
+            nonzero_tids = train_ids
+
+        if len(nonzero_tids) > 1:
+            if not (nonzero_tids[1:] > nonzero_tids[:-1]).all():
+                self.record(
+                    'Train IDs are not strictly increasing',
+                    dataset=ds_path,
+                )
 
     def check_indices(self):
         for src in self.file.instrument_sources:
@@ -42,47 +71,32 @@ class FileValidator:
                 data_dim0 = self.file.file[ds_path].shape[0]
                 if np.any((first + count) > data_dim0):
                     max_end = (first + count).max()
-                    self.problems.append({
-                        'msg': 'Index referring to data ({}) outside dataset ({})'
-                               .format(max_end, data_dim0),
-                        'file': self.filename,
-                        'dataset': ds_path,
-                    })
+                    self.record(
+                        'Index referring to data ({}) outside dataset ({})'
+                        .format(max_end, data_dim0),
+                        dataset=ds_path,
+                    )
 
             for h5_source in h5_sources:
-                context = {
-                    'file': self.filename,
-                    'dataset': 'INDEX/' + h5_source,
-                }
+                record = partial(self.record, dataset='INDEX/'+h5_source)
                 first, count = self.file._read_index(h5_source)
-                self.problems.extend(check_index_contiguous(first, count, context))
+                check_index_contiguous(first, count, record)
 
-def check_index_contiguous(firsts, counts, context):
+def check_index_contiguous(firsts, counts, record):
     probs = []
 
-    probs.append(dict(
-        msg="Index doesn't start at 0",
-        **context
-    ))
+    record("Index doesn't start at 0")
 
     if np.all((firsts + counts)[:-1] == firsts[1:]):
         return probs
 
     for ix, (first, count, first_next) in enumerate(zip(firsts, counts, firsts[1:])):
         if (first + count) < first_next:
-            probs.append(dict(
-                msg="Gap in index at {} ({} + {} < {})".format(
-                    ix, first, count, first_next
-                ),
-                **context
-            ))
+            record("Gap in index at {} ({} + {} < {})".format(
+                    ix, first, count, first_next))
         elif (first + count) > first_next:
-            probs.append(dict(
-                msg="Overlap in index at {} ({} + {} > {})".format(
-                    ix, first, count, first_next
-                ),
-                **context
-            ))
+            record("Overlap in index at {} ({} + {} > {})".format(
+                    ix, first, count, first_next))
 
     return probs
 
