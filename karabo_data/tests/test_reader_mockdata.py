@@ -5,6 +5,7 @@ from xarray import DataArray
 
 from karabo_data import (
     H5File, RunDirectory, stack_data, stack_detector_data, by_index, by_id,
+    SourceNameError, PropertyNameError,
 )
 
 
@@ -202,3 +203,12 @@ def test_run_get_array(mock_fxe_run):
     assert arr.dims == ('trainId', 'pulse')
     assert arr.shape == (480, 1000)
     assert arr.coords['trainId'][0] == 10000
+
+def test_run_get_array_error(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    with pytest.raises(SourceNameError):
+        run.get_array('bad_name', 'data.intensityTD')
+
+    with pytest.raises(PropertyNameError):
+        run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
