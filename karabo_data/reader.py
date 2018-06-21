@@ -24,7 +24,9 @@ import xarray as xr
 
 
 __all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
-           'stack_detector_data', 'by_id', 'by_index']
+           'stack_detector_data', 'by_id', 'by_index', 'SourceNameError',
+           'PropertyNameError',
+          ]
 
 
 RUN_DATA = 'RUN'
@@ -154,6 +156,27 @@ def _normalize_data_selection(selection, dataset):
     return res
 
 
+class SourceNameError(KeyError):
+    def __init__(self, source, run=True):
+        self.source = source
+        self.run = run
+
+    def __str__(self):
+        run_file = 'run' if self.run else 'file'
+        return "This {0} has no source named {1!r}.\n" \
+               "See {0}.all_sources for available sources.".format(
+            run_file, self.source
+        )
+
+class PropertyNameError(KeyError):
+    def __init__(self, prop, source):
+        self.prop = prop
+        self.source = source
+
+    def __str__(self):
+        return "No property {!r} for source {!r}".format(self.prop, self.source)
+
+
 class H5File:
     """Access an HDF5 file generated at European XFEL.
 
@@ -209,6 +232,10 @@ class H5File:
         self.train_indices = {tid: idx for idx, tid in enumerate(self.train_ids)}
 
         self._index_cache = {}
+
+    @property
+    def all_sources(self):
+        return self.control_sources | self.instrument_sources
 
     @staticmethod
     def _parse_data_src(source):
@@ -499,6 +526,12 @@ class H5File:
         return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
                    for p in patterns)
 
+    def _check_field(self, source, key):
+        if source not in self.all_sources:
+            raise SourceNameError(source, run=False)
+        if key not in self._keys_for_source(source):
+            raise PropertyNameError(key, source)
+
     def _read_index(self, h5_source, train_ix=slice(None, None)):
         """Get first index & count for a source and for a specific train ID.
 
@@ -563,6 +596,7 @@ class H5File:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
+        self._check_field(device, key)
         name = self._make_field_name(device, key)
 
         # Find the data
@@ -650,6 +684,7 @@ class H5File:
             automatically called 'train'. The default for extra dimensions
             is dim_0, dim_1, ...
         """
+        self._check_field(device, key)
         name = self._make_field_name(device, key)
 
         # Find the data
@@ -761,6 +796,16 @@ class RunDirectory:
         for f in self.files:
             r.update(f.instrument_sources)
         return r
+
+    @property
+    def all_sources(self):
+        return self.control_sources | self.instrument_sources
+
+    def _check_field(self, source, key):
+        if source not in self.all_sources:
+            raise SourceNameError(source, run=True)
+        if key not in self._keys_for_source(source):
+            raise PropertyNameError(key, source)
 
     def _keys_for_source(self, source):
         # The same source may be in multiple files, but this assumes it has
@@ -932,6 +977,7 @@ class RunDirectory:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
+        self._check_field(device, key)
         seq_series = [f.get_series(device, key) for f in self.files
                       if device in (f.control_sources | f.instrument_sources)]
 
@@ -981,6 +1027,7 @@ class RunDirectory:
             automatically called 'train'. The default for extra dimensions
             is dim_0, dim_1, ...
         """
+        self._check_field(device, key)
         seq_arrays = [f.get_array(device, key, extra_dims=extra_dims)
                       for f in self.files
                       if device in (f.control_sources | f.instrument_sources)]
