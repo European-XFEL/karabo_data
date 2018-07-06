@@ -1234,6 +1234,12 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
         except IndexError:
             print('stack_detector_Data(): module {} is out or range for a'
                   'detector of {} modules'.format(index, modules))
+        except ValueError:
+            print('stack_detector_Data(): inconsistent data shape of {} in {}: '
+                  'found both {} and {}'.format(data,
+                                                device,
+                                                combined.shape[1:],
+                                                train[device][data].shape))
     return np.moveaxis(combined, 0, axis)
 
 
