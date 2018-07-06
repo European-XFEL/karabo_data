@@ -14,7 +14,6 @@ from argparse import ArgumentParser
 import os.path as osp
 from queue import Queue
 from threading import Event, Thread
-from time import time
 
 import msgpack
 import numpy as np
