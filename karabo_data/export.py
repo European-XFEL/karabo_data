@@ -206,7 +206,8 @@ def serve_files(path, port, **kwargs):
     streamer = ZMQStreamer(port, **kwargs)
     streamer.start()
     for tid, train_data in data.trains():
-        streamer.feed(train_data)
+        if train_data:
+            streamer.feed(train_data)
     streamer.stop()
 
 
