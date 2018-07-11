@@ -188,7 +188,7 @@ class ZMQStreamer:
         self._buffer.put(self._serialize(data, metadata))
 
 
-def serve_files(path, port):
+def serve_files(path, port, **kwargs):
     """Stream data from files through a TCP socket.
 
     Parameters
@@ -203,7 +203,7 @@ def serve_files(path, port):
     else:
         data = H5File(path)
 
-    streamer = ZMQStreamer(port)
+    streamer = ZMQStreamer(port, **kwargs)
     streamer.start()
     for tid, train_data in data.trains():
         streamer.feed(train_data)
