@@ -22,7 +22,7 @@ import zmq
 
 from .reader import RunDirectory, H5File
 
-__all__ = ['ZMQStreamer']
+__all__ = ['ZMQStreamer', 'serve_files']
 
 
 class REPInterface(Thread):
@@ -188,20 +188,32 @@ class ZMQStreamer:
         self._buffer.put(self._serialize(data, metadata))
 
 
+def serve_files(path, port):
+    """Stream data from files through a TCP socket.
+
+    Parameters
+    ----------
+    path: str
+        Path to the HDF5 file or file folder.
+    port: int
+        Local TCP port to bind socket to.
+    """
+    if osp.isdir(path):
+        data = RunDirectory(path)
+    else:
+        data = H5File(path)
+
+    streamer = ZMQStreamer(port)
+    streamer.start()
+    for tid, train_data in data.trains():
+        streamer.feed(train_data)
+    streamer.stop()
+
+
 def main(argv=None):
     ap = ArgumentParser(prog="karabo-bridge-serve-files")
     ap.add_argument("path", help="Path of a file or run directory to serve")
     ap.add_argument("port", help="TCP port to run server on")
     args = ap.parse_args(argv)
 
-    if osp.isdir(args.path):
-        data = RunDirectory(args.path)
-    else:
-        data = H5File(args.path)
-
-    streamer = ZMQStreamer(args.port)
-    streamer.start()
-    for tid, train_data in data.trains():
-        streamer.feed(train_data)
-
-    streamer.stop()
+    serve_files(args.path, args.port)
