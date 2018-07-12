@@ -16,6 +16,7 @@ Contents:
    Demo
    apply_geometry
    examine_geometry
+   xpd_examples
 
 Indices and tables
 ==================
