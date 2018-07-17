@@ -1032,7 +1032,17 @@ class RunDirectory:
                       for f in self.files
                       if device in (f.control_sources | f.instrument_sources)]
 
-        return xr.concat(sorted(seq_arrays, key=lambda a: a.coords['trainId'][0]),
+        non_empty = [a for a in seq_arrays if (a.size > 0)]
+        if not non_empty:
+            if seq_arrays:
+                # All per-file arrays are empty, so just return the first one.
+                return seq_arrays[0]
+
+            raise Exception(("Unable to get data for source {!r}, key {!r}. "
+                             "Please report an issue so we can investigate")
+                            .format(device, key))
+
+        return xr.concat(sorted(non_empty, key=lambda a: a.coords['trainId'][0]),
                          dim='trainId')
 
     def _assemble_sequences(self):
