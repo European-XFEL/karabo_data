@@ -54,6 +54,7 @@ setup(name="karabo_data",
           'docs': [
               'sphinx',
               'nbsphinx',
+              'ipython',  # For nbsphinx syntax highlighting
           ],
           'test': [
               'pytest',
@@ -75,4 +76,3 @@ setup(name="karabo_data",
           'Topic :: Scientific/Engineering :: Physics',
       ]
 )
-
