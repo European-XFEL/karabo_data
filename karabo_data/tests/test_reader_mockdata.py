@@ -211,6 +211,14 @@ def test_run_get_array(mock_fxe_run):
     assert arr.shape == (480, 1000)
     assert arr.coords['trainId'][0] == 10000
 
+def test_run_get_array_empty(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    arr = run.get_array('FXE_XAD_GEC/CAM/CAMERA_NODATA:daqOutput', 'data.image.pixels')
+
+    assert isinstance(arr, DataArray)
+    assert arr.dims[0] == 'trainId'
+    assert arr.shape == (0, 255, 1024)
+
 def test_run_get_array_error(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
 
