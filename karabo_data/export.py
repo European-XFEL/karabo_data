@@ -81,8 +81,13 @@ class ZMQStreamer:
     protocol_version: ('1.0' | '2.1')
         Which version of the bridge protocol to use. Defaults to the latest
         version implemented.
+    dummy_timestamps: bool
+        Some tools (such as OnDA) expect the timestamp information to be in the
+        messages. We can't give accurate timestamps where these are not in the
+        file, so this option generates fake timestamps from the time the data
+        is fed in.
     """
-    def __init__(self, port, maxlen=10, protocol_version='2.2'):
+    def __init__(self, port, maxlen=10, protocol_version='2.2', dummy_timestamps=False):
         self._context = zmq.Context()
         self.port = port
         if protocol_version not in {'1.0', '2.2'}:
@@ -94,6 +99,7 @@ class ZMQStreamer:
         else:
             self.pack = msgpack.Packer(use_bin_type=True).pack
         self.protocol_version = protocol_version
+        self.dummy_timestamps = dummy_timestamps
         self._buffer = Queue(maxsize=maxlen)
         self._interface = None
 
@@ -113,6 +119,12 @@ class ZMQStreamer:
     def _serialize(self, data, metadata=None):
         if not metadata:
             metadata = {src: v.get('metadata', {}) for src, v in data.items()}
+
+        if self.dummy_timestamps and ('timestamp' not in metadata):
+            ts = time()
+            sec, frac = str(ts).split('.')
+            frac = frac.ljust(18, '0')
+            metadata.update({'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac})
 
         if self.protocol_version == '1.0':
             return [self.pack(data)]

@@ -19,7 +19,6 @@ import numpy as np
 import os.path as osp
 import pandas as pd
 import re
-from time import time
 import xarray as xr
 
 
@@ -297,9 +296,6 @@ class H5File:
         train_data = defaultdict(dict)
 
         train_id = self.train_ids[train_index]
-        ts = time()
-        sec, frac = str(ts).split('.')
-        frac = frac.ljust(18, '0')
 
         if only_this is not None:
             for source, key in only_this:
@@ -327,10 +323,7 @@ class H5File:
 
                 train_data[source]['metadata'] = {
                     'source': source,
-                    'timestamp': ts,
                     'timestamp.tid': train_id,
-                    'timestamp.sec': sec,
-                    'frac': frac,
                 }
             return train_id, train_data
 
@@ -364,10 +357,7 @@ class H5File:
 
             train_data[device]['metadata'] = {
                 'source': source,
-                'timestamp': ts,
                 'timestamp.tid': train_id,
-                'timestamp.sec': sec,
-                'frac': frac,
             }
 
         return train_id, train_data
