@@ -225,11 +225,13 @@ def make_fxe_run(dir_path):
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
+        GECCamera('FXE_XAD_GEC/CAM/CAMERA_NODATA', nsamples=0),
     ], ntrains=400, chunksize=200)
     write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00001.h5'), [
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
+        GECCamera('FXE_XAD_GEC/CAM/CAMERA_NODATA', nsamples=0),
     ], ntrains=80, firsttrain=10400, chunksize=200)
 
 if __name__ == '__main__':
