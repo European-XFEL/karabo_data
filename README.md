@@ -13,7 +13,7 @@ package from the ubuntu repositories.
 
 to install package:
 
-    pip3 install .
+    pip3 install karabo_data
 
 
 Contributing
