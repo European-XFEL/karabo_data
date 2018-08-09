@@ -172,14 +172,25 @@ class ZMQStreamer:
         data : dict
             Contains train data. The dictionary has to follow the karabo_bridge
             protocol structure:
+
             - keys are source names
             - values are dict, where the keys are the parameter names and
               values must be python built-in types or numpy.ndarray.
+
         metadata : dict, optional
             Contains train metadata. The dictionary has to follow the
             karabo_bridge protocol structure:
+
             - keys are (str) source names
             - values (dict) should contain the following items:
+
+              - 'timestamp' Unix time with subsecond resolution
+              - 'timestamp.sec' Unix time with second resolution
+              - 'timestamp.frac' fractional part with attosecond resolution
+              - 'timestamp.tid' is European XFEL train unique ID
+
+            ::
+
               {
                   'source': 'sourceName'  # str
                   'timestamp': 1234.567890  # float
@@ -187,11 +198,6 @@ class ZMQStreamer:
                   'timestamp.frac': '567890000000000000'  # str
                   'timestamp.tid': 1234567890  # int
               }
-
-            'timestamp' Unix time with subsecond resolution
-            'timestamp.sec' Unix time with second resolution
-            'timestamp.frac' fractional part with attosecond resolution
-            'timestamp.tid' is European XFEL train unique ID
 
             If the metadata dict is not provided it will be extracted from
             'data' or an empty dict if 'metadata' key is missing from a data
