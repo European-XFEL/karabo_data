@@ -236,18 +236,13 @@ def numpy_to_cbf(np_array, index=0, header=None):
 
 def hdf5_to_cbf(in_h5file, cbf_filename, index, header=None):
     """Conversion from HDF5 file to cbf binary image file"""
-    try:
-        tmpf = h5py.File(in_h5file, 'r')
-        paths = list(tmpf["METADATA/dataSourceId"])
-        image_path = [p for p in paths if p.endswith(b"image")][0]
-        images = tmpf[image_path + b"/data"][index]
-        cbf_out = numpy_to_cbf(images)
-        cbf_out.write(cbf_filename)
-        print("Convert {} index {} to {}".format(in_h5file,
-                                                 index,
-                                                 cbf_filename))
-    except IOError:
-        print("{}: Could not be opened.".format(in_h5file))
-        return
-    except ValueError as ve:
-        print(str(ve))
+    tmpf = h5py.File(in_h5file, 'r')
+    paths = list(tmpf["METADATA/dataSourceId"])
+    image_path = [p for p in paths if p.endswith(b"image")][0]
+    images = tmpf[image_path + b"/data"]
+    cbf_out = numpy_to_cbf(images, index=index)
+    cbf_out.write(cbf_filename)
+    print("Convert {} index {} to {}".format(in_h5file,
+                                             index,
+                                             cbf_filename))
+
