@@ -1,6 +1,9 @@
 import numpy as np
 import os
 import pytest
+import re
+import tempfile
+from testpath import assert_isfile
 import subprocess
 
 from karabo_data import utils
@@ -21,53 +24,14 @@ def test_summary_on_data_file():
         pytest.skip("test data file not available ()".format(testdatapath))
 
 
-def test_cbf_conversion():
-    testdatapath = "data/example_data/R0126-AGG01-S00002.h5"
-    if os.path.exists(testdatapath):
-        # Test that the help message pops up when the command is malformed
-        command = "euxfel_h5tool.py convert-cbf".format(testdatapath)
-        output = str(subprocess.check_output(command), shell=True)
-        print(output)
-        assert "Usage:" in output
+def test_cbf_conversion(mock_agipd_data, capsys):
+    with tempfile.TemporaryDirectory() as td:
+        out_file = os.path.join(td, 'out.cbf')
+        utils.hdf5_to_cbf(mock_agipd_data, out_file, index=0)
+        assert_isfile(out_file)
 
-        # Test that the cbf file is correctly created for index 0
-        command = ("euxfel_h5tool.py convert-cbf {}"
-                   "0 out.cbf".format(testdatapath))
-        expected_output = "Convert {} index 0 to out.cbf".format(testdatapath)
-        output = str(subprocess.check_output(command), shell=True)
-        print(output)
-        assert expected_output == output
-
-        # Test that the cbf file is correctly created for an arbitrary index
-        command = ("euxfel_h5tool.py convert-cbf {}"
-                   "42 out.cbf".format(testdatapath))
-        expected_output = "Convert {} index 42 to out.cbf".format(testdatapath)
-        output = str(subprocess.check_output(command), shell=True)
-        print(output)
-        assert expected_output == output
-
-        # Test graceful fail for inexisting file
-        command = "euxfel_h5tool.py convert-cbf non_existing_data.h5 0 out.cbf"
-        expected_output = "non_exisiting_data.h5: Could not be opened."
-        output = str(subprocess.check_output(command), shell=True)
-        print(output)
-        assert expected_output == output
-
-        # Test graceful fail for index out of range
-        maxint_64 = 9223372036854775808
-        command = ("euxfel_h5tool.py convert-cbf non_existing_data.h5"
-                   "{} out.cbf".format(maxint_64))
-        expected_output = "Index ({}) out of range".format(maxint_64)
-        output = str(subprocess.check_output(command), shell=True)
-        print(output)
-        assert expected_output in output
-
-        # Clean up
-        os.remove("out.cbf")
-
-    else:
-        pytest.skip("test data file not available ()".format(testdatapath))
-
+    captured = capsys.readouterr()
+    assert re.match("Convert .* to .*/out.cbf", captured.out)
 
 def test_init_quick_view():
     qv = QuickView()

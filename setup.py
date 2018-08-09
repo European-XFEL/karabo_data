@@ -60,6 +60,7 @@ setup(name="karabo_data",
               'pytest',
               'pytest-cov',
               'nbval',
+              'testpath',
           ]
       },
       python_requires='>=3.4',
