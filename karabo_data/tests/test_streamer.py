@@ -68,6 +68,14 @@ def client():
     client = Client('tcp://localhost:5555')
     yield client
 
+class DummyFrame:
+    """Client._deserialize() now expects the message in ZMQ Frame objects.
+
+    TODO: avoid using a private method from karabo_data for tests.
+    """
+    def __init__(self, data):
+        self.bytes = data
+        self.buffer = data
 
 def test_serialize_1(server_1, client):
     msg = server_1._serialize(DATA)
@@ -77,7 +85,8 @@ def test_serialize_1(server_1, client):
     assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True,
                                     default=numpack.encode)
 
-    data, meta = client._deserialize(msg)
+    msg_framed = [DummyFrame(b) for b in msg]
+    data, meta = client._deserialize(msg_framed)
     compare_nested_dict(data, DATA)
 
 
@@ -99,7 +108,8 @@ def test_serialize_2_2(server_2_2, client):
     assert m2['source'] == 'source1'
     assert m2['content'] == 'msgpack'
 
-    data, meta = client._deserialize(msg)
+    msg_framed = [DummyFrame(b) for b in msg]
+    data, meta = client._deserialize(msg_framed)
     compare_nested_dict(data, DATA)
 
     assert meta['source1']['timestamp.tid'] == 9876543210
