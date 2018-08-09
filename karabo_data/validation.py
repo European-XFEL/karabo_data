@@ -3,6 +3,8 @@ import numpy as np
 import os
 import sys
 
+from .reader import RunDirectory, H5File
+
 class ValidationError(Exception):
     def __init__(self, problems):
         self.problems = problems
@@ -18,7 +20,7 @@ class ValidationError(Exception):
         return '\n'.join(lines)
 
 class FileValidator:
-    def __init__(self, file):
+    def __init__(self, file: H5File):
         self.file = file
         self.filename = file.file.filename
         self.problems = []
@@ -67,6 +69,7 @@ class FileValidator:
             for key in self.file._keys_for_source(src):
                 ds_path = 'INSTRUMENT/{}/{}'.format(src, key.replace('.', '/'))
                 h5_source = src + '/' + key.split('.', 1)[0]
+                h5_sources.add(h5_source)
                 first, count = self.file._read_index(h5_source)
                 data_dim0 = self.file.file[ds_path].shape[0]
                 if np.any((first + count) > data_dim0):
@@ -85,7 +88,8 @@ class FileValidator:
 def check_index_contiguous(firsts, counts, record):
     probs = []
 
-    record("Index doesn't start at 0")
+    if firsts[0] != 0:
+        record("Index doesn't start at 0")
 
     if np.all((firsts + counts)[:-1] == firsts[1:]):
         return probs
@@ -101,7 +105,7 @@ def check_index_contiguous(firsts, counts, record):
     return probs
 
 class RunValidator:
-    def __init__(self, run):
+    def __init__(self, run: RunDirectory):
         self.run = run
         self.problems = []
 
@@ -118,11 +122,9 @@ class RunValidator:
     def check_files(self):
         for f in self.run.files:
             fv = FileValidator(f)
-            fv.validate()
-            self.problems.extend(fv.problems)
+            self.problems.extend(fv.run_checks())
 
 def main(argv=None):
-    from .reader import RunDirectory, H5File
     if argv is None:
         argv = sys.argv[1:]
 
