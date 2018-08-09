@@ -3,6 +3,8 @@ import numpy as np
 import os
 import sys
 
+from .reader import RunDirectory, H5File
+
 class ValidationError(Exception):
     def __init__(self, problems):
         self.problems = problems
@@ -18,7 +20,7 @@ class ValidationError(Exception):
         return '\n'.join(lines)
 
 class FileValidator:
-    def __init__(self, file):
+    def __init__(self, file: H5File):
         self.file = file
         self.filename = file.file.filename
         self.problems = []
@@ -101,7 +103,7 @@ def check_index_contiguous(firsts, counts, record):
     return probs
 
 class RunValidator:
-    def __init__(self, run):
+    def __init__(self, run: RunDirectory):
         self.run = run
         self.problems = []
 
@@ -118,11 +120,9 @@ class RunValidator:
     def check_files(self):
         for f in self.run.files:
             fv = FileValidator(f)
-            fv.validate()
-            self.problems.extend(fv.problems)
+            self.problems.extend(fv.run_checks())
 
 def main(argv=None):
-    from .reader import RunDirectory, H5File
     if argv is None:
         argv = sys.argv[1:]
 
