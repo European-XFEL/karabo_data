@@ -244,3 +244,17 @@ def test_run_get_array_error(mock_fxe_run):
 
     with pytest.raises(PropertyNameError):
         run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
+
+def test_stack_data(mock_fxe_run):
+    test_run = RunDirectory(mock_fxe_run)
+    tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
+
+    comb = stack_data(data, 'image.data')
+    assert comb.shape == (128, 1, 16, 256, 256)
+
+def test_stack_detector_data(mock_fxe_run):
+    test_run = RunDirectory(mock_fxe_run)
+    tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
+
+    comb = stack_detector_data(data, 'image.data')
+    assert comb.shape == (128, 1, 16, 256, 256)

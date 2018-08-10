@@ -1198,7 +1198,7 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     train: dict
         Train data.
     data: str
-        The path to the device parameter of the data you want to stack.
+        The path to the device parameter of the data you want to stack, e.g. 'image.data'.
     axis: int
         Array axis on which you wish to stack (default is -3).
     modules: int
@@ -1216,30 +1216,33 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     """
     devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
 
-    dtype, shape = next(((d[data].dtype, d[data].shape) for d in train.values()
-                        if data in d and 0 not in d[data].shape), (None, None))
-    if dtype is None or shape is None:
-        return np.array([])
+    if not devices:
+        raise ValueError("No data after filtering by 'only' and 'xcept' arguments.")
+
+    dtypes, shapes = set(), set()
+    modno_arrays = {}
+    for device in devices:
+        modno = int(re.search(r'/DET/(\d+)CH', device).group(1))
+        array = train[device][data]
+        dtypes.add(array.dtype)
+        shapes.add(array.shape)
+        modno_arrays[modno] = array
+
+    if len(dtypes) > 1:
+        raise ValueError("Arrays have mismatched dtypes: {}".format(dtypes))
+    if len(shapes) > 1:
+        raise ValueError("Arrays have mismatched shapes: {}".format(shapes))
+    if max(modno_arrays) >= modules:
+        raise IndexError("Module {} is out of range for a detector with {} modules"
+                         .format(max(modno_arrays), modules))
+
+    dtype = dtypes.pop()
+    shape = shapes.pop()
 
     combined = np.full((modules, ) + shape, np.nan, dtype=dtype)
-    for device in devices:
-        index = None
-        try:
-            if 0 in train[device][data].shape:
-                continue
-            index = int(re.findall(r'\d+', device)[-2])
-            combined[index, ] = train[device][data]
-        except KeyError:
-            print('stack_detector_data(): missing {} in {}'.format(data, device))
-        except IndexError:
-            print('stack_detector_Data(): module {} is out or range for a'
-                  'detector of {} modules'.format(index, modules))
-        except ValueError:
-            print('stack_detector_Data(): inconsistent data shape of {} in {}: '
-                  'found both {} and {}'.format(data,
-                                                device,
-                                                combined.shape[1:],
-                                                train[device][data].shape))
+    for modno, array in modno_arrays.items():
+        combined[modno] = array
+
     return np.moveaxis(combined, 0, axis)
 
 
