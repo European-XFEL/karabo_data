@@ -117,6 +117,23 @@ def test_iterate_select_trains(mock_fxe_run):
     tids = [tid for (tid, _) in run.trains(train_range=by_id[:10003])]
     assert tids == [10000, 10001, 10002]
 
+    # Overlap with start of run
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[9000:10003])]
+    assert tids == [10000, 10001, 10002]
+
+    # Overlap with end of run
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[10478: 10500])]
+    assert tids == [10478, 10479]
+
+    # Not overlapping
+    with pytest.raises(ValueError) as excinfo:
+        list(run.trains(train_range=by_id[9000:9050]))
+    assert 'before' in str(excinfo.value)
+
+    with pytest.raises(ValueError) as excinfo:
+        list(run.trains(train_range=by_id[10500:10550]))
+    assert 'after' in str(excinfo.value)
+
     tids = [tid for (tid, _) in run.trains(train_range=by_index[4:6])]
     assert tids == [10004, 10005]
 
