@@ -142,8 +142,10 @@ def _normalize_data_selection(selection, dataset):
             if key_glob.endswith(('.value', '*')):
                 ctrl_key_re = key_re
             else:
-                # The translated pattern ends with "\Z" - slice this off
-                ctrl_key_re = re.compile(key_re.pattern[:-2] + r'(\.value)?\Z')
+                # The translated pattern ends with "\Z" - insert before this
+                p = key_re.pattern
+                end_ix = p.rindex('\Z')
+                ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
 
             matched = set()
             for source in (dataset.control_sources | dataset.instrument_sources):
