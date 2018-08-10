@@ -139,10 +139,11 @@ def _normalize_data_selection(selection, dataset):
             # Convert glob patterns to regexes
             src_re = re.compile(fnmatch.translate(src_glob))
             key_re = re.compile(fnmatch.translate(key_glob))
-            if key_glob.endswith('.value'):
+            if key_glob.endswith(('.value', '*')):
                 ctrl_key_re = key_re
             else:
-                ctrl_key_re = re.compile(key_re.pattern + r'(\.value)?')
+                # The translated pattern ends with "\Z" - slice this off
+                ctrl_key_re = re.compile(key_re.pattern[:-2] + r'(\.value)?\Z')
 
             matched = set()
             for source in (dataset.control_sources | dataset.instrument_sources):
@@ -519,13 +520,6 @@ class H5File:
             name = name[:-6]
         return name
 
-    @staticmethod
-    def _field_match(device, key, patterns):
-        if key.endswith('.value'):
-            key = key[:-6]
-        return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
-                   for p in patterns)
-
     def _check_field(self, source, key):
         if source not in self.all_sources:
             raise SourceNameError(source, run=False)
@@ -646,19 +640,10 @@ class H5File:
             If false (the default), exclude the timestamps associated with each
             control data field.
         """
-        if isinstance(fields, str):
-            fields = [fields]
-
-        control_series = []
-        for dev in self.control_sources:
-            def append_ctrl_data(key, value):
-                if (not timestamps) and key.endswith('/timestamp'):
-                    return
-                if isinstance(value, h5py.Dataset):
-                    key = key.replace('/', '.')
-                    if self._field_match(dev, key, fields):
-                        control_series.append(self.get_series(dev, key))
-            self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
+        fields = _normalize_data_selection(fields, self)
+        if not timestamps:
+            fields = {(s, k) for (s, k) in fields if not k.endswith('.timestamp')}
+        control_series = [self.get_series(s, k) for (s, k) in fields]
 
         if not control_series:
             return None
@@ -996,12 +981,19 @@ class RunDirectory:
             If false (the default), exclude the timestamps associated with each
             control data field.
         """
+        fields = _normalize_data_selection(fields, self)
+        if not timestamps:
+            fields = {(s, k) for (s, k) in fields if not k.endswith('.timestamp')}
+
         group_dfs = []
         for _, files in self._assemble_sequences().items():
             file_dfs = []
             for f in files:
-                df = f.get_dataframe(fields=fields, timestamps=timestamps)
-                if df is not None:
+                file_selection = f._filter_selection(fields)
+                if file_selection:
+                    # .timestamp fields were already filtered out above, so
+                    # the file code can skip filtering them.
+                    df = f.get_dataframe(fields=file_selection, timestamps=True)
                     file_dfs.append(df)
             if file_dfs:
                 group_dfs.append(pd.concat(file_dfs))
