@@ -12,6 +12,7 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from collections import defaultdict
 import datetime
+import fnmatch
 from fnmatch import fnmatchcase
 from glob import glob
 import h5py
@@ -135,13 +136,22 @@ def _normalize_data_selection(selection, dataset):
     elif isinstance(selection, list):
         # [('src_glob', 'key_glob'), ...]
         for src_glob, key_glob in selection:
+            # Convert glob patterns to regexes
+            src_re = re.compile(fnmatch.translate(src_glob))
+            key_re = re.compile(fnmatch.translate(key_glob))
+            if key_glob.endswith('.value'):
+                ctrl_key_re = key_re
+            else:
+                ctrl_key_re = re.compile(key_re.pattern + r'(\.value)?')
+
             matched = set()
             for source in (dataset.control_sources | dataset.instrument_sources):
-                if not fnmatchcase(source, src_glob):
+                if not src_re.match(source):
                     continue
 
+                use_key_re = ctrl_key_re if (source in dataset.control_sources) else key_re
                 for key in dataset._keys_for_source(source):
-                    if fnmatchcase(key, key_glob):
+                    if use_key_re.match(key):
                         matched.add((source, key))
 
             if not matched:
