@@ -13,7 +13,6 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 from collections import defaultdict
 import datetime
 import fnmatch
-from fnmatch import fnmatchcase
 from glob import glob
 import h5py
 import numpy as np
