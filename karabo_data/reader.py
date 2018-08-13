@@ -1153,6 +1153,15 @@ RunHandler = RunDirectory
 def stack_data(train, data, axis=-3, xcept=()):
     """Stack data from devices in a train.
 
+    For detector data, use stack_detector_data instead: it can handle missing
+    modules, which this function cannot.
+
+    The returned array will have an extra dimension. The data will be ordered
+    according to any groups of digits in the source name, interpreted as
+    integers. Other characters do not affect sorting. So:
+
+        "B_7_0" < "A_12_0" < "A_12_1"
+
     Parameters
     ----------
     train: dict
@@ -1170,24 +1179,22 @@ def stack_data(train, data, axis=-3, xcept=()):
     combined: numpy.array
         Stacked data for requested data path.
     """
-    devs = [(list(map(int, re.findall(r'\d+', dev))), dev)
-            for dev in train.keys() if dev not in xcept]
-    devices = [dev for _, dev in sorted(devs)]
+    devices = [dev for dev in train.keys() if dev not in xcept]
 
-    dtype, shape = next(((d[data].dtype, d[data].shape) for d in train.values()
-                        if data in d and 0 not in d[data].shape), (None, None))
-    if dtype is None or shape is None:
-        return np.empty(0)
+    if not devices:
+        raise ValueError("No data after filtering by 'xcept' argument.")
 
-    combined = np.zeros((len(devices),) + shape, dtype=dtype)
-    for index, device in enumerate(devices):
-        try:
-            if 0 in train[device][data].shape:
-                continue
-            combined[index, ] = train[device][data]
-        except KeyError:
-            print('stack_data(): missing {} in {}'.format(data, device))
-    return np.moveaxis(combined, 0, axis)
+    dtypes, shapes = set(), set()
+    ordered_arrays = []
+    for device in sorted(devices, key=lambda d: list(map(int, re.findall(r'\d+', d)))):
+        array = train[device][data]
+        dtypes.add(array.dtype)
+        ordered_arrays.append(array)
+
+    if len(dtypes) > 1:
+        raise ValueError("Arrays have mismatched dtypes: {}".format(dtypes))
+
+    return np.stack(ordered_arrays, axis=axis)
 
 
 def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
