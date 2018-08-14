@@ -117,6 +117,23 @@ def test_iterate_select_trains(mock_fxe_run):
     tids = [tid for (tid, _) in run.trains(train_range=by_id[:10003])]
     assert tids == [10000, 10001, 10002]
 
+    # Overlap with start of run
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[9000:10003])]
+    assert tids == [10000, 10001, 10002]
+
+    # Overlap with end of run
+    tids = [tid for (tid, _) in run.trains(train_range=by_id[10478: 10500])]
+    assert tids == [10478, 10479]
+
+    # Not overlapping
+    with pytest.raises(ValueError) as excinfo:
+        list(run.trains(train_range=by_id[9000:9050]))
+    assert 'before' in str(excinfo.value)
+
+    with pytest.raises(ValueError) as excinfo:
+        list(run.trains(train_range=by_id[10500:10550]))
+    assert 'after' in str(excinfo.value)
+
     tids = [tid for (tid, _) in run.trains(train_range=by_index[4:6])]
     assert tids == [10004, 10005]
 
@@ -227,3 +244,17 @@ def test_run_get_array_error(mock_fxe_run):
 
     with pytest.raises(PropertyNameError):
         run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
+
+def test_stack_data(mock_fxe_run):
+    test_run = RunDirectory(mock_fxe_run)
+    tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
+
+    comb = stack_data(data, 'image.data')
+    assert comb.shape == (128, 1, 16, 256, 256)
+
+def test_stack_detector_data(mock_fxe_run):
+    test_run = RunDirectory(mock_fxe_run)
+    tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
+
+    comb = stack_detector_data(data, 'image.data')
+    assert comb.shape == (128, 1, 16, 256, 256)
