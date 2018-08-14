@@ -4,24 +4,9 @@ import pytest
 import re
 import tempfile
 from testpath import assert_isfile
-import subprocess
 
 from karabo_data import utils
 from karabo_data.utils import QuickView
-
-
-def test_summary_on_data_file():
-    testdatapath = "data/example_data/R0126-AGG01-S00002.h5"
-    if os.path.exists(testdatapath):
-        # next line assumes that the have installed the package
-        output = str(subprocess.check_output("euxfel_h5tool.py {}".format(
-            testdatapath), shell=True))
-        print(output)
-        assert "Size: 665.596177 MB" in output
-        assert "Entries: 10" in output
-        assert "First Train: 1362168960" in output
-    else:
-        pytest.skip("test data file not available ()".format(testdatapath))
 
 
 def test_cbf_conversion(mock_agipd_data, capsys):
@@ -47,12 +32,6 @@ def test_init_quick_view():
     with pytest.raises(TypeError) as info:
         qv.data = np.empty((1,1,1,1), dtype=np.int8)
 
-
-def test_hdf5_file_info(mock_lpd_data, capsys):
-    utils.hdf5_file_info([mock_lpd_data])
-
-    out, err = capsys.readouterr()
-    assert "Entries: 480" in out
 
 if __name__ == "__main__":
     pytest.main(["-v"])
