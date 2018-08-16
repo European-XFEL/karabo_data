@@ -30,14 +30,14 @@ def test_get_train_bad_device_name(mock_spb_control_data_badname):
 
 def test_detector_info_oldfmt(mock_agipd_data):
     with H5File(mock_agipd_data) as f:
-        di = f.detector_info()
+        di = f.detector_info('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf')
         assert di['dims'] == (512, 128)
         assert di['frames_per_train'] == 64
         assert di['total_frames'] == 16000
 
 def test_detector_info(mock_lpd_data):
     with H5File(mock_lpd_data) as f:
-        di = f.detector_info()
+        di = f.detector_info('FXE_DET_LPD1M-1/DET/0CH0:xtdf')
         assert di['dims'] == (256, 256)
         assert di['frames_per_train'] == 128
         assert di['total_frames'] == 128 * 480
@@ -87,7 +87,7 @@ def test_iterate_trains_require_all(mock_sa3_control_data):
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     assert len(run.files) == 18  # 16 detector modules + 2 control data files
-    assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
+    assert run.train_ids == list(range(10000, 10480))
     run.info()  # Smoke test
 
 def test_properties_fxe_run(mock_fxe_run):
