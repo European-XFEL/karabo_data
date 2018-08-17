@@ -144,19 +144,15 @@ class DataCollection:
         return DataCollection(sources)
 
     def _expand_selection(self, selection):
-        if isinstance(selection, set):
-            return selection
-
-        res = set()
+        res = defaultdict(set)
         if isinstance(selection, dict):
             # {source: {key1, key2}}
             # {source: {}} -> all keys for this source
             for source, keys in selection.items():  #
                 if source not in self.all_sources:
-                    raise ValueError("Source {} not in this run".format(source))
+                    raise SourceNameError(source)
 
-                for k in (keys or ['*']):
-                    res.add((source, k))
+                res[source].update(keys or ['*'])
 
         elif isinstance(selection, list):
             # [('src_glob', 'key_glob'), ...]
@@ -167,11 +163,12 @@ class DataCollection:
                     raise ValueError("No matches for pattern {}"
                                      .format((src_glob, key_glob)))
 
-                res.update(matched)
+                for s, k in matched.items():
+                    res[s].update(k)
         else:
             TypeError("Unknown selection type: {}".format(type(selection)))
 
-        return res
+        return dict(res)
 
     def _select_glob(self, source_glob, key_glob):
         source_re = re.compile(fnmatch.translate(source_glob))
@@ -184,17 +181,18 @@ class DataCollection:
             end_ix = p.rindex('\Z')
             ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
 
-        matched = set()
+        matched = {}
         for source in self.all_sources:
             if not source_re.match(source):
                 continue
 
             if key_glob == '*':
-                matched.add((source, '*'))
+                matched[source] = {'*'}
             else:
                 r = ctrl_key_re if source in self.control_sources else key_re
-                for key in filter(r.match, self._keys_for_source(source)):
-                    matched.add((source, key))
+                keys = set(filter(r.match, self._keys_for_source(source)))
+                if keys:
+                    matched[source] = keys
 
         if not matched:
             raise ValueError("No matches for pattern {}"
@@ -210,19 +208,16 @@ class DataCollection:
             selection = self._expand_selection(seln_or_source_glob)
 
         selection = self._expand_selection(selection)
-        selection_by_source = defaultdict(set)
-        for source, key in selection:
-            selection_by_source[source].add(key)
 
         new_sources = {}
-        for source, keys in selection_by_source.items():
+        for source, keys in selection.items():
             if '*' in keys:
                 new_sources[source] = self._sources[source]
             else:
                 new_sources[source] = self._sources[source].with_keys(keys)
         res = DataCollection(new_sources, self.train_ids)
         res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
-                            if s in selection_by_source}
+                            if s in selection}
 
         return res
 
