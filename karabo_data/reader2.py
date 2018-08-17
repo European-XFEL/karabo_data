@@ -30,6 +30,11 @@ class _SourceInfo:
         self.category = category
         self.keys = keys
 
+    def copy(self):
+        new = type(self)(self.category, keys=self.keys)
+        new.files = self.files[:]
+        return new
+
     def with_keys(self, keys):
         new = type(self)(self.category, keys=keys)
         new.files = self.files
@@ -89,13 +94,14 @@ class DataCollection:
                 res.add(file)
         return res
 
-    def add_file(self, path):
+    @classmethod
+    def from_file(cls, path):
         f = h5py.File(path)
 
         tid_data = f['INDEX/trainId'].value
         train_ids = tid_data[tid_data != 0]
 
-        ctrl_source_names, inst_source_names = set(), set()
+        sources = {}
 
         for source in f['METADATA/dataSourceId'].value:
             if not source:
@@ -106,26 +112,36 @@ class DataCollection:
                 device, _, chan_grp = h5_source.partition(':')
                 chan, _, group = chan_grp.partition('/')
                 source = device + ':' + chan
-                inst_source_names.add(source)
-                self.instrument_sources.add(source)
-                # TODO: Do something with group
+                sources[source] = info = _SourceInfo(SourceCategory.INSTRUMENT)
+                # TODO: Do something with groups?
             elif category == 'CONTROL':
-                self.control_sources.add(h5_source)
-                ctrl_source_names.add(h5_source)
+                sources[h5_source] = info = _SourceInfo(SourceCategory.CONTROL)
             else:
                 raise ValueError("Unknown data category %r" % category)
 
-        for source in ctrl_source_names:
-            if source not in self._sources:
-                self._sources[source] = _SourceInfo(SourceCategory.CONTROL)
-            self._sources[source].files.append((train_ids, f))
+            info.files.append((train_ids, f))
 
-        for source in inst_source_names:
-            if source not in self._sources:
-                self._sources[source] = _SourceInfo(SourceCategory.INSTRUMENT)
-            self._sources[source].files.append((train_ids, f))
+        return cls(sources)
 
-        self.train_ids = sorted(set(self.train_ids).union(train_ids))
+    def union(self, *others):
+        sources = {s: i.copy() for (s, i) in self._sources.items()}
+        for other in others:
+            for source, other_info in other._sources.items():
+                if source in sources:
+                    info = sources[source]
+                    # Unify keys; if either is None, include all keys
+                    if other_info.keys is None:
+                        info.keys = None
+                    elif info.keys is not None:
+                        info.keys.update(other_info.keys)
+
+                    for trains_file in other_info.files:
+                        if trains_file not in info.files:
+                            info.files.append(trains_file)
+                else:
+                    sources[source] = other_info.copy()
+
+        return DataCollection(sources)
 
     def _expand_selection(self, selection):
         if isinstance(selection, set):
@@ -632,15 +648,15 @@ class TrainIterator:
             yield tid, self._assemble_data(tid)
 
 def H5File(path):
-    d = DataCollection()
-    d.add_file(path)
-    return d
+    return DataCollection.from_file(path)
 
 def RunDirectory(path):
-    d = DataCollection()
-    for file in filter(h5py.is_hdf5, glob(osp.join(path, '*.h5'))):
-        d.add_file(file)
-    return d
+    ds = [DataCollection.from_file(file)
+          for file in glob(osp.join(path, '*.h5'))
+          if h5py.is_hdf5(file)]
+    if not ds:
+        raise Exception("No HDF5 files found in {}".format(path))
+    return DataCollection.union(*ds)
 
 
 def _tid_to_slice_ix(tid, train_ids, stop=False):
