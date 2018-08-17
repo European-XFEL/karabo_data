@@ -91,7 +91,7 @@ def check_index_contiguous(firsts, counts, record):
     if firsts[0] != 0:
         record("Index doesn't start at 0")
 
-    gaps = firsts[1:] - (firsts + counts)[:-1]
+    gaps = firsts[1:].astype(np.int64) - (firsts + counts)[:-1]
 
     gap_ixs = (gaps > 0).nonzero()[0]
     if gap_ixs.size > 0:
