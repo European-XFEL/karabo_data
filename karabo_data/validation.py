@@ -57,9 +57,12 @@ class FileValidator:
             nonzero_tids = train_ids
 
         if len(nonzero_tids) > 1:
-            if not (nonzero_tids[1:] > nonzero_tids[:-1]).all():
+            non_incr = (nonzero_tids[1:] <= nonzero_tids[:-1]).nonzero()[0]
+            if non_incr.size > 0:
+                pos = non_incr[0]
                 self.record(
-                    'Train IDs are not strictly increasing',
+                    'Train IDs are not strictly increasing, e.g. at {}, ({}, {})'
+                    .format(pos, nonzero_tids[pos], nonzero_tids[pos+1]),
                     dataset=ds_path,
                 )
 
