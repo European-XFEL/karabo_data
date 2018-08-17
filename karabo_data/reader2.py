@@ -135,9 +135,9 @@ class DataCollection:
                     elif info.keys is not None:
                         info.keys.update(other_info.keys)
 
-                    for trains_file in other_info.files:
-                        if trains_file not in info.files:
-                            info.files.append(trains_file)
+                    for trains, file in other_info.files:
+                        if not any(np.array_equal(trains, t) for (t, f) in info.files):
+                            info.files.append((trains, file))
                 else:
                     sources[source] = other_info.copy()
 
