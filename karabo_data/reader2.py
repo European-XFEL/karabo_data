@@ -1,5 +1,6 @@
 from collections import defaultdict
 import datetime
+from enum import Enum
 import fnmatch
 from glob import glob
 import h5py
@@ -19,19 +20,46 @@ from .reader import (SourceNameError, PropertyNameError,
                      by_id, by_index, FilenameInfo
                     )
 
+class SourceCategory(Enum):
+    CONTROL = 1
+    INSTRUMENT = 2
+
+class _SourceInfo:
+    def __init__(self, category, keys=None):
+        self.files = []  # [(trainids, file)]
+        self.category = category
+        self.keys = keys
+
+    def with_keys(self, keys):
+        new = type(self)(self.category, keys=keys)
+        new.files = self.files
+        return new
+
+    def with_train_ids(self, train_ids):
+        new = type(self)(self.category, keys=self.keys)
+        for f_train_ids, f in self.files:
+            if np.intersect1d(train_ids, f_train_ids).size > 0:
+                new.files.append((f_train_ids, f))
+
+        return new
+
 
 class DataCollection:
-    def __init__(self):
-        self.instrument_sources = set()
-        self.control_sources = set()
-        self.train_ids = []
-
+    def __init__(self, _sources=None, train_ids=None):
         # {source: [(train_id_range, file)]}
-        self._source_file_mapping = {}
+        self._sources = _sources or {}
         # {(file, source, group): (firsts, counts)}
         self._index_cache = {}
         # {source: set(keys)}
         self._source_keys = {}
+
+        collect_train_ids = set()
+        for data in self._sources.values():
+            for f_train_ids, _ in data.files:
+                collect_train_ids.update(f_train_ids)
+        if train_ids is not None:
+            collect_train_ids.intersection_update(train_ids)
+        self.train_ids = sorted(collect_train_ids)
 
     def __enter__(self):
         return self
@@ -40,14 +68,24 @@ class DataCollection:
         pass
 
     @property
+    def control_sources(self):
+        return {s for (s, i) in self._sources.items()
+                if i.category == SourceCategory.CONTROL}
+
+    @property
+    def instrument_sources(self):
+        return {s for (s, i) in self._sources.items()
+                if i.category == SourceCategory.INSTRUMENT}
+
+    @property
     def all_sources(self):
-        return self.instrument_sources | self.control_sources
+        return set(self._sources)
 
     @property
     def files(self):
         res = set()
-        for data in self._source_file_mapping.values():
-            for _, file in data:
+        for data in self._sources.values():
+            for _, file in data.files:
                 res.add(file)
         return res
 
@@ -57,7 +95,7 @@ class DataCollection:
         tid_data = f['INDEX/trainId'].value
         train_ids = tid_data[tid_data != 0]
 
-        sources = set()
+        ctrl_source_names, inst_source_names = set(), set()
 
         for source in f['METADATA/dataSourceId'].value:
             if not source:
@@ -68,19 +106,24 @@ class DataCollection:
                 device, _, chan_grp = h5_source.partition(':')
                 chan, _, group = chan_grp.partition('/')
                 source = device + ':' + chan
+                inst_source_names.add(source)
                 self.instrument_sources.add(source)
-                sources.add(source)
                 # TODO: Do something with group
             elif category == 'CONTROL':
                 self.control_sources.add(h5_source)
-                sources.add(h5_source)
+                ctrl_source_names.add(h5_source)
             else:
                 raise ValueError("Unknown data category %r" % category)
 
-        for source in sources:
-            if source not in self._source_file_mapping:
-                self._source_file_mapping[source] = []
-            self._source_file_mapping[source].append((train_ids, f))
+        for source in ctrl_source_names:
+            if source not in self._sources:
+                self._sources[source] = _SourceInfo(SourceCategory.CONTROL)
+            self._sources[source].files.append((train_ids, f))
+
+        for source in inst_source_names:
+            if source not in self._sources:
+                self._sources[source] = _SourceInfo(SourceCategory.INSTRUMENT)
+            self._sources[source].files.append((train_ids, f))
 
         self.train_ids = sorted(set(self.train_ids).union(train_ids))
 
@@ -151,31 +194,19 @@ class DataCollection:
             selection = self._expand_selection(seln_or_source_glob)
 
         selection = self._expand_selection(selection)
-        selected_sources = {s for (s, k) in selection}
-
-        res = DataCollection()
-        res.instrument_sources = self.instrument_sources & selected_sources
-        res.control_sources = self.control_sources & selected_sources
-        res._source_file_mapping = {s: self._source_file_mapping[s]
-                                    for s in selected_sources}
-        res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
-                            if s in selected_sources}
-        collect_train_ids = set()
-        for data in res._source_file_mapping.values():
-            for train_ids, _ in data:
-                collect_train_ids.update(train_ids)
-        res.train_ids = sorted(collect_train_ids)
-
-        selected_keys = defaultdict(set)
+        selection_by_source = defaultdict(set)
         for source, key in selection:
-            selected_keys[source].add(key)
+            selection_by_source[source].add(key)
 
-        for source, keys in selected_keys.items():
+        new_sources = {}
+        for source, keys in selection_by_source.items():
             if '*' in keys:
-                if source in self._source_keys:
-                    res._source_keys[source] = self._source_keys[source]
+                new_sources[source] = self._sources[source]
             else:
-                res._source_keys[source] = keys
+                new_sources[source] = self._sources[source].with_keys(keys)
+        res = DataCollection(new_sources, self.train_ids)
+        res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
+                            if s in selection_by_source}
 
         return res
 
@@ -189,22 +220,18 @@ class DataCollection:
         else:
             raise TypeError(type(train_range))
 
-        res = DataCollection()
-        res.train_ids = self.train_ids[ix_slice]
-        sfm = defaultdict(list)
-        for source, data in self._source_file_mapping.items():
-            for train_ids, file in data:
-                if np.intersect1d(train_ids, res.train_ids).size > 0:
-                    sfm[source].append((train_ids, file))
-        res._source_file_mapping = dict(sfm)
-        res._source_keys = {s: k for (s, k) in self._source_keys
-                            if s in res._source_file_mapping}
-        res.control_sources = {s for s in self.control_sources
-                               if s in res._source_file_mapping}
-        res.instrument_sources = {s for s in self.instrument_sources
-                                  if s in res._source_file_mapping}
+        new_train_ids = self.train_ids[ix_slice]
+
+        new_sources = {}
+        for source, info in self._sources.items():
+            new_info = info.with_train_ids(new_train_ids)
+            if new_info.files:
+                new_sources[source] = new_info
+
+        res = DataCollection(new_sources, new_train_ids)
+
         res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
-                            if s in res._source_file_mapping}
+                            if s in new_sources}
         return res
 
     def _check_field(self, source, key):
@@ -219,7 +246,7 @@ class DataCollection:
 
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._source_file_mapping[source]:
+            for trainids, f in self._sources[source].files:
                 data = f[data_path][:len(trainids), ...]
                 if extra_dims is None:
                     extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
@@ -230,7 +257,7 @@ class DataCollection:
 
         elif source in self.instrument_sources:
             data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._source_file_mapping[source]:
+            for trainids, f in self._sources[source].files:
                 group = key.partition('.')[0]
                 firsts, counts = self._get_index(f, source, group)
                 if (counts > 1).any():
@@ -285,7 +312,7 @@ class DataCollection:
 
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._source_file_mapping[source]:
+            for trainids, f in self._sources[source].files:
                 data = f[data_path][:len(trainids), ...]
                 index = pd.Index(trainids, name='trainId')
 
@@ -293,7 +320,7 @@ class DataCollection:
 
         elif source in self.instrument_sources:
             data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._source_file_mapping[source]:
+            for trainids, f in self._sources[source].files:
                 group = key.partition('.')[0]
                 firsts, counts = self._get_index(f, source, group)
                 trainids = self._expand_trainids(firsts, counts, trainids)
@@ -361,22 +388,22 @@ class DataCollection:
         return np.repeat(trainIds[:n], counts.astype(np.intp)[:n])
 
     def _keys_for_source(self, source):
-        if source not in self.all_sources:
+        try:
+            info = self._sources[source]
+        except KeyError:
             raise SourceNameError(source)
 
-        try:
-            return self._source_keys[source]
-        except KeyError:
-            pass
+        if info.keys is not None:
+            return info.keys
 
-        if source in self.control_sources:
+        if info.category is SourceCategory.CONTROL:
             group = '/CONTROL/' + source
         else:
             group = '/INSTRUMENT/' + source
 
         # The same source may be in multiple files, but this assumes it has
         # the same keys in all files that it appears in.
-        for trainids, f in self._source_file_mapping[source]:
+        for trainids, f in info.files:
             res = set()
 
             def add_key(key, value):
@@ -384,11 +411,11 @@ class DataCollection:
                     res.add(key.replace('/', '.'))
 
             f[group].visititems(add_key)
-            self._source_keys[source] = res
+            info.keys = res
             return res
 
     def _find_data(self, source, train_id):
-        for trainids, f in self._source_file_mapping[source]:
+        for trainids, f in self._sources[source].files:
             ixs = (trainids == train_id).nonzero()[0]
             if ixs.size > 0:
                 return f, ixs[0]
@@ -520,7 +547,7 @@ class DataCollection:
         - 'total_frames'
         """
         all_counts = []
-        for _, file in self._source_file_mapping[source]:
+        for _, file in self._sources[source].files:
             _, counts = self._get_index(file, source, 'image')
             all_counts.append(counts)
 
@@ -560,10 +587,10 @@ class TrainIterator:
             if ixs.size > 0:
                 return file, ixs[0], ds
 
-        data = self.data
-        section = 'CONTROL' if source in data.control_sources else 'INSTRUMENT'
+        source_info = self.data._sources[source]
+        section = 'CONTROL' if source_info.category is SourceCategory.CONTROL else 'INSTRUMENT'
         path = '/{}/{}/{}'.format(section, source, key.replace('.', '/'))
-        for trainids, f in self.data._source_file_mapping[source]:
+        for trainids, f in source_info.files:
             if tid in trainids:
                 ds = f[path]
                 self._datasets_cache[(source, key)] = (trainids, f, ds)
@@ -599,10 +626,8 @@ class TrainIterator:
         return res
 
     def __iter__(self):
-        print(self.data.train_ids)
         for tid in self.data.train_ids:
             if self.require_all and self.data._check_data_missing(tid):
-                print("Skipped", tid)
                 continue
             yield tid, self._assemble_data(tid)
 
