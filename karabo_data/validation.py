@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from functools import partial
 import numpy as np
 import os
@@ -136,7 +137,11 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
-    path = argv[0]
+    ap = ArgumentParser(prog='karabo-data-validate')
+    ap.add_argument('path', help="HDF5 file or run directory of HDF5 files.")
+    args = ap.parse_args(argv)
+
+    path = args.path
     if os.path.isdir(path):
         print("Checking run directory:", path)
         validator = RunValidator(RunDirectory(path))
@@ -150,7 +155,7 @@ def main(argv=None):
     except ValidationError as ve:
         print("Validation failed!")
         print(str(ve))
-        sys.exit(1)
+        return 1
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
