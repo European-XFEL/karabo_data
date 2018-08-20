@@ -9,18 +9,6 @@ import sys
 
 from .reader import H5File, RunDirectory, FilenameInfo
 
-def find_image(h5file):
-    """Find the image data in a detector file
-
-    Returns (img_data, index). img_data is a HDF5 dataset, index is a group
-    """
-    img_source = [src for src in h5file.sources
-                 if re.match(r'INSTRUMENT/.+/image', src)][0]
-    img_ds = h5file.file[img_source + '/data']
-    img_index_name = 'INDEX/' + img_source.split('/', 1)[1]
-    return img_ds, h5file.file[img_index_name]
-
-
 def describe_file(path):
     """Describe a single HDF5 data file"""
     basename = os.path.basename(path)

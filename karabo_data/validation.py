@@ -4,7 +4,7 @@ import numpy as np
 import os
 import sys
 
-from .reader import RunDirectory, H5File
+from .reader2 import RunDirectory, H5File, FileAccess
 
 class ValidationError(Exception):
     def __init__(self, problems):
@@ -21,7 +21,7 @@ class ValidationError(Exception):
         return '\n'.join(lines)
 
 class FileValidator:
-    def __init__(self, file: H5File):
+    def __init__(self, file: FileAccess):
         self.file = file
         self.filename = file.file.filename
         self.problems = []
@@ -69,12 +69,12 @@ class FileValidator:
 
     def check_indices(self):
         for src in self.file.instrument_sources:
-            h5_sources = set()
-            for key in self.file._keys_for_source(src):
+            src_groups = set()
+            for key in self.file.get_keys(src):
                 ds_path = 'INSTRUMENT/{}/{}'.format(src, key.replace('.', '/'))
-                h5_source = src + '/' + key.split('.', 1)[0]
-                h5_sources.add(h5_source)
-                first, count = self.file._read_index(h5_source)
+                group = key.split('.', 1)[0]
+                src_groups.add((src, group))
+                first, count = self.file.get_index(src, group)
                 data_dim0 = self.file.file[ds_path].shape[0]
                 if np.any((first + count) > data_dim0):
                     max_end = (first + count).max()
@@ -84,9 +84,9 @@ class FileValidator:
                         dataset=ds_path,
                     )
 
-            for h5_source in h5_sources:
-                record = partial(self.record, dataset='INDEX/'+h5_source)
-                first, count = self.file._read_index(h5_source)
+            for src, group in src_groups:
+                record = partial(self.record, dataset='INDEX/{}/{}'.format(src, group))
+                first, count = self.file._read_index(src, group)
                 check_index_contiguous(first, count, record)
 
 def check_index_contiguous(firsts, counts, record):
