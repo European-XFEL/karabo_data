@@ -389,7 +389,9 @@ class DataCollection:
 
         res = {}
         for source in self.control_sources:
-            source_data = res[source] = {}
+            source_data = res[source] = {
+                'metadata': {'source': source, 'timestamp.tid': train_id}
+            }
             file, pos = self._find_data(source, train_id)
             if file is None:
                 continue
@@ -399,7 +401,9 @@ class DataCollection:
                 source_data[key] = file.file[path][pos]
 
         for source in self.instrument_sources:
-            source_data = res[source] = {}
+            source_data = res[source] = {
+                'metadata': {'source': source, 'timestamp.tid': train_id}
+            }
             file, pos = self._find_data(source, train_id)
             if file is None:
                 continue
@@ -874,7 +878,9 @@ class TrainIterator:
     def _assemble_data(self, tid):
         res = {}
         for source in self.data.control_sources:
-            source_data = res[source] = {}
+            source_data = res[source] = {
+                'metadata': {'source': source, 'timestamp.tid': tid}
+            }
             for key in self.data._keys_for_source(source):
                 _, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
@@ -882,7 +888,9 @@ class TrainIterator:
                 source_data[key] = ds[pos]
 
         for source in self.data.instrument_sources:
-            source_data = res[source] = {}
+            source_data = res[source] = {
+                'metadata': {'source': source, 'timestamp.tid': tid}
+            }
             for key in self.data._keys_for_source(source):
                 file, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
