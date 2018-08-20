@@ -747,16 +747,10 @@ class DataCollection:
         span_sec = (last_train - first_train) / 10
         span_txt = str(datetime.timedelta(seconds=span_sec))
 
-        detector_srcs, non_detector_inst_srcs = [], []
         detector_modules = {}
-        for source in self.instrument_sources:
-            m = DETECTOR_SOURCE_RE.match(source)
-            if m:
-                detector_srcs.append(source)
-                name, modno = m.groups((1, 2))
-                detector_modules[(name, modno)] = source
-            else:
-                non_detector_inst_srcs.append(source)
+        for source in self.detector_sources:
+            name, modno = DETECTOR_SOURCE_RE.match(source).groups((1, 2))
+            detector_modules[(name, modno)] = source
 
         # A run should only have one detector, but if that changes, don't hide it
         detector_name = ','.join(sorted(set(k[0] for k in detector_modules)))
@@ -769,7 +763,7 @@ class DataCollection:
         print()
 
         print("{} detector modules ({})".format(
-            len(detector_srcs), detector_name
+            len(self.detector_sources), detector_name
         ))
         if len(detector_modules) > 0:
             # Show detail on the first module (the others should be similar)
@@ -784,6 +778,7 @@ class DataCollection:
             ))
         print()
 
+        non_detector_inst_srcs = self.instrument_sources - self.detector_sources
         print(len(non_detector_inst_srcs), 'instrument sources (excluding detectors):')
         for d in sorted(non_detector_inst_srcs):
             print('  -', d)

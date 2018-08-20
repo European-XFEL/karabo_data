@@ -27,21 +27,13 @@ def describe_file(path):
             detector_info['frames_per_train'], detector_info['total_frames'],
         ))
     else:
-        ctrl, inst = set(), set()
-        for src in h5file.sources:
-            srcparts = src.split('/')
-            if srcparts[0] == 'CONTROL':
-                ctrl.add('/'.join(srcparts[1:4]))
-            elif srcparts[0] == 'INSTRUMENT':
-                inst.add('/'.join(srcparts[1:4]))
-
-        print(len(inst), "instrument sources")
-        for dev in sorted(inst):
+        print(len(h5file.instrument_sources), "instrument sources")
+        for dev in sorted(h5file.instrument_sources):
             print("  - ", dev)
         print()
 
-        print(len(ctrl), "control sources")
-        for dev in sorted(ctrl):
+        print(len(h5file.control_sources), "control sources")
+        for dev in sorted(h5file.control_sources):
             print("  - ", dev)
         print()
 
