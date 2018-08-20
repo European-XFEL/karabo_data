@@ -22,9 +22,9 @@ import re
 import xarray
 
 
-__all__ = ['H5File', 'RunDirectory', 'RunHandler', 'stack_data',
-           'stack_detector_data', 'by_id', 'by_index', 'SourceNameError',
-           'PropertyNameError',
+__all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
+           'stack_data', 'stack_detector_data', 'by_id', 'by_index',
+           'SourceNameError', 'PropertyNameError',
           ]
 
 
@@ -316,7 +316,7 @@ class DataCollection:
         return False
 
     def trains(self, devices=None, train_range=None, *, require_all=False):
-        """Iterate over all trains in the run and gather all sources.
+        """Iterate over all trains in the data and gather all sources.
 
         ::
 
@@ -328,19 +328,18 @@ class DataCollection:
         ----------
 
         devices: dict or list, optional
-            Filter data by devices and by parameters.
-
-            Refer to :meth:`H5File.trains` for how to use this.
+            Filter data by sources and keys.
+            Refer to :meth:`select` for how to use this.
 
         train_range: by_id or by_index object, optional
-            Iterate over only selected trains, by train ID or by index::
-
-                f.trains(train_range=by_index[20:])
+            Iterate over only selected trains, by train ID or by index.
+            Refer to :meth:`select_trains` for how to use this.
 
         require_all: bool
             False (default) returns any data available for the requested trains.
-            True skips trains which don't have all the requested data;
-            this requires that you specify required data using *devices*.
+            True skips trains which don't have all the selected data;
+            this only makes sense if you make a selection with *devices*
+            or :meth:`select`.
 
         Yields
         ------
@@ -366,9 +365,8 @@ class DataCollection:
         train_id: int
             The train ID
         devices: dict or list, optional
-            Filter data by devices and by parameters.
-
-            Refer to :meth:`H5File.trains` for how to use this.
+            Filter data by sources and keys.
+            Refer to :meth:`select` for how to use this.
 
         Returns
         -------
@@ -383,6 +381,9 @@ class DataCollection:
         KeyError
             if `train_id` is not found in the run.
         """
+        if train_id not in self.train_ids:
+            raise KeyError(train_id)
+
         if devices is not None:
             return self.select(devices).train_from_id(train_id)
 
@@ -419,16 +420,15 @@ class DataCollection:
         return train_id, res
 
     def train_from_index(self, train_index, devices=None):
-        """Get train data of the nth train in file.
+        """Get train data of the nth train in this data.
 
         Parameters
         ----------
         index: int
             Index of the train in the file.
         devices: dict or list, optional
-            Filter data by devices and by parameters.
-
-            Refer to :meth:`~.H5File.trains` for how to use this.
+            Filter data by sources and keys.
+            Refer to :meth:`select` for how to use this.
 
         Returns
         -------
@@ -500,10 +500,9 @@ class DataCollection:
 
         Parameters
         ----------
-        fields : list of 2-tuples
-            Glob patterns to match device and field names, e.g.
-            ``("*_XGM/*", "*.i[xy]Pos")`` matches ixPos and iyPos from any XGM devices.
-            By default, all fields from all control devices are matched.
+        fields : dict or list, optional
+            Filter data by sources and keys.
+            Refer to :meth:`select` for how to use this.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
             control data field.
@@ -534,7 +533,7 @@ class DataCollection:
             "SA1_XTD2_XGM/DOOCS/MAIN" or "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
         key: str
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
-            or "header.linkId". The data must be 1D in the file.
+            or "header.linkId".
         extra_dims: list of str
             Name extra dimensions in the array. The first dimension is
             automatically called 'train'. The default for extra dimensions
@@ -590,6 +589,14 @@ class DataCollection:
                              dim='trainId')
 
     def union(self, *others):
+        """Join the data in this collection with one or more others.
+
+        This can be used to join multiple sources for the same trains,
+        or to extend the same sources with data for further trains.
+        The order of the datasets doesn't matter.
+
+        Returns a new :class:`DataCollection` object.
+        """
         files = set(self.files)
         train_ids = set(self.train_ids)
 
@@ -653,7 +660,25 @@ class DataCollection:
         return matched
 
     def select(self, seln_or_source_glob, key_glob='*'):
-        """Return a new DataCollection with selected sources & keys
+        """Select a subset of sources and keys from this data.
+
+        There are three possible ways to select data:
+
+        1. With glob patterns (* is a wildcard) for source and key::
+
+            sel = run.select('*/DET/*, 'image.*')
+
+        2. With a list of (source, key) glob patterns::
+
+            sel = run.select([('*/DET/*, 'image.data'), ('*/DET/*, 'image.mask')])
+
+        3. With a dict of source names mapped to sets of key names
+           (or empty sets to get all keys)::
+
+            sel = run.select({'SPB_DET_AGIPD1M-1/DET/ALLCH:xtdf': {'image.data'},
+                              'SA1_XTD2_XGM/XGM/DOOCS': set()})
+
+        Returns a new :class:`DataCollection` object for the selected data.
         """
         if isinstance(seln_or_source_glob, str):
             seln_or_source_glob = [(seln_or_source_glob, key_glob)]
@@ -662,6 +687,25 @@ class DataCollection:
         return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
 
     def select_trains(self, train_range):
+        """Select a subset of trains from this data.
+
+        Choose a slice of trains by train ID::
+
+            from karabo_data import by_id
+            sel = run.select_trains(by_id[142844490:142844495])
+
+        Or by index within this collection::
+
+            from karabo_data import by_index
+            sel = run.select_trains(by_index[:5])
+
+        Returns a new :class:`DataCollection` object for the selected trains.
+
+        Raises
+        ------
+        ValueError
+            If given train IDs do not overlap with the trains in this data.
+        """
         if isinstance(train_range, by_id):
             start_ix = _tid_to_slice_ix(train_range.value.start, self.train_ids, stop=False)
             stop_ix = _tid_to_slice_ix(train_range.value.stop, self.train_ids, stop=True)
@@ -796,6 +840,10 @@ class DataCollection:
         [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
 
 class TrainIterator:
+    """Iterate over trains in a collection of data
+
+    Created by :meth:`DataCollection.trains`.
+    """
     def __init__(self, data, require_all=True):
         self.data = data
         self.require_all = require_all
@@ -885,6 +933,11 @@ def RunDirectory(path):
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
 
+# RunDirectory was previously RunHandler; we'll leave it accessible in case
+# any code was already using it.
+RunHandler = RunDirectory
+
+
 def union_selections(selections):
     """Merge together different selections
 
@@ -900,11 +953,6 @@ def union_selections(selections):
     # Merge selected keys; None -> all keys selected
     return {source: None if (None in keygroups) else set().union(*keygroups)
             for (source, keygroups) in selection_multi.items()}
-
-# RunDirectory was previously RunHandler; we'll leave it accessible in case
-# any code was already using it.
-RunHandler = RunDirectory
-
 
 def stack_data(train, data, axis=-3, xcept=()):
     """Stack data from devices in a train.

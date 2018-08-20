@@ -8,7 +8,11 @@ including the main detectors, record data more frequently.
 
 .. module:: karabo_data
 
-.. autoclass:: RunDirectory
+.. autofunction:: RunDirectory
+
+.. autofunction:: H5File
+
+.. autoclass:: DataCollection
 
    .. attribute:: train_ids
 
@@ -17,12 +21,12 @@ including the main detectors, record data more frequently.
 
    .. attribute:: control_sources
 
-      A set of the control source names in this run, in the format
+      A set of the control source names in this data, in the format
       ``"SA3_XTD10_VAC/TSENS/S30100K"``.
 
    .. attribute:: instrument_sources
 
-      A set of the instrument source names in this run,
+      A set of the instrument source names in this data,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
    .. automethod:: trains
@@ -37,31 +41,8 @@ including the main detectors, record data more frequently.
 
    .. automethod:: get_array
 
+   .. automethod:: select
 
-.. autoclass:: H5File
+   .. automethod:: select_trains
 
-   .. attribute:: train_ids
-
-      A list of the train IDs for which there is data in this file.
-
-   .. attribute:: control_sources
-
-      A set of the control source names in this run, in the format
-      ``"SA3_XTD10_VAC/TSENS/S30100K"``.
-
-   .. attribute:: instrument_sources
-
-      A set of the instrument source names in this run,
-      in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
-
-   .. automethod:: trains
-
-   .. automethod:: train_from_id
-
-   .. automethod:: train_from_index
-
-   .. automethod:: get_dataframe
-
-   .. automethod:: get_series
-
-   .. automethod:: get_array
+   .. automethod:: union
