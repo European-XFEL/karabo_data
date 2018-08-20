@@ -4,7 +4,7 @@ import numpy as np
 import os
 import sys
 
-from .reader2 import RunDirectory, H5File, FileAccess
+from .reader import RunDirectory, H5File, FileAccess
 
 class ValidationError(Exception):
     def __init__(self, problems):

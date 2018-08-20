@@ -20,7 +20,8 @@ def describe_file(path):
     print()
 
     if info.is_detector:
-        detector_info = h5file.detector_info()
+        detector_source = next(iter(h5file.detector_sources))
+        detector_info = h5file.detector_info(detector_source)
         print("{} × {} pixels".format(*detector_info['dims']))
         print("{} frames per train, {} total".format(
             detector_info['frames_per_train'], detector_info['total_frames'],
@@ -53,7 +54,8 @@ def summarise_file(path):
     ntrains = len(h5file.train_ids)
 
     if info.is_detector:
-        dinfo = h5file.detector_info()
+        detector_source = next(iter(h5file.detector_sources))
+        dinfo = h5file.detector_info(detector_source)
         print("  {} trains, {} frames/train, {} total frames".format(
             len(h5file.train_ids), dinfo['frames_per_train'], dinfo['total_frames']
         ))
