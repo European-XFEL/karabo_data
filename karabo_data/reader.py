@@ -262,7 +262,7 @@ class DataCollection:
 
     @classmethod
     def from_paths(cls, paths):
-        files = [FileAccess(h5py.File(path)) for path in paths]
+        files = [FileAccess(h5py.File(path, 'r')) for path in paths]
         return cls(files)
 
     def __enter__(self):
