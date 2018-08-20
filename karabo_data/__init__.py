@@ -36,11 +36,11 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 __version__ = "0.1.0"
 
 
-from .reader import *
+from .reader2 import *
 from .export import *
 from .utils import *
 
 
 __all__ = (export.__all__ +
-           reader.__all__ +
+           reader2.__all__ +
            utils.__all__)

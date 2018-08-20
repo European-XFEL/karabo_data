@@ -1,6 +1,5 @@
 from collections import defaultdict
 import datetime
-from enum import Enum
 import fnmatch
 from glob import glob
 import h5py
@@ -17,93 +16,27 @@ __all__ = ['DataCollection', 'RunDirectory', 'H5File',
 
 from .reader import (SourceNameError, PropertyNameError,
                      stack_data, stack_detector_data,
-                     by_id, by_index, FilenameInfo
+                     by_id, by_index,
                     )
 
-class SourceCategory(Enum):
-    CONTROL = 1
-    INSTRUMENT = 2
+class FileAccess:
+    """Accesses a single Karabo HDF5 file
 
-class _SourceInfo:
-    def __init__(self, category, keys=None):
-        self.files = []  # [(trainids, file)]
-        self.category = category
-        self.keys = keys
+    Parameters
+    ----------
+    file: h5py.File
+        Open h5py file object
+    """
+    def __init__(self, file):
+        self.file = file
+        self.filename = file.filename
+        tid_data = file['INDEX/trainId'].value
+        self.train_ids = tid_data[tid_data != 0]
 
-    def copy(self):
-        new = type(self)(self.category, keys=self.keys)
-        new.files = self.files[:]
-        return new
+        self.control_sources = set()
+        self.instrument_sources = set()
 
-    def with_keys(self, keys):
-        new = type(self)(self.category, keys=keys)
-        new.files = self.files
-        return new
-
-    def with_train_ids(self, train_ids):
-        new = type(self)(self.category, keys=self.keys)
-        for f_train_ids, f in self.files:
-            if np.intersect1d(train_ids, f_train_ids).size > 0:
-                new.files.append((f_train_ids, f))
-
-        return new
-
-
-class DataCollection:
-    def __init__(self, _sources=None, train_ids=None):
-        # {source: [(train_id_range, file)]}
-        self._sources = _sources or {}
-        # {(file, source, group): (firsts, counts)}
-        self._index_cache = {}
-        # {source: set(keys)}
-        self._source_keys = {}
-
-        collect_train_ids = set()
-        for data in self._sources.values():
-            for f_train_ids, _ in data.files:
-                collect_train_ids.update(f_train_ids)
-        if train_ids is not None:
-            collect_train_ids.intersection_update(train_ids)
-        self.train_ids = sorted(collect_train_ids)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    @property
-    def control_sources(self):
-        return {s for (s, i) in self._sources.items()
-                if i.category == SourceCategory.CONTROL}
-
-    @property
-    def instrument_sources(self):
-        return {s for (s, i) in self._sources.items()
-                if i.category == SourceCategory.INSTRUMENT}
-
-    @property
-    def all_sources(self):
-        return set(self._sources)
-
-    @property
-    def files(self):
-        res = set()
-        for data in self._sources.values():
-            for _, file in data.files:
-                res.add(file)
-        return res
-
-    @classmethod
-    def from_file(cls, path):
-        f = h5py.File(path)
-
-        tid_data = f['INDEX/trainId'].value
-        train_ids = tid_data[tid_data != 0]
-
-        sources = {}
-
-        for source in f['METADATA/dataSourceId'].value:
+        for source in file['METADATA/dataSourceId'].value:
             if not source:
                 continue
             source = source.decode()
@@ -112,36 +45,127 @@ class DataCollection:
                 device, _, chan_grp = h5_source.partition(':')
                 chan, _, group = chan_grp.partition('/')
                 source = device + ':' + chan
-                sources[source] = info = _SourceInfo(SourceCategory.INSTRUMENT)
+                self.instrument_sources.add(source)
                 # TODO: Do something with groups?
             elif category == 'CONTROL':
-                sources[h5_source] = info = _SourceInfo(SourceCategory.CONTROL)
+                self.control_sources.add(h5_source)
             else:
                 raise ValueError("Unknown data category %r" % category)
 
-            info.files.append((train_ids, f))
+        # {(file, source, group): (firsts, counts)}
+        self._index_cache = {}
+        # {source: set(keys)}
+        self._keys_cache = {}
 
-        return cls(sources)
+    def __hash__(self):
+        return hash(self.filename)
+
+    def __eq__(self, other):
+        return isinstance(other, FileAccess) and (other.filename == self.filename)
+
+    def get_index(self, source, group):
+        """Get first index & count for a source and for a specific train ID.
+
+        Indices are cached; this appears to provide some performance benefit.
+        """
+        try:
+            return self._index_cache[(source, group)]
+        except KeyError:
+            ix = self._read_index(source, group)
+            self._index_cache[(source, group)] = ix
+            return ix
+
+    def _read_index(self, source, group):
+        """Get first index & count for a source.
+
+        This is 'real' reading when the requested index is not in the cache.
+        """
+        ix_group = self.file['/INDEX/{}/{}'.format(source, group)]
+        firsts = ix_group['first'][:]
+        if 'count' in ix_group:
+            counts = ix_group['count'][:]
+        else:
+            status = ix_group['status'][:]
+            counts = np.uint64((ix_group['last'][:] - firsts + 1) * status)
+        return firsts, counts
+
+    def get_keys(self, source):
+        try:
+            return self._keys_cache[source]
+        except KeyError:
+            pass
+
+        if source in self.control_sources:
+            group = '/CONTROL/' + source
+        elif source in self.instrument_sources:
+            group = '/INSTRUMENT/' + source
+        else:
+            raise SourceNameError(source)
+
+        res = set()
+
+        def add_key(key, value):
+            if isinstance(value, h5py.Dataset):
+                res.add(key.replace('/', '.'))
+
+        self.file[group].visititems(add_key)
+        self._keys_cache[source] = res
+        return res
+
+class DataCollection:
+    def __init__(self, files, selection=None, train_ids=None):
+        self.files = list(files)
+
+        # selection: {source: set(keys)}
+        # None as value -> all keys for this source
+        if selection is None:
+            selection = {}
+            for f in self.files:
+                selection.update(dict.fromkeys(f.control_sources))
+                selection.update(dict.fromkeys(f.instrument_sources))
+        self.selection = selection
+
+        self.control_sources = set()
+        self.instrument_sources = set()
+        self._source_index = defaultdict(list)
+        for f in self.files:
+            self.control_sources.update(f.control_sources.intersection(selection))
+            self.instrument_sources.update(f.instrument_sources.intersection(selection))
+            for source in (f.control_sources | f.instrument_sources):
+                self._source_index[source].append(f)
+
+        if train_ids is None:
+            train_ids = sorted(set().union(*(f.train_ids for f in files)))
+        self.train_ids = train_ids
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @property
+    def all_sources(self):
+        return self.control_sources | self.instrument_sources
+
+    @classmethod
+    def from_file(cls, path):
+        f = FileAccess(h5py.File(path))
+        return cls(files=[f])
 
     def union(self, *others):
-        sources = {s: i.copy() for (s, i) in self._sources.items()}
+        files = set(self.files)
+        train_ids = set(self.train_ids)
+
         for other in others:
-            for source, other_info in other._sources.items():
-                if source in sources:
-                    info = sources[source]
-                    # Unify keys; if either is None, include all keys
-                    if other_info.keys is None:
-                        info.keys = None
-                    elif info.keys is not None:
-                        info.keys.update(other_info.keys)
+            files.update(other.files)
+            train_ids.update(other.train_ids)
 
-                    for trains, file in other_info.files:
-                        if not any(np.array_equal(trains, t) for (t, f) in info.files):
-                            info.files.append((trains, file))
-                else:
-                    sources[source] = other_info.copy()
+        train_ids = sorted(train_ids)
+        selection = union_selections([self.selection] +
+                                     [o.selection for o in others])
 
-        return DataCollection(sources)
+        return DataCollection(files, selection=selection, train_ids=train_ids)
 
     def _expand_selection(self, selection):
         res = defaultdict(set)
@@ -152,19 +176,12 @@ class DataCollection:
                 if source not in self.all_sources:
                     raise SourceNameError(source)
 
-                res[source].update(keys or ['*'])
+                res[source].update(keys or None)
 
         elif isinstance(selection, list):
-            # [('src_glob', 'key_glob'), ...]
-            for src_glob, key_glob in selection:
-                matched = self._select_glob(src_glob, key_glob)
-
-                if not matched:
-                    raise ValueError("No matches for pattern {}"
-                                     .format((src_glob, key_glob)))
-
-                for s, k in matched.items():
-                    res[s].update(k)
+            # selection = [('src_glob', 'key_glob'), ...]
+            res = union_selections(self._select_glob(src_glob, key_glob)
+                                   for (src_glob, key_glob) in selection)
         else:
             TypeError("Unknown selection type: {}".format(type(selection)))
 
@@ -187,7 +204,7 @@ class DataCollection:
                 continue
 
             if key_glob == '*':
-                matched[source] = {'*'}
+                matched[source] = None
             else:
                 r = ctrl_key_re if source in self.control_sources else key_re
                 keys = set(filter(r.match, self._keys_for_source(source)))
@@ -203,23 +220,10 @@ class DataCollection:
         """Return a new DataCollection with selected sources & keys
         """
         if isinstance(seln_or_source_glob, str):
-            selection = self._select_glob(seln_or_source_glob, key_glob)
-        else:
-            selection = self._expand_selection(seln_or_source_glob)
+            seln_or_source_glob = [(seln_or_source_glob, key_glob)]
+        selection = self._expand_selection(seln_or_source_glob)
 
-        selection = self._expand_selection(selection)
-
-        new_sources = {}
-        for source, keys in selection.items():
-            if '*' in keys:
-                new_sources[source] = self._sources[source]
-            else:
-                new_sources[source] = self._sources[source].with_keys(keys)
-        res = DataCollection(new_sources, self.train_ids)
-        res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
-                            if s in selection}
-
-        return res
+        return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
 
     def select_trains(self, train_range):
         if isinstance(train_range, by_id):
@@ -232,18 +236,10 @@ class DataCollection:
             raise TypeError(type(train_range))
 
         new_train_ids = self.train_ids[ix_slice]
+        files = [f for f in self.files
+                 if np.intersect1d(f.train_ids, new_train_ids).size > 0]
 
-        new_sources = {}
-        for source, info in self._sources.items():
-            new_info = info.with_train_ids(new_train_ids)
-            if new_info.files:
-                new_sources[source] = new_info
-
-        res = DataCollection(new_sources, new_train_ids)
-
-        res._index_cache = {(f, s, g): v for ((f, s, g), v) in self._index_cache.items()
-                            if s in new_sources}
-        return res
+        return DataCollection(files, selection=self.selection, train_ids=new_train_ids)
 
     def _check_field(self, source, key):
         if source not in self.all_sources:
@@ -257,26 +253,26 @@ class DataCollection:
 
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._sources[source].files:
-                data = f[data_path][:len(trainids), ...]
+            for f in self._source_index[source]:
+                data = f.file[data_path][:len(f.train_ids), ...]
                 if extra_dims is None:
                     extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
                 dims = ['trainId'] + extra_dims
 
-                seq_arrays.append(
-                    xarray.DataArray(data, dims=dims, coords={'trainId': trainids}))
+                seq_arrays.append(xarray.DataArray(data, dims=dims,
+                                     coords={'trainId': f.train_ids}))
 
         elif source in self.instrument_sources:
             data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._sources[source].files:
+            for f in self._source_index[source]:
                 group = key.partition('.')[0]
-                firsts, counts = self._get_index(f, source, group)
+                firsts, counts = f.get_index(source, group)
                 if (counts > 1).any():
                     raise ValueError("{}/{} data has more than one data point per train"
                                      .format(source, group))
-                trainids = self._expand_trainids(firsts, counts, trainids)
+                trainids = self._expand_trainids(counts, f.train_ids)
 
-                data = f[data_path][:len(trainids), ...]
+                data = f.file[data_path][:len(trainids), ...]
 
                 if extra_dims is None:
                     extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
@@ -323,24 +319,24 @@ class DataCollection:
 
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._sources[source].files:
-                data = f[data_path][:len(trainids), ...]
-                index = pd.Index(trainids, name='trainId')
+            for f in self._source_index[source]:
+                data = f.file[data_path][:len(f.train_ids), ...]
+                index = pd.Index(f.train_ids, name='trainId')
 
                 seq_series.append(pd.Series(data, name=name, index=index))
 
         elif source in self.instrument_sources:
             data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for trainids, f in self._sources[source].files:
+            for f in self._source_index[source]:
                 group = key.partition('.')[0]
-                firsts, counts = self._get_index(f, source, group)
-                trainids = self._expand_trainids(firsts, counts, trainids)
+                firsts, counts = f.get_index(source, group)
+                trainids = self._expand_trainids(counts, f.train_ids)
 
                 index = pd.Index(trainids, name='trainId')
-                data = f[data_path][:]
+                data = f.file[data_path][:]
                 if not index.is_unique:
-                    pulse_id = f['/INSTRUMENT/{}/{}/pulseId'
-                                 .format(source, group)]
+                    pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'
+                                      .format(source, group)]
                     pulse_id = pulse_id[:len(index), 0]
                     index = pd.MultiIndex.from_arrays([trainids, pulse_id],
                                                       names=['trainId', 'pulseId'])
@@ -368,66 +364,23 @@ class DataCollection:
 
         return pd.concat(series, axis=1)
 
-    def _get_index(self, file, source, group):
-        """Get first index & count for a source and for a specific train ID.
-
-        Indices are cached; this appears to provide some performance benefit.
-        """
-        try:
-            return self._index_cache[(file, source, group)]
-        except KeyError:
-            ix = self._read_index(file, source, group)
-            self._index_cache[(file, source, group)] = ix
-            return ix
-
-    def _read_index(self, file, source, group):
-        """Get first index & count for a source.
-
-        This is 'real' reading when the requested index is not in the cache.
-        """
-        ix_group = file['/INDEX/{}/{}'.format(source, group)]
-        firsts = ix_group['first'][:]
-        if 'count' in ix_group:
-            counts = ix_group['count'][:]
-        else:
-            status = ix_group['status'][:]
-            counts = np.uint64((ix_group['last'][:] - firsts + 1) * status)
-        return firsts, counts
-
-    def _expand_trainids(self, first, counts, trainIds):
+    def _expand_trainids(self, counts, trainIds):
         n = min(len(counts), len(trainIds))
         return np.repeat(trainIds[:n], counts.astype(np.intp)[:n])
 
     def _keys_for_source(self, source):
-        try:
-            info = self._sources[source]
-        except KeyError:
-            raise SourceNameError(source)
-
-        if info.keys is not None:
-            return info.keys
-
-        if info.category is SourceCategory.CONTROL:
-            group = '/CONTROL/' + source
-        else:
-            group = '/INSTRUMENT/' + source
+        selected_keys = self.selection[source]
+        if selected_keys is not None:
+            return selected_keys
 
         # The same source may be in multiple files, but this assumes it has
         # the same keys in all files that it appears in.
-        for trainids, f in info.files:
-            res = set()
+        for f in self._source_index[source]:
+            return f.get_keys(source)
 
-            def add_key(key, value):
-                if isinstance(value, h5py.Dataset):
-                    res.add(key.replace('/', '.'))
-
-            f[group].visititems(add_key)
-            info.keys = res
-            return res
-
-    def _find_data(self, source, train_id):
-        for trainids, f in self._sources[source].files:
-            ixs = (trainids == train_id).nonzero()[0]
+    def _find_data(self, source, train_id) -> (FileAccess, int):
+        for f in self._source_index[source]:
+            ixs = (f.train_ids == train_id).nonzero()[0]
             if ixs.size > 0:
                 return f, ixs[0]
 
@@ -446,7 +399,7 @@ class DataCollection:
 
             for key in self._keys_for_source(source):
                 path = '/CONTROL/{}/{}'.format(source, key.replace('.', '/'))
-                source_data[key] = file[path][pos]
+                source_data[key] = file.file[path][pos]
 
         for source in self.instrument_sources:
             source_data = res[source] = {}
@@ -456,16 +409,16 @@ class DataCollection:
 
             for key in self._keys_for_source(source):
                 group = key.partition('.')[0]
-                firsts, counts = self._get_index(file, source, group)
+                firsts, counts = file.get_index(source, group)
                 first, count = firsts[pos], counts[pos]
                 if not count:
                     continue
 
                 path = '/INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
                 if count == 1:
-                    source_data[key] = file[path][first]
+                    source_data[key] = file.file[path][first]
                 else:
-                    source_data[key] = file[path][first:first+count]
+                    source_data[key] = file.file[path][first:first+count]
 
         return train_id, res
 
@@ -487,7 +440,7 @@ class DataCollection:
 
             groups = {k.partition('.')[0] for k in self._keys_for_source(source)}
             for group in groups:
-                _, counts = self._get_index(file, source, group)
+                _, counts = file.get_index(source, group)
                 if counts[pos] == 0:
                     return True
 
@@ -558,12 +511,12 @@ class DataCollection:
         - 'total_frames'
         """
         all_counts = []
-        for _, file in self._sources[source].files:
-            _, counts = self._get_index(file, source, 'image')
+        for file in self._source_index[source]:
+            _, counts = file.get_index(source, 'image')
             all_counts.append(counts)
 
         all_counts = np.concatenate(all_counts)
-        dims = file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
+        dims = file.file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
 
         return {
             'dims': dims,
@@ -585,28 +538,27 @@ class TrainIterator:
     def __init__(self, data, require_all=True):
         self.data = data
         self.require_all = require_all
-        # {(source, key): (trainids, f, dataset)}
+        # {(source, key): (f, dataset)}
         self._datasets_cache = {}
 
     def _find_data(self, source, key, tid):
         try:
-            cache_tids, file, ds = self._datasets_cache[(source, key)]
+            file, ds = self._datasets_cache[(source, key)]
         except KeyError:
             pass
         else:
-            ixs = (cache_tids == tid).nonzero()[0]
+            ixs = (file.train_ids == tid).nonzero()[0]
             if ixs.size > 0:
                 return file, ixs[0], ds
 
-        source_info = self.data._sources[source]
-        section = 'CONTROL' if source_info.category is SourceCategory.CONTROL else 'INSTRUMENT'
+        data = self.data
+        section = 'CONTROL' if source in data.control_sources else 'INSTRUMENT'
         path = '/{}/{}/{}'.format(section, source, key.replace('.', '/'))
-        for trainids, f in source_info.files:
-            if tid in trainids:
-                ds = f[path]
-                self._datasets_cache[(source, key)] = (trainids, f, ds)
-                ix = (trainids == tid).nonzero()[0][0]
-                return f, ix, ds
+        f, pos = data._find_data(source, tid)
+        if f is not None:
+            ds = f.file[path]
+            self._datasets_cache[(source, key)] = (f, ds)
+            return f, pos, ds
 
         return None, None, None
 
@@ -627,7 +579,7 @@ class TrainIterator:
                 if ds is None:
                     continue
                 group = key.partition('.')[0]
-                firsts, counts = self.data._get_index(file, source, group)
+                firsts, counts = file.get_index(source, group)
                 first, count = firsts[pos], counts[pos]
                 if count == 1:
                     source_data[key] = ds[first]
@@ -646,12 +598,12 @@ def H5File(path):
     return DataCollection.from_file(path)
 
 def RunDirectory(path):
-    ds = [DataCollection.from_file(file)
-          for file in glob(osp.join(path, '*.h5'))
-          if h5py.is_hdf5(file)]
-    if not ds:
+    files = [FileAccess(h5py.File(file))
+             for file in glob(osp.join(path, '*.h5'))
+             if h5py.is_hdf5(file)]
+    if not files:
         raise Exception("No HDF5 files found in {}".format(path))
-    return DataCollection.union(*ds)
+    return DataCollection(files)
 
 
 def _tid_to_slice_ix(tid, train_ids, stop=False):
@@ -684,3 +636,19 @@ def _tid_to_slice_ix(tid, train_ids, stop=False):
         # This train ID is within the run, but doesn't have an entry.
         # Find the first ID in the run greater than the one given.
         return (train_ids > tid).nonzero()[0][0]
+
+def union_selections(selections):
+    """Merge together different selections
+
+    A selection is a dict of {source: set(keys)}, or {source: None}
+    to include all keys for a given source.
+    """
+    selection_multi = defaultdict(list)
+
+    for seln in selections:
+        for source, keys in seln.items():
+            selection_multi[source].append(keys)
+
+    # Merge selected keys; None -> all keys selected
+    return {source: None if (None in keygroups) else set().union(*keygroups)
+            for (source, keygroups) in selection_multi.items()}
