@@ -12,7 +12,7 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 
 from collections import defaultdict
 import datetime
-from fnmatch import fnmatchcase
+import fnmatch
 from glob import glob
 import h5py
 import numpy as np
@@ -135,13 +135,25 @@ def _normalize_data_selection(selection, dataset):
     elif isinstance(selection, list):
         # [('src_glob', 'key_glob'), ...]
         for src_glob, key_glob in selection:
+            # Convert glob patterns to regexes
+            src_re = re.compile(fnmatch.translate(src_glob))
+            key_re = re.compile(fnmatch.translate(key_glob))
+            if key_glob.endswith(('.value', '*')):
+                ctrl_key_re = key_re
+            else:
+                # The translated pattern ends with "\Z" - insert before this
+                p = key_re.pattern
+                end_ix = p.rindex('\Z')
+                ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
+
             matched = set()
             for source in (dataset.control_sources | dataset.instrument_sources):
-                if not fnmatchcase(source, src_glob):
+                if not src_re.match(source):
                     continue
 
+                use_key_re = ctrl_key_re if (source in dataset.control_sources) else key_re
                 for key in dataset._keys_for_source(source):
-                    if fnmatchcase(key, key_glob):
+                    if use_key_re.match(key):
                         matched.add((source, key))
 
             if not matched:
@@ -509,13 +521,6 @@ class H5File:
             name = name[:-6]
         return name
 
-    @staticmethod
-    def _field_match(device, key, patterns):
-        if key.endswith('.value'):
-            key = key[:-6]
-        return any(fnmatchcase(device, p[0]) and fnmatchcase(key, p[1])
-                   for p in patterns)
-
     def _check_field(self, source, key):
         if source not in self.all_sources:
             raise SourceNameError(source, run=False)
@@ -636,19 +641,10 @@ class H5File:
             If false (the default), exclude the timestamps associated with each
             control data field.
         """
-        if isinstance(fields, str):
-            fields = [fields]
-
-        control_series = []
-        for dev in self.control_sources:
-            def append_ctrl_data(key, value):
-                if (not timestamps) and key.endswith('/timestamp'):
-                    return
-                if isinstance(value, h5py.Dataset):
-                    key = key.replace('/', '.')
-                    if self._field_match(dev, key, fields):
-                        control_series.append(self.get_series(dev, key))
-            self.file['/CONTROL/' + dev].visititems(append_ctrl_data)
+        fields = _normalize_data_selection(fields, self)
+        if not timestamps:
+            fields = {(s, k) for (s, k) in fields if not k.endswith('.timestamp')}
+        control_series = [self.get_series(s, k) for (s, k) in fields]
 
         if not control_series:
             return None
@@ -986,12 +982,19 @@ class RunDirectory:
             If false (the default), exclude the timestamps associated with each
             control data field.
         """
+        fields = _normalize_data_selection(fields, self)
+        if not timestamps:
+            fields = {(s, k) for (s, k) in fields if not k.endswith('.timestamp')}
+
         group_dfs = []
         for _, files in self._assemble_sequences().items():
             file_dfs = []
             for f in files:
-                df = f.get_dataframe(fields=fields, timestamps=timestamps)
-                if df is not None:
+                file_selection = f._filter_selection(fields)
+                if file_selection:
+                    # .timestamp fields were already filtered out above, so
+                    # the file code can skip filtering them.
+                    df = f.get_dataframe(fields=file_selection, timestamps=True)
                     file_dfs.append(df)
             if file_dfs:
                 group_dfs.append(pd.concat(file_dfs))
