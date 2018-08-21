@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from functools import partial
 import numpy as np
 import os
@@ -57,9 +58,12 @@ class FileValidator:
             nonzero_tids = train_ids
 
         if len(nonzero_tids) > 1:
-            if not (nonzero_tids[1:] > nonzero_tids[:-1]).all():
+            non_incr = (nonzero_tids[1:] <= nonzero_tids[:-1]).nonzero()[0]
+            if non_incr.size > 0:
+                pos = non_incr[0]
                 self.record(
-                    'Train IDs are not strictly increasing',
+                    'Train IDs are not strictly increasing, e.g. at {} ({} >= {})'
+                    .format(pos, nonzero_tids[pos], nonzero_tids[pos+1]),
                     dataset=ds_path,
                 )
 
@@ -91,16 +95,21 @@ def check_index_contiguous(firsts, counts, record):
     if firsts[0] != 0:
         record("Index doesn't start at 0")
 
-    if np.all((firsts + counts)[:-1] == firsts[1:]):
-        return probs
+    gaps = firsts[1:].astype(np.int64) - (firsts + counts)[:-1]
 
-    for ix, (first, count, first_next) in enumerate(zip(firsts, counts, firsts[1:])):
-        if (first + count) < first_next:
-            record("Gap in index at {} ({} + {} < {})".format(
-                    ix, first, count, first_next))
-        elif (first + count) > first_next:
-            record("Overlap in index at {} ({} + {} > {})".format(
-                    ix, first, count, first_next))
+    gap_ixs = (gaps > 0).nonzero()[0]
+    if gap_ixs.size > 0:
+        pos = gap_ixs[0]
+        record("Gaps ({}) in index, e.g. at {} ({} + {} < {})".format(
+            gap_ixs.size, pos, firsts[pos], counts[pos], firsts[pos+1]
+        ))
+
+    overlap_ixs = (gaps < 0).nonzero()[0]
+    if overlap_ixs.size > 0:
+        pos = overlap_ixs[0]
+        record("Overlaps ({}) in index, e.g. at {} ({} + {} > {})".format(
+            overlap_ixs.size, pos, firsts[pos], counts[pos], firsts[pos + 1]
+        ))
 
     return probs
 
@@ -128,7 +137,11 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
-    path = argv[0]
+    ap = ArgumentParser(prog='karabo-data-validate')
+    ap.add_argument('path', help="HDF5 file or run directory of HDF5 files.")
+    args = ap.parse_args(argv)
+
+    path = args.path
     if os.path.isdir(path):
         print("Checking run directory:", path)
         validator = RunValidator(RunDirectory(path))
@@ -142,7 +155,7 @@ def main(argv=None):
     except ValidationError as ve:
         print("Validation failed!")
         print(str(ve))
-        sys.exit(1)
+        return 1
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
