@@ -43,6 +43,8 @@ including the main detectors, record data more frequently.
 
    .. automethod:: select
 
+   .. automethod:: deselect
+
    .. automethod:: select_trains
 
    .. automethod:: union

@@ -697,6 +697,37 @@ class DataCollection:
 
         return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
 
+    def deselect(self, seln_or_source_glob, key_glob='*'):
+        """Select everything except the specified sources and keys.
+
+        This takes the same arguments as :meth:`select`, but the sources and
+        keys you specify are dropped from the selection.
+
+        Returns a new :class:`DataCollection` object for the remaining data.
+        """
+
+        if isinstance(seln_or_source_glob, str):
+            seln_or_source_glob = [(seln_or_source_glob, key_glob)]
+        deselection = self._expand_selection(seln_or_source_glob)
+
+        # Subtract deselection from self.selection
+        selection = {}
+        for source, keys in self.selection.items():
+            if source not in deselection:
+                selection[source] = keys
+                continue
+
+            desel_keys = deselection[source]
+            if desel_keys is None:
+                continue  # Drop the entire source
+
+            if keys is None:
+                keys = self._keys_for_source(source)
+
+            selection[source] = keys - desel_keys
+
+        return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
+
     def select_trains(self, train_range):
         """Select a subset of trains from this data.
 
