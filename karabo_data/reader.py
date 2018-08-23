@@ -235,8 +235,9 @@ class DataCollection:
     You normally get an instance of this class by calling :func:`H5File`
     for a single file or :func:`RunDirectory` for a directory.
     """
-    def __init__(self, files, selection=None, train_ids=None):
+    def __init__(self, files, selection=None, train_ids=None, ctx_closes=False):
         self.files = list(files)
+        self.ctx_closes = ctx_closes
 
         # selection: {source: set(keys)}
         # None as value -> all keys for this source
@@ -266,13 +267,16 @@ class DataCollection:
     @classmethod
     def from_paths(cls, paths):
         files = [FileAccess(h5py.File(path, 'r')) for path in paths]
-        return cls(files)
+        return cls(files, ctx_closes=True)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass  # TODO: Should this close files?
+        # Close the files if this collection was created by opening them.
+        if self.ctx_closes:
+            for file in self.files:
+                file.file.close()
 
     @property
     def all_sources(self):
