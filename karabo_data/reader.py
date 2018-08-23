@@ -270,6 +270,11 @@ class DataCollection:
         return cls(files, ctx_closes=True)
 
     def __enter__(self):
+        if not self.ctx_closes:
+            raise Exception("Only DataCollection objects created by opening "
+                            "files directly can be used in a 'with' statement, "
+                            "not those created by selecting from or merging "
+                            "others.")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
