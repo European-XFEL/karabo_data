@@ -256,6 +256,9 @@ class DataCollection:
             for source in (f.control_sources | f.instrument_sources):
                 self._source_index[source].append(f)
 
+        # Throw an error if we have conflicting data for the same source
+        self._check_source_conflicts()
+
         if train_ids is None:
             train_ids = sorted(set().union(*(f.train_ids for f in files)))
         self.train_ids = train_ids
@@ -724,6 +727,24 @@ class DataCollection:
                  if np.intersect1d(f.train_ids, new_train_ids).size > 0]
 
         return DataCollection(files, selection=self.selection, train_ids=new_train_ids)
+
+    def _check_source_conflicts(self):
+        """Check for data with the same source and train ID in different files.
+        """
+        sources_with_conflicts = set()
+        for source, files in self._source_index.items():
+            got_tids = np.array([], dtype=np.uint64)
+            for file in files:
+                if np.intersect1d(got_tids, file.train_ids).size > 0:
+                    sources_with_conflicts.add(source)
+                    break
+                got_tids = np.union1d(got_tids, file.train_ids)
+
+        if sources_with_conflicts:
+            raise ValueError("{} sources have conflicting data "
+                             "(same train ID in different files): {}".format(
+                len(sources_with_conflicts), ", ".join(sources_with_conflicts)
+            ))
 
     def _expand_trainids(self, counts, trainIds):
         n = min(len(counts), len(trainIds))
