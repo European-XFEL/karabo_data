@@ -30,14 +30,14 @@ def test_get_train_bad_device_name(mock_spb_control_data_badname):
 
 def test_detector_info_oldfmt(mock_agipd_data):
     with H5File(mock_agipd_data) as f:
-        di = f.detector_info()
+        di = f.detector_info('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf')
         assert di['dims'] == (512, 128)
         assert di['frames_per_train'] == 64
         assert di['total_frames'] == 16000
 
 def test_detector_info(mock_lpd_data):
     with H5File(mock_lpd_data) as f:
-        di = f.detector_info()
+        di = f.detector_info('FXE_DET_LPD1M-1/DET/0CH0:xtdf')
         assert di['dims'] == (256, 256)
         assert di['frames_per_train'] == 128
         assert di['total_frames'] == 128 * 480
@@ -87,7 +87,7 @@ def test_iterate_trains_require_all(mock_sa3_control_data):
 def test_read_fxe_run(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     assert len(run.files) == 18  # 16 detector modules + 2 control data files
-    assert [tid for tid, _ in run.ordered_trains] == list(range(10000, 10480))
+    assert run.train_ids == list(range(10000, 10480))
     run.info()  # Smoke test
 
 def test_properties_fxe_run(mock_fxe_run):
@@ -244,6 +244,66 @@ def test_run_get_array_error(mock_fxe_run):
 
     with pytest.raises(PropertyNameError):
         run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
+
+def test_select(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    assert 'SPB_XTD9_XGM/DOOCS/MAIN' in run.control_sources
+
+    sel = run.select('*/DET/*', 'image.pulseId')
+    assert 'SPB_XTD9_XGM/DOOCS/MAIN' not in sel.control_sources
+    assert 'FXE_DET_LPD1M-1/DET/0CH0:xtdf' in sel.instrument_sources
+    _, data = sel.train_from_id(10000)
+    for source, source_data in data.items():
+        print(source)
+        assert set(source_data.keys()) == {'image.pulseId', 'metadata'}
+
+def test_deselect(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    xtd9_xgm = 'SPB_XTD9_XGM/DOOCS/MAIN'
+    assert xtd9_xgm in run.control_sources
+
+    sel = run.deselect('*_XGM/DOOCS*')
+    assert xtd9_xgm not in sel.control_sources
+    assert 'FXE_DET_LPD1M-1/DET/0CH0:xtdf' in sel.instrument_sources
+
+    sel = run.deselect('*_XGM/DOOCS*', '*.ixPos')
+    assert xtd9_xgm in sel.control_sources
+    assert 'beamPosition.ixPos.value' not in sel.selection[xtd9_xgm]
+    assert 'beamPosition.iyPos.value' in sel.selection[xtd9_xgm]
+
+def test_select_trains(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    assert len(run.train_ids) == 480
+
+    sel = run.select_trains(by_id[10200:10220])
+    assert sel.train_ids == list(range(10200, 10220))
+
+    sel = run.select_trains(by_index[:10])
+    assert sel.train_ids == list(range(10000, 10010))
+
+    with pytest.raises(ValueError):
+        run.select_trains(by_id[9000:9100])  # Before data
+
+    with pytest.raises(ValueError):
+        run.select_trains(by_id[12000:12500])  # After data
+
+def test_union(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+
+    sel1 = run.select('SPB_XTD9_XGM/DOOCS/MAIN', 'beamPosition.ixPos')
+    sel2 = run.select('SPB_XTD9_XGM/DOOCS/MAIN', 'beamPosition.iyPos')
+    joined = sel1.union(sel2)
+    assert joined.control_sources == {'SPB_XTD9_XGM/DOOCS/MAIN'}
+    assert joined.selection == \
+       {'SPB_XTD9_XGM/DOOCS/MAIN': {'beamPosition.ixPos.value', 'beamPosition.iyPos.value'}}
+
+    sel1 = run.select_trains(by_id[10200:10220])
+    sel2 = run.select_trains(by_index[:10])
+    joined = sel1.union(sel2)
+    assert joined.train_ids == list(range(10000, 10010)) + list(range(10200, 10220))
 
 def test_stack_data(mock_fxe_run):
     test_run = RunDirectory(mock_fxe_run)

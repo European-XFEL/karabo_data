@@ -9,18 +9,6 @@ import sys
 
 from .reader import H5File, RunDirectory, FilenameInfo
 
-def find_image(h5file):
-    """Find the image data in a detector file
-
-    Returns (img_data, index). img_data is a HDF5 dataset, index is a group
-    """
-    img_source = [src for src in h5file.sources
-                 if re.match(r'INSTRUMENT/.+/image', src)][0]
-    img_ds = h5file.file[img_source + '/data']
-    img_index_name = 'INDEX/' + img_source.split('/', 1)[1]
-    return img_ds, h5file.file[img_index_name]
-
-
 def describe_file(path):
     """Describe a single HDF5 data file"""
     basename = os.path.basename(path)
@@ -32,27 +20,20 @@ def describe_file(path):
     print()
 
     if info.is_detector:
-        detector_info = h5file.detector_info()
+        detector_source = next(iter(h5file.detector_sources))
+        detector_info = h5file.detector_info(detector_source)
         print("{} × {} pixels".format(*detector_info['dims']))
         print("{} frames per train, {} total".format(
             detector_info['frames_per_train'], detector_info['total_frames'],
         ))
     else:
-        ctrl, inst = set(), set()
-        for src in h5file.sources:
-            srcparts = src.split('/')
-            if srcparts[0] == 'CONTROL':
-                ctrl.add('/'.join(srcparts[1:4]))
-            elif srcparts[0] == 'INSTRUMENT':
-                inst.add('/'.join(srcparts[1:4]))
-
-        print(len(inst), "instrument sources")
-        for dev in sorted(inst):
+        print(len(h5file.instrument_sources), "instrument sources")
+        for dev in sorted(h5file.instrument_sources):
             print("  - ", dev)
         print()
 
-        print(len(ctrl), "control sources")
-        for dev in sorted(ctrl):
+        print(len(h5file.control_sources), "control sources")
+        for dev in sorted(h5file.control_sources):
             print("  - ", dev)
         print()
 
@@ -65,7 +46,8 @@ def summarise_file(path):
     ntrains = len(h5file.train_ids)
 
     if info.is_detector:
-        dinfo = h5file.detector_info()
+        detector_source = next(iter(h5file.detector_sources))
+        dinfo = h5file.detector_info(detector_source)
         print("  {} trains, {} frames/train, {} total frames".format(
             len(h5file.train_ids), dinfo['frames_per_train'], dinfo['total_frames']
         ))
