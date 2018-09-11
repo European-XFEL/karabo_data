@@ -899,6 +899,18 @@ class DataCollection:
         print('\tControls')
         [print('\t-', d) for d in sorted(ctrl)] or print('\t-')
 
+    def write(self, filename):
+        """Write the selected data to a new HDF5 file
+
+        You can choose a subset of the data using methods
+        like :meth:`select` and :meth:`select_trains`,
+        then use this write it to a new, smaller file.
+
+        The target filename will be overwritten if it already exists.
+        """
+        from .writer import FileWriter
+        FileWriter(filename, self).write()
+
 class TrainIterator:
     """Iterate over trains in a collection of data
 
