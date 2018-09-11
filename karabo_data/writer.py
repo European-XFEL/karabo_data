@@ -31,17 +31,22 @@ class FileWriter:
 
         index_path = source + '/' + key.partition('.')[0]
         if index_path not in self.indexes:
-            # Convert an array of train IDs to first/count for each train
-            data_tids = a.coords['trainId']
-            first, count = [], []
-            for tid in self.data.train_ids:
-                matches = (data_tids == tid)
-                first.append(matches.nonzero()[0][0])
-                count.append(matches.sum())
-
-            self.indexes[index_path] = \
-                (np.array(first, dtype='u8'), np.array(count, dtype='u8'))
+            data_tids = a.coords['trainId'].values
+            self.indexes[index_path] = self._generate_index(data_tids)
             self.data_sources.add('INSTRUMENT/' + index_path)
+
+    def _generate_index(self, data_tids):
+        """Convert an array of train IDs to first/count for each train"""
+        first = np.zeros_like(self.data.train_ids, dtype='u8')
+        count = np.zeros_like(self.data.train_ids, dtype='u8')
+
+        for ix, tid in enumerate(self.data.train_ids):
+            matches = (data_tids == tid)
+            if matches.any():
+                first[ix] = matches.nonzero()[0][0]
+                count[ix] = matches.sum()
+
+        return first, count
 
     def write_indexes(self):
         for groupname, (first, count) in self.indexes.items():
