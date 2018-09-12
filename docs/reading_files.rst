@@ -48,3 +48,5 @@ including the main detectors, record data more frequently.
    .. automethod:: select_trains
 
    .. automethod:: union
+
+   .. automethod:: write

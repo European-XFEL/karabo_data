@@ -31,6 +31,12 @@ Contents:
    examine_geometry
    xpd_examples
 
+.. toctree::
+   :caption: Development
+   :maxdepth: 1
+
+   changelog
+
 .. seealso::
 
    `Data Analysis at European XFEL
