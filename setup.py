@@ -29,6 +29,7 @@ setup(name="karabo_data",
       url="https://github.com/European-XFEL/karabo_data",
       description="Tools to read and analyse data from European XFEL ",
       long_description=read("README.md"),
+      long_description_content_type='text/markdown',
       license="BSD-3-Clause",
       packages=find_packages(),
       entry_points={
