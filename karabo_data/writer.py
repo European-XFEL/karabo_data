@@ -70,6 +70,10 @@ class FileWriter:
                                               dtype=vlen_bytes, maxshape=(None,))
         devices_ds[:] = [ds.split('/', 1)[1] for ds in data_sources]
 
+    def set_writer(self):
+        from . import __version__
+        self.file.attrs['writer'] = 'karabo_data {}'.format(__version__)
+
     def write(self):
         d = self.data
         self.file.create_dataset('INDEX/trainId', data=d.train_ids, dtype='u8')
@@ -84,3 +88,4 @@ class FileWriter:
 
         self.write_indexes()
         self.write_metadata()
+        self.set_writer()
