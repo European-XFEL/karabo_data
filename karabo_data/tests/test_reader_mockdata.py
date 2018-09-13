@@ -5,7 +5,7 @@ from xarray import DataArray
 
 from karabo_data import (
     H5File, RunDirectory, stack_data, stack_detector_data, by_index, by_id,
-    SourceNameError, PropertyNameError,
+    SourceNameError, PropertyNameError, DataCollection,
 )
 
 
@@ -304,6 +304,12 @@ def test_union(mock_fxe_run):
     sel2 = run.select_trains(by_index[:10])
     joined = sel1.union(sel2)
     assert joined.train_ids == list(range(10000, 10010)) + list(range(10200, 10220))
+
+def test_read_skip_invalid(mock_lpd_data, empty_h5_file, capsys):
+    d = DataCollection.from_paths([mock_lpd_data, empty_h5_file])
+    assert d.instrument_sources == {'FXE_DET_LPD1M-1/DET/0CH0:xtdf'}
+    out, err = capsys.readouterr()
+    assert "Skipping file" in err
 
 def test_stack_data(mock_fxe_run):
     test_run = RunDirectory(mock_fxe_run)

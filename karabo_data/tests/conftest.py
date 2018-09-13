@@ -1,3 +1,4 @@
+import h5py
 import os.path as osp
 import pytest
 from tempfile import TemporaryDirectory
@@ -45,3 +46,12 @@ def mock_fxe_run():
     with TemporaryDirectory() as td:
         make_examples.make_fxe_run(td)
         yield td
+
+@pytest.fixture(scope='module')
+def empty_h5_file():
+    with TemporaryDirectory() as td:
+        path = osp.join(td, 'empty.h5')
+        with h5py.File(path, 'w'):
+            pass
+
+        yield path
