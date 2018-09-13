@@ -272,8 +272,8 @@ class DataCollection:
             try:
                 fa = FileAccess(h5py.File(path, 'r'))
             except Exception as e:
-                print("Skipping file", path, ": couldn't open", file=sys.stderr)
-                print("  ({})".format(e), file=sys.stderr)
+                print("Skipping file", path, file=sys.stderr)
+                print("  (error was: {})".format(e), file=sys.stderr)
             else:
                 files.append(fa)
 
