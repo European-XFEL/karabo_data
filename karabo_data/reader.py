@@ -19,6 +19,7 @@ import numpy as np
 import os.path as osp
 import pandas as pd
 import re
+import sys
 import xarray
 
 
@@ -266,7 +267,24 @@ class DataCollection:
 
     @classmethod
     def from_paths(cls, paths):
-        files = [FileAccess(h5py.File(path, 'r')) for path in paths]
+        files = []
+        for path in paths:
+            try:
+                fa = FileAccess(h5py.File(path, 'r'))
+            except Exception as e:
+                print("Skipping file", path, ": couldn't open", file=sys.stderr)
+                print("  ({})".format(e), file=sys.stderr)
+            else:
+                files.append(fa)
+
+        if not files:
+            raise Exception("All HDF5 files specified are unusable")
+
+        return cls(files, ctx_closes=True)
+
+    @classmethod
+    def from_path(cls, path):
+        files = [FileAccess(h5py.File(path, 'r'))]
         return cls(files, ctx_closes=True)
 
     def __enter__(self):
@@ -989,7 +1007,7 @@ def H5File(path):
     path: str
         Path to the HDF5 file
     """
-    return DataCollection.from_paths([path])
+    return DataCollection.from_path(path)
 
 def RunDirectory(path):
     """Open data files from a 'run' at European XFEL.
