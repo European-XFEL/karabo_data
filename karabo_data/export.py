@@ -141,7 +141,7 @@ class ZMQStreamer:
                     main_data[key] = value.item()
                 else:
                     main_data[key] = value
-
+            metadata[src]['timestamp.tid'] = int(metadata[src]['timestamp.tid'])
             msg.extend([
                 self.pack({
                     'source': src, 'content': 'msgpack',
