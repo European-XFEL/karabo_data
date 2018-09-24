@@ -455,7 +455,7 @@ class DataCollection:
             The data for this train, keyed by device name
         """
         train_id = self.train_ids[train_index]
-        return self.train_from_id(train_id, devices=devices)
+        return self.train_from_id(int(train_id), devices=devices)
 
     def get_series(self, source, key):
         """Return a pandas Series for a particular data field.
@@ -975,6 +975,7 @@ class TrainIterator:
 
     def __iter__(self):
         for tid in self.data.train_ids:
+            tid = int(tid)  # Convert numpy int to regular Python int
             if self.require_all and self.data._check_data_missing(tid):
                 continue
             yield tid, self._assemble_data(tid)
