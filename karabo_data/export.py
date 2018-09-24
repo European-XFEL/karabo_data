@@ -87,7 +87,7 @@ class ZMQStreamer:
         file, so this option generates fake timestamps from the time the data
         is fed in.
     """
-    def __init__(self, port, maxlen=10, protocol_version='2.2', dummy_timestamps=True):
+    def __init__(self, port, maxlen=10, protocol_version='2.2', dummy_timestamps=False):
         self._context = zmq.Context()
         self.port = port
         if protocol_version not in {'1.0', '2.2'}:
@@ -117,19 +117,25 @@ class ZMQStreamer:
             self._interface = None
 
     def _serialize(self, data, metadata=None):
+
+        for key,val in data.items():
+            if 'metadata' in val:
+                val['metadata']['timestamp.tid'] = int(val['metadata']['timestamp.tid'])
+        
         if not metadata:
             metadata = {src: v.get('metadata',{}) for src, v in data.items()}
 
 
-        for src in data.keys():
+        if self.dummy_timestamps:
+            ts = time()
+            sec, frac = str(ts).split('.')
+            frac = frac.ljust(18, '0')
+            update_dummy = {'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac}
+            for src in data.keys():
+                if 'timestamp' not in metadata[src]:
+                    metadata[src].update(update_dummy)
 
-            if self.dummy_timestamps and ('timestamp' not in metadata[src]):
-                ts = time()
-                sec, frac = str(ts).split('.')
-                frac = frac.ljust(18, '0')
-                metadata[src].update({'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac})
 
-        # print(metadata)
 
         if self.protocol_version == '1.0':
             return [self.pack(data)]
@@ -148,10 +154,9 @@ class ZMQStreamer:
                 else:
                     main_data[key] = value
 
-            # print(" source type ", metadata[src]['timestamp.tid'].dtype)
-            metadata[src]['timestamp.tid'] = int(metadata[src]['timestamp.tid'])
+            
 
-            # print(metadata[src]['timestamp.tid'].dtype)
+
             msg.extend([
                 self.pack({
                     'source': src, 'content': 'msgpack',
