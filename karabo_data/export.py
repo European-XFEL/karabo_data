@@ -118,7 +118,7 @@ class ZMQStreamer:
 
     def _serialize(self, data, metadata=None):
         if not metadata:
-            metadata = {src: v.get('metadata',{}) for src, v in data.items()}
+            metadata = {src: v.get('metadata', {}) for src, v in data.items()}
 
         if self.dummy_timestamps:
             ts = time()
@@ -134,7 +134,6 @@ class ZMQStreamer:
 
         msg = []
         for src, props in sorted(data.items()):
-            
             main_data = {}
             arrays = []
             for key, value in props.items():
