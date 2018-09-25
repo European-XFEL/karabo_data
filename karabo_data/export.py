@@ -120,11 +120,14 @@ class ZMQStreamer:
         if not metadata:
             metadata = {src: v.get('metadata', {}) for src, v in data.items()}
 
-        if self.dummy_timestamps and ('timestamp' not in metadata):
+        if self.dummy_timestamps:
             ts = time()
             sec, frac = str(ts).split('.')
             frac = frac.ljust(18, '0')
-            metadata.update({'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac})
+            update_dummy = {'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac}
+            for src in data.keys():
+                if 'timestamp' not in metadata[src]:
+                    metadata[src].update(update_dummy)
 
         if self.protocol_version == '1.0':
             return [self.pack(data)]
@@ -149,6 +152,7 @@ class ZMQStreamer:
                 }),
                 self.pack(main_data)
             ])
+
             for key, array in arrays:
                 if not array.flags['C_CONTIGUOUS']:
                     array = np.ascontiguousarray(array)
