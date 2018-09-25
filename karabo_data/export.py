@@ -117,14 +117,8 @@ class ZMQStreamer:
             self._interface = None
 
     def _serialize(self, data, metadata=None):
-
-        for key,val in data.items():
-            if 'metadata' in val:
-                val['metadata']['timestamp.tid'] = int(val['metadata']['timestamp.tid'])
-        
         if not metadata:
             metadata = {src: v.get('metadata',{}) for src, v in data.items()}
-
 
         if self.dummy_timestamps:
             ts = time()
@@ -134,8 +128,6 @@ class ZMQStreamer:
             for src in data.keys():
                 if 'timestamp' not in metadata[src]:
                     metadata[src].update(update_dummy)
-
-
 
         if self.protocol_version == '1.0':
             return [self.pack(data)]
@@ -153,9 +145,6 @@ class ZMQStreamer:
                     main_data[key] = value.item()
                 else:
                     main_data[key] = value
-
-            
-
 
             msg.extend([
                 self.pack({
