@@ -177,18 +177,29 @@ class AGIPD_1MGeometry:
         size_xy, centre = self._plotting_dimensions()
         size_yx = size_xy[::-1]
         tmp = np.empty((16 * 8,) + size_yx, dtype=data.dtype)
-        # out = np.full(data.shape[:-3] + size_yx, np.nan,
-        #                dtype=data.dtype)
-        #out[:] = np.nan
 
         for i, (module, mod_data) in enumerate(zip(self.modules, data)):
             tiles_data = np.split(mod_data, 8)
             for j, (tile, tile_data) in enumerate(zip(module, tiles_data)):
-                corner_pos = tile.corner_pos + centre
-                transform = np.stack((tile.fs_vec, tile.ss_vec, corner_pos), axis=-1)
+                # We store (x, y, z), but numpy indexing, and hence affine_transform,
+                # work like [y, x]. Rearrange the numbers:
+                fs_vec_yx = tile.fs_vec[:2][::-1]
+                ss_vec_yx = tile.ss_vec[:2][::-1]
 
-                tmp[i * 8 + j] = affine_transform(tile_data, transform,
-                                                  output_shape=size_yx, cval=np.nan)
+                # Offset by centre to make all coordinates positive
+                corner_pos = (tile.corner_pos[:2] + centre)
+                corner_pos_yx = corner_pos[::-1]
+
+                # Make the rotation matrix
+                rotn = np.stack((ss_vec_yx, fs_vec_yx), axis=-1)
+
+                # affine_transform takes a mapping from *output* to *input*.
+                # So we reverse the forward transformation.
+                transform = np.linalg.inv(rotn)
+                offset = np.dot(rotn, corner_pos_yx)  # this seems to work, but is it right?
+
+                affine_transform(tile_data, transform, offset=offset, cval=np.nan,
+                                 output_shape=size_yx, output=tmp[i * 8 + j])
 
         # Silence warnings about nans - we expect gaps in the result
         with warnings.catch_warnings():
@@ -206,7 +217,7 @@ class AGIPD_1MGeometry:
         for module in self.modules:
             for tile in module:
                 corners.append(tile.corners())
-        corners = np.concatenate(corners)
+        corners = np.concatenate(corners)[:, :2]
 
         # Find extremes, add 20 px margin
         min_xy = corners.min(axis=0).astype(int) - 20
@@ -214,7 +225,7 @@ class AGIPD_1MGeometry:
 
         size = max_xy - min_xy
         centre = -min_xy
-        return size, centre
+        return tuple(size), centre
 
     def plot_data(self, modules_data):
         """Plot data from the detector using this geometry.
