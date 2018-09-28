@@ -1,5 +1,8 @@
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
+from copy import copy
 import numpy as np
+from scipy.ndimage import affine_transform
+import warnings
 
 def _crystfel_format_vec(vec):
     """Convert an array of 3 numbers to CrystFEL format like "+1.0x -0.1y"
@@ -149,6 +152,99 @@ class AGIPD_1MGeometry:
         ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
 
         ax.set_title('AGIPD-1M detector geometry')
+        return fig
+
+    def position_all_modules(self, data):
+        """Assemble data from this detector according to where the pixels are.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          The last three dimensions should be channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
+          Other dimensions before these will be preserved in the output.
+
+        Returns
+        -------
+        out : ndarray
+          Array with the one dimension fewer than the input.
+          The last two dimensions represent pixel y and x in the detector space.
+        centre : ndarray
+          (x, y) pixel location of the detector centre in this geometry.
+        """
+        assert data.shape == (16, 512, 128)
+        size_xy, centre = self._plotting_dimensions()
+        size_yx = size_xy[::-1]
+        tmp = np.empty((16 * 8,) + size_yx, dtype=data.dtype)
+        # out = np.full(data.shape[:-3] + size_yx, np.nan,
+        #                dtype=data.dtype)
+        #out[:] = np.nan
+
+        for i, (module, mod_data) in enumerate(zip(self.modules, data)):
+            tiles_data = np.split(mod_data, 8)
+            for j, (tile, tile_data) in enumerate(zip(module, tiles_data)):
+                corner_pos = tile.corner_pos + centre
+                transform = np.stack((tile.fs_vec, tile.ss_vec, corner_pos), axis=-1)
+
+                tmp[i * 8 + j] = affine_transform(tile_data, transform,
+                                                  output_shape=size_yx, cval=np.nan)
+
+        # Silence warnings about nans - we expect gaps in the result
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            out = np.nanmax(tmp, axis=0)
+
+        return out, centre
+
+    def _plotting_dimensions(self):
+        """Calculate appropriate dimensions for plotting assembled data
+
+        Returns (size_x, size_y), (centre_x, centre_y)
+        """
+        corners = []
+        for module in self.modules:
+            for tile in module:
+                corners.append(tile.corners())
+        corners = np.concatenate(corners)
+
+        # Find extremes, add 20 px margin
+        min_xy = corners.min(axis=0).astype(int) - 20
+        max_xy = corners.max(axis=0).astype(int) + 20
+
+        size = max_xy - min_xy
+        centre = -min_xy
+        return size, centre
+
+    def plot_data(self, modules_data):
+        """Plot data from the detector using this geometry.
+
+        Returns a matplotlib figure.
+
+        Parameters
+        ----------
+
+        modules_data : ndarray
+          Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
+        """
+        from matplotlib.cm import viridis
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+        my_viridis = copy(viridis)
+        # Use a dark grey for missing data
+        my_viridis.set_bad('0.25', 1.)
+
+        res, centre = self.position_all_modules(modules_data)
+        ax.imshow(res, cmap=my_viridis)
+
+        cx, cy = centre
+        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
+        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
         return fig
 
 
