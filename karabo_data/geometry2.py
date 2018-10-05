@@ -97,7 +97,7 @@ class AGIPD_1MGeometry:
 
     The coordinates used in this class are 3D (x, y, z).
     """
-    pixel_size = 2e-7
+    pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
     def __init__(self, modules):
         self.modules = modules  # List of 16 lists of 8 fragments
 
