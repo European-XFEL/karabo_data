@@ -331,7 +331,7 @@ class AGIPD_1M_SnappedGeometry:
           Array with the one dimension fewer than the input.
           The last two dimensions represent pixel y and x in the detector space.
         centre : ndarray
-          (x, y) pixel location of the detector centre in this geometry.
+          (y, x) pixel location of the detector centre in this geometry.
         """
         assert data.shape == (16, 512, 128)
         size_yx, centre = self._plotting_dimensions()
@@ -395,7 +395,7 @@ class AGIPD_1M_SnappedGeometry:
         res, centre = self.position_all_modules(modules_data)
         ax.imshow(res, origin='lower', cmap=my_viridis)
 
-        cx, cy = centre
+        cy, cx = centre
         ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
         ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
         return fig
