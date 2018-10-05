@@ -200,9 +200,8 @@ class AGIPD_1MGeometry:
         ----------
 
         data : ndarray
-          The last three dimensions should be channelno, pixel_y, pixel_x
+          The three dimensions should be channelno, pixel_y, pixel_x
           (lengths 16, 512, 128).
-          Other dimensions before these will be preserved in the output.
 
         Returns
         -------
@@ -276,7 +275,7 @@ class AGIPD_1MGeometry:
 
         modules_data : ndarray
           Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
-          (lengths 16, 256, 256).
+          (lengths 16, 512, 128).
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -311,6 +310,12 @@ class AGIPD_1MGeometry:
         return AGIPD_1M_SnappedGeometry(new_modules)
 
 class AGIPD_1M_SnappedGeometry:
+    """AGIPD geometry approximated to align modules to a 2D grid
+
+    The coordinates used in this class are (y, x) suitable for indexing a
+    Numpy array; this does not match the (x, y) coordinates in the more
+    precise geometry above.
+    """
     def __init__(self, modules):
         self.modules = modules
 
@@ -321,14 +326,13 @@ class AGIPD_1M_SnappedGeometry:
         ----------
 
         data : ndarray
-          The last three dimensions should be channelno, pixel_y, pixel_x
-          (lengths 16, 256, 256).
-          Other dimensions before these will be preserved in the output.
+          The three dimensions should be channelno, pixel_y, pixel_x
+          (lengths 16, 512, 128).
 
         Returns
         -------
         out : ndarray
-          Array with the one dimension fewer than the input.
+          Array with one dimension fewer than the input.
           The last two dimensions represent pixel y and x in the detector space.
         centre : ndarray
           (y, x) pixel location of the detector centre in this geometry.
