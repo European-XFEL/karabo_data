@@ -358,7 +358,7 @@ class AGIPD_1M_SnappedGeometry:
         corners = []
         for module in self.modules:
             for tile in module:
-                corners.append(tile.corners_idx)
+                corners.append(tile.corner_idx)
                 corners.append(tile.opp_corner_idx)
         corners = np.stack(corners)
 
