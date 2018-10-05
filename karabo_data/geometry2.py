@@ -209,8 +209,8 @@ class AGIPD_1MGeometry:
         ----------
 
         data : ndarray
-          The three dimensions should be channelno, pixel_y, pixel_x
-          (lengths 16, 512, 128).
+          The three dimensions should be channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
 
         Returns
         -------
@@ -283,8 +283,8 @@ class AGIPD_1MGeometry:
         ----------
 
         modules_data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
-          (lengths 16, 512, 128).
+          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -335,8 +335,8 @@ class AGIPD_1M_SnappedGeometry:
         ----------
 
         data : ndarray
-          The three dimensions should be channelno, pixel_y, pixel_x
-          (lengths 16, 512, 128).
+          The three dimensions should be channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
 
         Returns
         -------
@@ -391,8 +391,8 @@ class AGIPD_1M_SnappedGeometry:
         ----------
 
         modules_data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
-          (lengths 16, 256, 256).
+          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
