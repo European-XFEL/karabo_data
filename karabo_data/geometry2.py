@@ -46,7 +46,7 @@ class AGIPDGeometryFragment:
         c = self.corner_pos
         return CRYSTFEL_PANEL_TEMPLATE.format(
             name=name, p=p,
-            min_ss=(a * 64), max_ss=((a * 64) + 63),
+            min_ss=(a * self.ss_pixels), max_ss=(((a + 1) * self.ss_pixels) - 1),
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
             corner_x=c[0], corner_y=c[1], coffset=c[2],
