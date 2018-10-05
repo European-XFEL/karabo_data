@@ -291,7 +291,7 @@ class AGIPD_1MGeometry:
         my_viridis.set_bad('0.25', 1.)
 
         res, centre = self.position_all_modules(modules_data)
-        ax.imshow(res, cmap=my_viridis)
+        ax.imshow(res, origin='lower', cmap=my_viridis)
 
         cx, cy = centre
         ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
