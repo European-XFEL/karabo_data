@@ -51,6 +51,46 @@ class AGIPDGeometryFragment:
             corner_x=c[0], corner_y=c[1], coffset=c[2],
         )
 
+    def snap(self):
+        corner_pos = np.around(self.corner_pos[:2]).astype(np.int32)
+        ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
+        fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
+        assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
+        return GridGeometryFragment(corner_pos, ss_vec, fs_vec)
+
+class GridGeometryFragment:
+    ss_pixels = 64
+    fs_pixels = 128
+
+    def __init__(self, corner_pos, ss_vec, fs_vec):
+        #self.corner_pos = corner_pos
+        self.ss_vec = ss_vec
+        self.fs_vec = fs_vec
+        if fs_vec[0] == 0:
+            # Flip without transposing
+            fs_order = fs_vec[1]
+            ss_order = ss_vec[0]
+            self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
+            corner_shift = np.array([
+                min(fs_order, 0) * self.fs_pixels,
+                min(ss_order, 0) * self.ss_pixels
+            ])
+            self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
+        else:
+            # Transpose and then flip
+            fs_order = fs_vec[0]
+            ss_order = ss_vec[1]
+            self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
+            corner_shift = np.array([
+                min(ss_order, 0) * self.ss_pixels,
+                min(fs_order, 0) * self.fs_pixels
+            ])
+            self.y_pixels = self.fs_pixels
+            self.x_pixels = self.ss_pixels
+            self.pixel_dims = np.array([self.fs_pixels, self.ss_pixels])
+        self.corner_idx = (corner_pos + corner_shift)[::-1]  # xy -> yx
+        self.opp_corner_idx = self.corner_idx + self.pixel_dims
+
 
 class AGIPD_1MGeometry:
     pixel_size = 2e-7
@@ -252,6 +292,109 @@ class AGIPD_1MGeometry:
 
         res, centre = self.position_all_modules(modules_data)
         ax.imshow(res, cmap=my_viridis)
+
+        cx, cy = centre
+        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
+        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
+        return fig
+
+    def snap(self):
+        """Snap geometry to a 2D pixel grid
+
+        This returns a new geometry object. The 'snapped' geometry is
+        less accurate, but can assemble data into a 2D array more efficiently,
+        because it doesn't do any interpolation.
+        """
+        new_modules = []
+        for module in self.modules:
+            new_tiles = [t.snap() for t in module]
+            new_modules.append(new_tiles)
+        return AGIPD_1M_SnappedGeometry(new_modules)
+
+class AGIPD_1M_SnappedGeometry:
+    def __init__(self, modules):
+        self.modules = modules
+
+    def position_all_modules(self, data):
+        """Assemble data from this detector according to where the pixels are.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          The last three dimensions should be channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
+          Other dimensions before these will be preserved in the output.
+
+        Returns
+        -------
+        out : ndarray
+          Array with the one dimension fewer than the input.
+          The last two dimensions represent pixel y and x in the detector space.
+        centre : ndarray
+          (x, y) pixel location of the detector centre in this geometry.
+        """
+        assert data.shape == (16, 512, 128)
+        size_yx, centre = self._plotting_dimensions()
+        out = np.full(size_yx, np.nan, dtype=data.dtype)
+
+        for i, (module, mod_data) in enumerate(zip(self.modules, data)):
+            tiles_data = np.split(mod_data, 8)
+            for j, (tile, tile_data) in enumerate(zip(module, tiles_data)):
+
+                # Offset by centre to make all coordinates positive
+                y, x = tile.corner_idx + centre
+                h, w = tile.pixel_dims
+
+                out[y:y+h, x:x+w] = tile.transform(tile_data)
+
+        return out, centre
+
+    def _plotting_dimensions(self):
+        """Calculate appropriate dimensions for plotting assembled data
+
+        Returns (size_y, size_x), (centre_y, centre_x)
+        """
+        corners = []
+        for module in self.modules:
+            for tile in module:
+                corners.append(tile.corners_idx)
+                corners.append(tile.opp_corner_idx)
+        corners = np.stack(corners)
+
+        # Find extremes, add 20 px margin
+        min_yx = corners.min(axis=0) - 20
+        max_yx = corners.max(axis=0) + 20
+
+        size = max_yx - min_yx
+        centre = -min_yx
+        return tuple(size), centre
+
+    def plot_data(self, modules_data):
+        """Plot data from the detector using this geometry.
+
+        Returns a matplotlib figure.
+
+        Parameters
+        ----------
+
+        modules_data : ndarray
+          Should have exactly 3 dimensions: channelno, pixel_y, pixel_x
+          (lengths 16, 256, 256).
+        """
+        from matplotlib.cm import viridis
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+        my_viridis = copy(viridis)
+        # Use a dark grey for missing data
+        my_viridis.set_bad('0.25', 1.)
+
+        res, centre = self.position_all_modules(modules_data)
+        ax.imshow(res, origin='lower', cmap=my_viridis)
 
         cx, cy = centre
         ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
