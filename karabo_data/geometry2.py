@@ -56,37 +56,38 @@ class AGIPDGeometryFragment:
         ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
         fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
         assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
-        return GridGeometryFragment(corner_pos, ss_vec, fs_vec)
+        # Convert xy coordinates to yx indexes
+        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1])
 
 class GridGeometryFragment:
     ss_pixels = 64
     fs_pixels = 128
 
+    # These coordinates are all (y, x), suitable for indexing a numpy array.
     def __init__(self, corner_pos, ss_vec, fs_vec):
-        #self.corner_pos = corner_pos
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
-        if ss_vec[0] == 0:
+        if fs_vec[0] == 0:
             # Flip without transposing
-            fs_order = fs_vec[0]
-            ss_order = ss_vec[1]
-            self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
-            corner_shift = np.array([
-                min(fs_order, 0) * self.fs_pixels,
-                min(ss_order, 0) * self.ss_pixels
-            ])
-            self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
-        else:
-            # Transpose and then flip
             fs_order = fs_vec[1]
             ss_order = ss_vec[0]
-            self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
+            self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
             corner_shift = np.array([
                 min(ss_order, 0) * self.ss_pixels,
                 min(fs_order, 0) * self.fs_pixels
             ])
+            self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
+        else:
+            # Transpose and then flip
+            fs_order = fs_vec[0]
+            ss_order = ss_vec[1]
+            self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
+            corner_shift = np.array([
+                min(fs_order, 0) * self.fs_pixels,
+                min(ss_order, 0) * self.ss_pixels
+            ])
             self.pixel_dims = np.array([self.fs_pixels, self.ss_pixels])
-        self.corner_idx = corner_pos[::-1] + corner_shift  # xy -> yx
+        self.corner_idx = corner_pos + corner_shift
         self.opp_corner_idx = self.corner_idx + self.pixel_dims
 
 
