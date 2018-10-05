@@ -66,10 +66,10 @@ class GridGeometryFragment:
         #self.corner_pos = corner_pos
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
-        if fs_vec[0] == 0:
+        if ss_vec[0] == 0:
             # Flip without transposing
-            fs_order = fs_vec[1]
-            ss_order = ss_vec[0]
+            fs_order = fs_vec[0]
+            ss_order = ss_vec[1]
             self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
             corner_shift = np.array([
                 min(fs_order, 0) * self.fs_pixels,
@@ -78,17 +78,15 @@ class GridGeometryFragment:
             self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
         else:
             # Transpose and then flip
-            fs_order = fs_vec[0]
-            ss_order = ss_vec[1]
+            fs_order = fs_vec[1]
+            ss_order = ss_vec[0]
             self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
             corner_shift = np.array([
                 min(ss_order, 0) * self.ss_pixels,
                 min(fs_order, 0) * self.fs_pixels
             ])
-            self.y_pixels = self.fs_pixels
-            self.x_pixels = self.ss_pixels
             self.pixel_dims = np.array([self.fs_pixels, self.ss_pixels])
-        self.corner_idx = (corner_pos + corner_shift)[::-1]  # xy -> yx
+        self.corner_idx = corner_pos[::-1] + corner_shift  # xy -> yx
         self.opp_corner_idx = self.corner_idx + self.pixel_dims
 
 
@@ -202,7 +200,7 @@ class AGIPD_1MGeometry:
 
         data : ndarray
           The last three dimensions should be channelno, pixel_y, pixel_x
-          (lengths 16, 256, 256).
+          (lengths 16, 512, 128).
           Other dimensions before these will be preserved in the output.
 
         Returns
