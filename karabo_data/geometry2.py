@@ -16,6 +16,7 @@ class AGIPDGeometryFragment:
     ss_pixels = 64
     fs_pixels = 128
 
+    # The coordinates in this class are (x, y, z)
     def __init__(self, corner_pos, ss_vec, fs_vec):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
@@ -92,6 +93,10 @@ class GridGeometryFragment:
 
 
 class AGIPD_1MGeometry:
+    """Detector layout for AGIPD-1M
+
+    The coordinates used in this class are 3D (x, y, z).
+    """
     pixel_size = 2e-7
     def __init__(self, modules):
         self.modules = modules  # List of 16 lists of 8 fragments
@@ -195,6 +200,10 @@ class AGIPD_1MGeometry:
 
     def position_all_modules(self, data):
         """Assemble data from this detector according to where the pixels are.
+
+        This performs interpolation, which is very slow.
+        To efficiently copy the data into a 2D array, first use the snap()
+        method to get a pixel-aligned approximation of the geometry.
 
         Parameters
         ----------
