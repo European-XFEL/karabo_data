@@ -1134,14 +1134,19 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
         shapes.add(array.shape)
         modno_arrays[modno] = array
 
-    required_shape = (sorted(shapes, key=lambda x: x[0], reverse = True))[0]
+    required_shape = (sorted(shapes, key=lambda x: x[0] , reverse = True))[0]
     if len(dtypes) > 1:
         raise ValueError("Arrays have mismatched dtypes: {}".format(dtypes))
     if len(shapes) > 1:
-        for modno, array in modno_arrays.items():
-            if array.shape != required_shape:
-                modno_arrays[modno] = np.full(required_shape, np.nan, dtype = array.dtype)
-        # raise ValueError("Arrays have mismatched shapes: {}".format(shapes))
+        size_set =  { x[1:] for x in shapes }
+        pulse_set = { x[0]  for x in shapes }
+        if len(size_set) > 1 or len(pulse_set) > 2 or sorted(pulse_set)[0] != 0:
+            raise ValueError("Arrays have mismatched shapes: {}".format(shapes))
+        else:
+            for modno, array in modno_arrays.items():
+                if array.shape != required_shape:
+                    modno_arrays[modno] = np.full(required_shape, np.nan, dtype = array.dtype)
+        
     if max(modno_arrays) >= modules:
         raise IndexError("Module {} is out of range for a detector with {} modules"
                          .format(max(modno_arrays), modules))
