@@ -527,7 +527,8 @@ class DataCollection:
         else:
             raise Exception("Unknown source category")
 
-        return pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+        ser = pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+        return ser.loc[self.train_ids]
 
     def get_dataframe(self, fields=None, *, timestamps=False):
         """Return a pandas dataframe for given data fields.
@@ -618,9 +619,10 @@ class DataCollection:
                              "Please report an issue so we can investigate")
                             .format(source, key))
 
-        return xarray.concat(sorted(non_empty,
-                                    key=lambda a: a.coords['trainId'][0]),
-                             dim='trainId')
+        arr = xarray.concat(sorted(non_empty,
+                                   key=lambda a: a.coords['trainId'][0]),
+                            dim='trainId')
+        return arr.sel(trainId=self.train_ids)
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
