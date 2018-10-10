@@ -1,8 +1,11 @@
-import h5py
 import os.path as osp
+
+import h5py
 import pytest
 from tempfile import TemporaryDirectory
+
 from . import make_examples
+
 
 @pytest.fixture(scope='module')
 def mock_agipd_data():
