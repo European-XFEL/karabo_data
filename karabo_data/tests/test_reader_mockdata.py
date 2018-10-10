@@ -200,6 +200,15 @@ def test_run_get_series_control(mock_fxe_run):
     assert len(s) == 480
     assert list(s.index) == list(range(10000, 10480))
 
+def test_run_get_series_select_trains(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    sel = run.select_trains(by_id[10100:10150])
+    s = sel.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
+    assert isinstance(s, pd.Series)
+    assert len(s) == 50
+    assert list(s.index) == list(range(10100, 10150))
+
+
 def test_run_get_dataframe(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     df = run.get_dataframe(fields=[("*_XGM/*", "*.i[xy]Pos*")])
@@ -246,6 +255,17 @@ def test_run_get_array_error(mock_fxe_run):
 
     with pytest.raises(PropertyNameError):
         run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
+
+def test_run_get_array_select_trains(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    sel = run.select_trains(by_id[10100:10150])
+    arr = sel.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD',
+                        extra_dims=['pulse'])
+
+    assert isinstance(arr, DataArray)
+    assert arr.dims == ('trainId', 'pulse')
+    assert arr.shape == (50, 1000)
+    assert arr.coords['trainId'][0] == 10100
 
 def test_select(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
