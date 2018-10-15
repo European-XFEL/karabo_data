@@ -312,6 +312,17 @@ def test_select_trains(mock_fxe_run):
     with pytest.raises(ValueError):
         run.select_trains(by_id[12000:12500])  # After data
 
+    # Select a list of train IDs
+    sel = run.select_trains(by_id[[9950, 10000, 10101, 10500]])
+    assert sel.train_ids == [10000, 10101]
+
+    # Select a list of indexes
+    sel = run.select_trains(by_index[[5, 25]])
+    assert sel.train_ids == [10005, 10025]
+
+    with pytest.raises(IndexError):
+        run.select_trains(by_index[[480]])
+
 def test_union(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
 

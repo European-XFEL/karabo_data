@@ -761,7 +761,11 @@ class DataCollection:
             from karabo_data import by_id
             sel = run.select_trains(by_id[142844490:142844495])
 
-        Or by index within this collection::
+        Or select a list of trains::
+
+            sel = run.select_trains(by_id[[142844490, 142844493, 142844494]])
+
+        Or select trains by index within this collection::
 
             from karabo_data import by_index
             sel = run.select_trains(by_index[:5])
@@ -773,16 +777,24 @@ class DataCollection:
         ValueError
             If given train IDs do not overlap with the trains in this data.
         """
-        if isinstance(train_range, by_id):
-            start_ix = _tid_to_slice_ix(train_range.value.start, self.train_ids, stop=False)
-            stop_ix = _tid_to_slice_ix(train_range.value.stop, self.train_ids, stop=True)
-            ix_slice = slice(start_ix, stop_ix, train_range.value.step)
-        elif isinstance(train_range, by_index):
-            ix_slice = train_range.value
+        tr = train_range
+        if isinstance(tr, by_id) and isinstance(tr.value, slice):
+            # Slice by train IDs
+            start_ix = _tid_to_slice_ix(tr.value.start, self.train_ids, stop=False)
+            stop_ix = _tid_to_slice_ix(tr.value.stop, self.train_ids, stop=True)
+            new_train_ids = self.train_ids[start_ix:stop_ix:tr.value.step]
+        elif isinstance(tr, by_index) and isinstance(tr.value, slice):
+            # Slice by indexes in this collection
+            new_train_ids = self.train_ids[tr.value]
+        elif isinstance(tr, by_id) and isinstance(tr.value, (list, np.ndarray)):
+            # Select a list of trains by train ID
+            new_train_ids = sorted(set(self.train_ids).intersection(tr.value))
+        elif isinstance(tr, by_index) and isinstance(tr.value, (list, np.ndarray)):
+            # Select a list of trains by index in this collection
+            new_train_ids = sorted([self.train_ids[i] for i in tr.value])
         else:
             raise TypeError(type(train_range))
 
-        new_train_ids = self.train_ids[ix_slice]
         files = [f for f in self.files
                  if np.intersect1d(f.train_ids, new_train_ids).size > 0]
 
