@@ -789,6 +789,9 @@ class DataCollection:
         elif isinstance(tr, by_id) and isinstance(tr.value, (list, np.ndarray)):
             # Select a list of trains by train ID
             new_train_ids = sorted(set(self.train_ids).intersection(tr.value))
+            if not new_train_ids:
+                raise ValueError("Given train IDs not found among {} trains in "
+                                 "collection".format(len(self.train_ids)))
         elif isinstance(tr, by_index) and isinstance(tr.value, (list, np.ndarray)):
             # Select a list of trains by index in this collection
             new_train_ids = sorted([self.train_ids[i] for i in tr.value])

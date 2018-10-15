@@ -316,6 +316,9 @@ def test_select_trains(mock_fxe_run):
     sel = run.select_trains(by_id[[9950, 10000, 10101, 10500]])
     assert sel.train_ids == [10000, 10101]
 
+    with pytest.raises(ValueError):
+        run.select_trains(by_id[[9900, 10600]])
+
     # Select a list of indexes
     sel = run.select_trains(by_index[[5, 25]])
     assert sel.train_ids == [10005, 10025]
