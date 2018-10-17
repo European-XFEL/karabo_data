@@ -29,6 +29,7 @@ Contents:
    Demo
    apply_geometry
    examine_geometry
+   agipd_geometry
    xpd_examples
 
 .. toctree::
