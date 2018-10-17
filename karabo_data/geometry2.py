@@ -182,11 +182,13 @@ class AGIPD_1MGeometry:
                 rects.append(Polygon(corners))
 
                 if a in {0, 7}:
-                    ax.text(*fragment.centre()[:2], str(a),
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, str(a),
                             verticalalignment='center',
                             horizontalalignment='center')
                 elif a == 4:
-                    ax.text(*fragment.centre()[:2], 'p{}'.format(p),
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, 'p{}'.format(p),
                             verticalalignment='center',
                             horizontalalignment='center')
 
