@@ -16,7 +16,7 @@ class AGIPDGeometryFragment:
     ss_pixels = 64
     fs_pixels = 128
 
-    # The coordinates in this class are (x, y, z)
+    # The coordinates in this class are (x, y, z), in pixel units
     def __init__(self, corner_pos, ss_vec, fs_vec):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
@@ -95,7 +95,8 @@ class GridGeometryFragment:
 class AGIPD_1MGeometry:
     """Detector layout for AGIPD-1M
 
-    The coordinates used in this class are 3D (x, y, z).
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
     """
     pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
     def __init__(self, modules):
@@ -322,7 +323,7 @@ class AGIPD_1M_SnappedGeometry:
     """AGIPD geometry approximated to align modules to a 2D grid
 
     The coordinates used in this class are (y, x) suitable for indexing a
-    Numpy array; this does not match the (x, y) coordinates in the more
+    Numpy array; this does not match the (x, y, z) coordinates in the more
     precise geometry above.
     """
     def __init__(self, modules):
