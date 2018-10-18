@@ -14,8 +14,8 @@ def test_snap_assemble_data():
 
     stacked_data = np.zeros((16, 512, 128))
     img, centre = snap_geom.position_all_modules(stacked_data)
-    assert img.shape == (1296, 1132)
-    assert tuple(centre) == (651, 570)
+    assert img.shape == (1256, 1092)
+    assert tuple(centre) == (631, 550)
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
 
