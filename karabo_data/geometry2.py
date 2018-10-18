@@ -347,8 +347,8 @@ class AGIPD_1M_SnappedGeometry:
           (y, x) pixel location of the detector centre in this geometry.
         """
         assert data.shape[-3:] == (16, 512, 128)
-        size_yx, centre = self._plotting_dimensions(data.shape)
-        out = np.full(size_yx, np.nan, dtype=data.dtype)
+        size_yx, centre = self._plotting_dimensions()
+        out = np.full(data.shape[:-3] + size_yx, np.nan, dtype=data.dtype)
         for i, module in enumerate(self.modules):
             mod_data = data[..., i, :, :]
             tiles_data = np.split(mod_data, 8, axis=-2)
@@ -361,7 +361,7 @@ class AGIPD_1M_SnappedGeometry:
 
         return out, centre
 
-    def _plotting_dimensions(self, shape=(16, 512, 128)):
+    def _plotting_dimensions(self):
         """Calculate appropriate dimensions for plotting assembled data
 
         Returns (size_y, size_x), (centre_y, centre_x)
@@ -377,9 +377,9 @@ class AGIPD_1M_SnappedGeometry:
         min_yx = corners.min(axis=0) - 20
         max_yx = corners.max(axis=0) + 20
 
-        size = shape[:-3] + tuple(max_yx - min_yx)
+        size = max_yx - min_yx
         centre = -min_yx
-        return size, centre
+        return tuple(size), centre
 
     def plot_data(self, modules_data):
         """Plot data from the detector using this geometry.
