@@ -335,7 +335,7 @@ class AGIPD_1M_SnappedGeometry:
         ----------
 
         data : ndarray
-          The three dimensions should be channelno, pixel_ss, pixel_fs
+          The last three dimensions should be channelno, pixel_ss, pixel_fs
           (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
 
         Returns
@@ -346,23 +346,22 @@ class AGIPD_1M_SnappedGeometry:
         centre : ndarray
           (y, x) pixel location of the detector centre in this geometry.
         """
-        assert data.shape == (16, 512, 128)
-        size_yx, centre = self._plotting_dimensions()
+        assert data.shape[-3:] == (16, 512, 128)
+        size_yx, centre = self._plotting_dimensions(data.shape)
         out = np.full(size_yx, np.nan, dtype=data.dtype)
-
-        for i, (module, mod_data) in enumerate(zip(self.modules, data)):
-            tiles_data = np.split(mod_data, 8)
-            for j, (tile, tile_data) in enumerate(zip(module, tiles_data)):
-
+        for i, module in enumerate(self.modules):
+            mod_data = data[..., i, :, :]
+            tiles_data = np.split(mod_data, 8, axis=-2)
+            for j, tile in enumerate(module):
+                tile_data = tiles_data[j]
                 # Offset by centre to make all coordinates positive
                 y, x = tile.corner_idx + centre
                 h, w = tile.pixel_dims
-
-                out[y:y+h, x:x+w] = tile.transform(tile_data)
+                out[..., y:y+h, x:x+w] = tile.transform(tile_data)
 
         return out, centre
 
-    def _plotting_dimensions(self):
+    def _plotting_dimensions(self, shape=(16, 512, 128)):
         """Calculate appropriate dimensions for plotting assembled data
 
         Returns (size_y, size_x), (centre_y, centre_x)
@@ -378,9 +377,9 @@ class AGIPD_1M_SnappedGeometry:
         min_yx = corners.min(axis=0) - 20
         max_yx = corners.max(axis=0) + 20
 
-        size = max_yx - min_yx
+        size = shape[:-3] + tuple(max_yx - min_yx)
         centre = -min_yx
-        return tuple(size), centre
+        return size, centre
 
     def plot_data(self, modules_data):
         """Plot data from the detector using this geometry.
