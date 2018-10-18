@@ -338,7 +338,7 @@ class AGIPD_1M_SnappedGeometry:
         ----------
 
         data : ndarray
-          The three dimensions should be channelno, pixel_ss, pixel_fs
+          The last three dimensions should be channelno, pixel_ss, pixel_fs
           (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
 
         Returns
@@ -349,19 +349,18 @@ class AGIPD_1M_SnappedGeometry:
         centre : ndarray
           (y, x) pixel location of the detector centre in this geometry.
         """
-        assert data.shape == (16, 512, 128)
+        assert data.shape[-3:] == (16, 512, 128)
         size_yx, centre = self._plotting_dimensions()
-        out = np.full(size_yx, np.nan, dtype=data.dtype)
-
-        for i, (module, mod_data) in enumerate(zip(self.modules, data)):
-            tiles_data = np.split(mod_data, 8)
-            for j, (tile, tile_data) in enumerate(zip(module, tiles_data)):
-
+        out = np.full(data.shape[:-3] + size_yx, np.nan, dtype=data.dtype)
+        for i, module in enumerate(self.modules):
+            mod_data = data[..., i, :, :]
+            tiles_data = np.split(mod_data, 8, axis=-2)
+            for j, tile in enumerate(module):
+                tile_data = tiles_data[j]
                 # Offset by centre to make all coordinates positive
                 y, x = tile.corner_idx + centre
                 h, w = tile.pixel_dims
-
-                out[y:y+h, x:x+w] = tile.transform(tile_data)
+                out[..., y:y+h, x:x+w] = tile.transform(tile_data)
 
         return out, centre
 
