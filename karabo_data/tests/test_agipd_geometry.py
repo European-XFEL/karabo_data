@@ -1,3 +1,4 @@
+from matplotlib.figure import Figure
 import numpy as np
 
 from karabo_data.geometry2 import AGIPD_1MGeometry
@@ -42,3 +43,14 @@ def test_write_read_crystfel_file(tmpdir):
                                geom.modules[0][0].corner_pos)
     np.testing.assert_allclose(loaded.modules[0][0].fs_vec,
                                geom.modules[0][0].fs_vec)
+
+def test_inspect():
+    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
+        (-525, 625),
+        (-550, -10),
+        (520, -160),
+        (542.5, 475),
+    ])
+    # Smoketest
+    fig = geom.inspect()
+    assert isinstance(fig, Figure)
