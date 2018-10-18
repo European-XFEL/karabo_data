@@ -376,9 +376,9 @@ class AGIPD_1M_SnappedGeometry:
                 corners.append(tile.opp_corner_idx)
         corners = np.stack(corners)
 
-        # Find extremes, add 20 px margin
-        min_yx = corners.min(axis=0) - 20
-        max_yx = corners.max(axis=0) + 20
+        # Find extremes
+        min_yx = corners.min(axis=0)
+        max_yx = corners.max(axis=0)
 
         size = max_yx - min_yx
         centre = -min_yx
