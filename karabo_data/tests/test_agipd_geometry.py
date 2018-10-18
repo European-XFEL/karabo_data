@@ -17,3 +17,28 @@ def test_snap_assemble_data():
     assert tuple(centre) == (651, 570)
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
+
+def test_write_read_crystfel_file(tmpdir):
+    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
+        (-525, 625),
+        (-550, -10),
+        (520, -160),
+        (542.5, 475),
+    ])
+    path = str(tmpdir / 'test.geom')
+    geom.write_crystfel_geom(path)
+
+    # We need to add some experiment details before cfelpyutils will read the
+    # file
+    with open(path, 'r') as f:
+        contents = f.read()
+    with open(path, 'w') as f:
+        f.write('clen = 0.119\n')
+        f.write('adu_per_eV = 0.0075\n')
+        f.write(contents)
+
+    loaded = AGIPD_1MGeometry.from_crystfel_geom(path)
+    np.testing.assert_allclose(loaded.modules[0][0].corner_pos,
+                               geom.modules[0][0].corner_pos)
+    np.testing.assert_allclose(loaded.modules[0][0].fs_vec,
+                               geom.modules[0][0].fs_vec)
