@@ -163,6 +163,9 @@ class FileAccess:
             else:
                 raise ValueError("Unknown data category %r" % category)
 
+        self.control_sources = frozenset(self.control_sources)
+        self.instrument_sources = frozenset(self.instrument_sources)
+
         # {(file, source, group): (firsts, counts)}
         self._index_cache = {}
         # {source: set(keys)}
@@ -260,6 +263,9 @@ class DataCollection:
 
         # Throw an error if we have conflicting data for the same source
         self._check_source_conflicts()
+
+        self.control_sources = frozenset(self.control_sources)
+        self.instrument_sources = frozenset(self.instrument_sources)
 
         if train_ids is None:
             train_ids = sorted(set().union(*(f.train_ids for f in files)))
