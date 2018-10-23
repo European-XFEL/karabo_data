@@ -405,3 +405,12 @@ def test_stack_detector_data_extra_mods(mock_fxe_run):
     with pytest.raises(IndexError) as excinfo:
         comb = stack_detector_data(data, 'image.data')
     assert "16" in str(excinfo.value)
+
+def test_run_immutable_sources(mock_fxe_run):
+    test_run = RunDirectory(mock_fxe_run)
+    before = len(test_run.all_sources)
+
+    with pytest.raises(AttributeError):
+        test_run.all_sources.pop()
+
+    assert len(test_run.all_sources) == before
