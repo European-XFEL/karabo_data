@@ -238,6 +238,17 @@ def test_filter_device():
         assert len(data['SA1_XTD2_XGM/XGM/DOOCS']) == 2
 
 
+@xgm_run
+def test_run_all_sources():
+    test_run = RunDirectory(RUNPATH)
+    before = len(test_run.all_sources)
+
+    with pytest.raises(AttributeError):
+        test_run.all_sources.pop()
+
+    assert len(test_run.all_sources) == before
+
+
 @agipd_run
 def test_run_info(capsys):
     test_run = RunDirectory(RUNPATH)

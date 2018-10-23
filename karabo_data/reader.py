@@ -163,6 +163,9 @@ class FileAccess:
             else:
                 raise ValueError("Unknown data category %r" % category)
 
+        self.control_sources = frozenset(self.control_sources)
+        self.instrument_sources = frozenset(self.instrument_sources)
+
         # {(file, source, group): (firsts, counts)}
         self._index_cache = {}
         # {source: set(keys)}
