@@ -110,7 +110,8 @@ class AGIPD_1MGeometry:
         flat, aligned and equally spaced within their quadrant.
 
         The quadrant positions are given in pixel units, referring to the first
-        pixel of the first module in each quadrant.
+        pixel of the first module in each quadrant, corresponding to data
+        channels 0, 4, 8 and 12.
         """
         quads_x_orientation = [1, 1, -1, -1]
         quads_y_orientation = [-1, -1, 1, 1]
