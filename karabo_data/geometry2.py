@@ -221,11 +221,10 @@ class AGIPD_1MGeometry:
           Array with the one dimension fewer than the input.
           The last two dimensions represent pixel y and x in the detector space.
         centre : ndarray
-          (x, y) pixel location of the detector centre in this geometry.
+          (y, x) pixel location of the detector centre in this geometry.
         """
         assert data.shape == (16, 512, 128)
-        size_xy, centre = self._get_dimensions()
-        size_yx = size_xy[::-1]
+        size_yx, centre = self._get_dimensions()
         tmp = np.empty((16 * 8,) + size_yx, dtype=data.dtype)
 
         for i, (module, mod_data) in enumerate(zip(self.modules, data)):
@@ -237,8 +236,7 @@ class AGIPD_1MGeometry:
                 ss_vec_yx = tile.ss_vec[:2][::-1]
 
                 # Offset by centre to make all coordinates positive
-                corner_pos = (tile.corner_pos[:2] + centre)
-                corner_pos_yx = corner_pos[::-1]
+                corner_pos_yx = tile.corner_pos[:2][::-1] + centre
 
                 # Make the rotation matrix
                 rotn = np.stack((ss_vec_yx, fs_vec_yx), axis=-1)
@@ -261,7 +259,7 @@ class AGIPD_1MGeometry:
     def _get_dimensions(self):
         """Calculate appropriate array dimensions for assembling data.
 
-        Returns (size_x, size_y), (centre_x, centre_y)
+        Returns (size_y, size_x), (centre_y, centre_x)
         """
         corners = []
         for module in self.modules:
@@ -275,7 +273,8 @@ class AGIPD_1MGeometry:
 
         size = max_xy - min_xy
         centre = -min_xy
-        return tuple(size), centre
+        # Switch xy -> yx
+        return tuple(size[::-1]), centre[::-1]
 
     def plot_data(self, modules_data):
         """Plot data from the detector using this geometry.
@@ -303,7 +302,7 @@ class AGIPD_1MGeometry:
         res, centre = self.position_all_modules(modules_data)
         ax.imshow(res, origin='lower', cmap=my_viridis)
 
-        cx, cy = centre
+        cy, cx = centre
         ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
         ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
         return fig
