@@ -101,6 +101,7 @@ class AGIPD_1MGeometry:
     pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
     def __init__(self, modules):
         self.modules = modules  # List of 16 lists of 8 fragments
+        self._snapped_cache = None
 
     @classmethod
     def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29):
@@ -202,12 +203,12 @@ class AGIPD_1MGeometry:
         ax.set_title('AGIPD-1M detector geometry')
         return fig
 
-    def position_all_modules(self, data):
+    def position_modules_interpolate(self, data):
         """Assemble data from this detector according to where the pixels are.
 
         This performs interpolation, which is very slow.
-        To efficiently copy the data into a 2D array, first use the snap()
-        method to get a pixel-aligned approximation of the geometry.
+        Use :meth:`position_modules_fast` to get a pixel-aligned approximation
+        of the geometry.
 
         Parameters
         ----------
@@ -277,8 +278,12 @@ class AGIPD_1MGeometry:
         # Switch xy -> yx
         return tuple(size[::-1]), centre[::-1]
 
-    def plot_data(self, modules_data):
+    def plot_data_interpolate(self, modules_data):
         """Plot data from the detector using this geometry.
+
+        This performs interpolation, which is very slow.
+        Use :meth:`plot_data_fast` to get a pixel-aligned approximation
+        of the geometry.
 
         Returns a matplotlib figure.
 
@@ -300,7 +305,7 @@ class AGIPD_1MGeometry:
         # Use a dark grey for missing data
         my_viridis.set_bad('0.25', 1.)
 
-        res, centre = self.position_all_modules(modules_data)
+        res, centre = self.position_modules_interpolate(modules_data)
         ax.imshow(res, origin='lower', cmap=my_viridis)
 
         cy, cx = centre
@@ -308,31 +313,26 @@ class AGIPD_1MGeometry:
         ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
         return fig
 
-    def snap(self):
+    def _snapped(self):
         """Snap geometry to a 2D pixel grid
 
         This returns a new geometry object. The 'snapped' geometry is
         less accurate, but can assemble data into a 2D array more efficiently,
         because it doesn't do any interpolation.
         """
-        new_modules = []
-        for module in self.modules:
-            new_tiles = [t.snap() for t in module]
-            new_modules.append(new_tiles)
-        return AGIPD_1M_SnappedGeometry(new_modules)
+        if self._snapped_cache is None:
+            new_modules = []
+            for module in self.modules:
+                new_tiles = [t.snap() for t in module]
+                new_modules.append(new_tiles)
+            return AGIPD_1M_SnappedGeometry(new_modules)
+        return self._snapped_cache
 
-class AGIPD_1M_SnappedGeometry:
-    """AGIPD geometry approximated to align modules to a 2D grid
-
-    The coordinates used in this class are (y, x) suitable for indexing a
-    Numpy array; this does not match the (x, y, z) coordinates in the more
-    precise geometry above.
-    """
-    def __init__(self, modules):
-        self.modules = modules
-
-    def position_all_modules(self, data):
+    def position_modules_fast(self, data):
         """Assemble data from this detector according to where the pixels are.
+
+        This approximates the geometry to align all pixels to a 2D grid. It's
+        less accurate than :meth:`position_modules_interpolate`, but much faster.
 
         Parameters
         ----------
@@ -348,6 +348,37 @@ class AGIPD_1M_SnappedGeometry:
           The last two dimensions represent pixel y and x in the detector space.
         centre : ndarray
           (y, x) pixel location of the detector centre in this geometry.
+        """
+        return self._snapped().position_modules(data)
+
+    def plot_data_fast(self, data):
+        """Plot data from the detector using this geometry.
+
+        This approximates the geometry to align all pixels to a 2D grid.
+
+        Returns a matplotlib figure.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+        """
+        return self._snapped().position_modules(data)
+
+class AGIPD_1M_SnappedGeometry:
+    """AGIPD geometry approximated to align modules to a 2D grid
+
+    The coordinates used in this class are (y, x) suitable for indexing a
+    Numpy array; this does not match the (x, y, z) coordinates in the more
+    precise geometry above.
+    """
+    def __init__(self, modules):
+        self.modules = modules
+
+    def position_modules(self, data):
+        """Implementation for position_modules_fast
         """
         assert data.shape[-3:] == (16, 512, 128)
         size_yx, centre = self._get_dimensions()
@@ -385,16 +416,7 @@ class AGIPD_1M_SnappedGeometry:
         return tuple(size), centre
 
     def plot_data(self, modules_data):
-        """Plot data from the detector using this geometry.
-
-        Returns a matplotlib figure.
-
-        Parameters
-        ----------
-
-        modules_data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+        """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -407,7 +429,7 @@ class AGIPD_1M_SnappedGeometry:
         # Use a dark grey for missing data
         my_viridis.set_bad('0.25', 1.)
 
-        res, centre = self.position_all_modules(modules_data)
+        res, centre = self.position_modules(modules_data)
         ax.imshow(res, origin='lower', cmap=my_viridis)
 
         cy, cx = centre
