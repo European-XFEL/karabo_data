@@ -365,7 +365,7 @@ class AGIPD_1MGeometry:
           Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
           (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
         """
-        return self._snapped().position_modules(data)
+        return self._snapped().plot_data(data)
 
 class AGIPD_1M_SnappedGeometry:
     """AGIPD geometry approximated to align modules to a 2D grid
