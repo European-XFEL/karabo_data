@@ -224,7 +224,7 @@ class AGIPD_1MGeometry:
           (x, y) pixel location of the detector centre in this geometry.
         """
         assert data.shape == (16, 512, 128)
-        size_xy, centre = self._plotting_dimensions()
+        size_xy, centre = self._get_dimensions()
         size_yx = size_xy[::-1]
         tmp = np.empty((16 * 8,) + size_yx, dtype=data.dtype)
 
@@ -258,8 +258,8 @@ class AGIPD_1MGeometry:
 
         return out, centre
 
-    def _plotting_dimensions(self):
-        """Calculate appropriate dimensions for plotting assembled data
+    def _get_dimensions(self):
+        """Calculate appropriate array dimensions for assembling data.
 
         Returns (size_x, size_y), (centre_x, centre_y)
         """
@@ -350,7 +350,7 @@ class AGIPD_1M_SnappedGeometry:
           (y, x) pixel location of the detector centre in this geometry.
         """
         assert data.shape[-3:] == (16, 512, 128)
-        size_yx, centre = self._plotting_dimensions()
+        size_yx, centre = self._get_dimensions()
         out = np.full(data.shape[:-3] + size_yx, np.nan, dtype=data.dtype)
         for i, module in enumerate(self.modules):
             mod_data = data[..., i, :, :]
@@ -364,8 +364,8 @@ class AGIPD_1M_SnappedGeometry:
 
         return out, centre
 
-    def _plotting_dimensions(self):
-        """Calculate appropriate dimensions for plotting assembled data
+    def _get_dimensions(self):
+        """Calculate appropriate array dimensions for assembling data.
 
         Returns (size_y, size_x), (centre_y, centre_x)
         """
