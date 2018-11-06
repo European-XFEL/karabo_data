@@ -278,41 +278,6 @@ class AGIPD_1MGeometry:
         # Switch xy -> yx
         return tuple(size[::-1]), centre[::-1]
 
-    def plot_data_interpolate(self, modules_data):
-        """Plot data from the detector using this geometry.
-
-        This performs interpolation, which is very slow.
-        Use :meth:`plot_data_fast` to get a pixel-aligned approximation
-        of the geometry.
-
-        Returns a matplotlib figure.
-
-        Parameters
-        ----------
-
-        modules_data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-        """
-        from matplotlib.cm import viridis
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.figure import Figure
-
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
-        ax = fig.add_subplot(1, 1, 1)
-        my_viridis = copy(viridis)
-        # Use a dark grey for missing data
-        my_viridis.set_bad('0.25', 1.)
-
-        res, centre = self.position_modules_interpolate(modules_data)
-        ax.imshow(res, origin='lower', cmap=my_viridis)
-
-        cy, cx = centre
-        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
-        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
-        return fig
-
     def _snapped(self):
         """Snap geometry to a 2D pixel grid
 
