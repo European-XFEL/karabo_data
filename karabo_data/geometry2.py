@@ -269,9 +269,9 @@ class AGIPD_1MGeometry:
                 corners.append(tile.corners())
         corners = np.concatenate(corners)[:, :2]
 
-        # Find extremes, add 20 px margin
-        min_xy = corners.min(axis=0).astype(int) - 20
-        max_xy = corners.max(axis=0).astype(int) + 20
+        # Find extremes, add 1 px margin to allow for rounding errors
+        min_xy = corners.min(axis=0).astype(int) - 1
+        max_xy = corners.max(axis=0).astype(int) + 1
 
         size = max_xy - min_xy
         centre = -min_xy
