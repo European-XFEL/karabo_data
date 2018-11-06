@@ -10,10 +10,9 @@ def test_snap_assemble_data():
         (520, -160),
         (542.5, 475),
     ])
-    snap_geom = geom.snap()
 
     stacked_data = np.zeros((16, 512, 128))
-    img, centre = snap_geom.position_all_modules(stacked_data)
+    img, centre = geom.position_modules_fast(stacked_data)
     assert img.shape == (1256, 1092)
     assert tuple(centre) == (631, 550)
     assert np.isnan(img[0, 0])
