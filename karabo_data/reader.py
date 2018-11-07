@@ -194,13 +194,14 @@ class FileAccess:
 
         This is 'real' reading when the requested index is not in the cache.
         """
+        ntrains = len(self.train_ids)
         ix_group = self.file['/INDEX/{}/{}'.format(source, group)]
-        firsts = ix_group['first'][:]
+        firsts = ix_group['first'][:ntrains]
         if 'count' in ix_group:
-            counts = ix_group['count'][:]
+            counts = ix_group['count'][:ntrains]
         else:
-            status = ix_group['status'][:]
-            counts = np.uint64((ix_group['last'][:] - firsts + 1) * status)
+            status = ix_group['status'][:ntrains]
+            counts = np.uint64((ix_group['last'][:ntrains] - firsts + 1) * status)
         return firsts, counts
 
     def get_keys(self, source):
