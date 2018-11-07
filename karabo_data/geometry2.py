@@ -316,6 +316,10 @@ class AGIPD_1MGeometry:
         """
         return self._snapped().position_modules(data)
 
+    def position_all_modules(self, data):
+        """Deprecated alias for :meth:`position_modules_fast`"""
+        return self.position_modules_fast(data)
+
     def plot_data_fast(self, data):
         """Plot data from the detector using this geometry.
 
