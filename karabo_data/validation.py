@@ -147,7 +147,7 @@ def main(argv=None):
         validator = RunValidator(RunDirectory(path))
     else:
         print("Checking file:", path)
-        validator = FileValidator(H5File(path))
+        validator = FileValidator(H5File(path).files[0])
 
     try:
         validator.validate()
