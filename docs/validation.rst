@@ -13,6 +13,8 @@ Or a single data file::
 The checks are informed by problems we have encountered with data files in the
 past. Currently, it checks that:
 
+- All ``.h5`` files in a run can be opened, and the run contains at least one
+  usable file.
 - The list of train IDs in a file has no zeros except for padding at the end.
 - Each train ID in a file is greater than the one before it.
 - The indexes do not point to data beyond the end of a dataset.
