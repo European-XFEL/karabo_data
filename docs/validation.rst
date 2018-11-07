@@ -20,3 +20,7 @@ past. Currently, it checks that:
 - The indexes do not point to data beyond the end of a dataset.
 - The indexes point to the start of the dataset, and then to successive chunks
   for successive trains, without gaps or overlaps between them.
+
+If any checks fail, the output will contain details, and the exit code will be
+non-zero. An exit code of 0 means that the checks all passed. This is the
+standard convention for command line tools to indicate success or failure.
