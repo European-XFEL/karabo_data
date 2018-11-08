@@ -1,10 +1,12 @@
 from argparse import ArgumentParser
 from functools import partial
+from glob import glob
+import h5py
 import numpy as np
 import os
 import sys
 
-from .reader import RunDirectory, H5File, FileAccess
+from .reader import DataCollection, RunDirectory, H5File, FileAccess
 
 class ValidationError(Exception):
     def __init__(self, problems):
@@ -23,7 +25,7 @@ class ValidationError(Exception):
 class FileValidator:
     def __init__(self, file: FileAccess):
         self.file = file
-        self.filename = file.file.filename
+        self.filename = file.filename
         self.problems = []
 
     def validate(self):
@@ -114,8 +116,20 @@ def check_index_contiguous(firsts, counts, record):
     return probs
 
 class RunValidator:
-    def __init__(self, run: RunDirectory):
-        self.run = run
+    def __init__(self, run_dir: str):
+        files = []
+        self.files_excluded = []
+        self.run_dir = run_dir
+
+        for path in glob(os.path.join(run_dir, '*.h5')):
+            try:
+                fa = FileAccess(h5py.File(path, 'r'))
+            except Exception as e:
+                self.files_excluded.append((path, e))
+            else:
+                files.append(fa)
+
+        self.run = DataCollection(files)
         self.problems = []
 
     def validate(self):
@@ -125,8 +139,23 @@ class RunValidator:
 
     def run_checks(self):
         self.problems = []
+        self.check_files_openable()
         self.check_files()
         return self.problems
+
+    def check_files_openable(self):
+        for path, err in self.files_excluded:
+            self.problems.append(dict(
+                msg="Could not open file",
+                file=path,
+                error=err,
+            ))
+
+        if not self.run.files:
+            self.problems.append(dict(
+                msg="No usable files found",
+                directory=self.run_dir,
+            ))
 
     def check_files(self):
         for f in self.run.files:
@@ -144,10 +173,10 @@ def main(argv=None):
     path = args.path
     if os.path.isdir(path):
         print("Checking run directory:", path)
-        validator = RunValidator(RunDirectory(path))
+        validator = RunValidator(path)
     else:
         print("Checking file:", path)
-        validator = FileValidator(H5File(path))
+        validator = FileValidator(H5File(path).files[0])
 
     try:
         validator.validate()

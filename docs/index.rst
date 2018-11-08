@@ -21,6 +21,7 @@ Contents:
 
    reading_files
    streaming
+   validation
    data_format
 
 .. toctree::
