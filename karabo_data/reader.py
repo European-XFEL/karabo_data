@@ -22,6 +22,7 @@ import re
 import sys
 import xarray
 
+from .detector_data import DetectorData
 
 __all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
            'stack_data', 'stack_detector_data', 'by_id', 'by_index',
@@ -759,6 +760,36 @@ class DataCollection:
             selection[source] = keys - desel_keys
 
         return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
+
+    def detector(self, detector_name=None, modules=None):
+        source_to_modno = {}
+        if detector_name is not None:
+            detector_re = re.compile(re.escape(detector_name) + r'/DET/(\d+)CH')
+            for source in self.instrument_sources:
+                m = detector_re.match(source)
+                if m:
+                    source_to_modno[source] = int(m.group('modno'))
+        else:
+            detector_names = set()
+            for source in self.instrument_sources:
+                m = DETECTOR_SOURCE_RE.match(source)
+                if m:
+                    detector_names.add(m.group(1))
+                    source_to_modno[source] = int(m.group(2))
+            if not detector_names:
+                raise ValueError("No detector sources found in this data")
+            elif len(detector_names) > 1:
+                raise ValueError("Multiple detectors found in the data: {}. "
+                                 "Pass a name to data.detectors() to pick one."
+                         .format(', '.join(repr(n) for n in detector_names)))
+            detector_name = detector_names.pop()
+
+        if modules is not None:
+            source_to_modno = {s: n for (s, n) in source_to_modno.items()
+                               if n in modules}
+
+        data = self.select([(src, '*') for src in source_to_modno])
+        return DetectorData(data, source_to_modno, detector_name)
 
     def select_trains(self, train_range):
         """Select a subset of trains from this data.

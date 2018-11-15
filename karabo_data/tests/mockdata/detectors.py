@@ -31,7 +31,6 @@ class DetectorModule:
             ('cellId', 'u2', (1,)),
             ('data', 'u2', self.image_dims),
             ('length', 'u4', (1,)),
-            ('pulseId', 'u8', (1,)),
             ('status', 'u2', (1,)),
         ]
 
@@ -75,11 +74,16 @@ class DetectorModule:
                 i_count[:] = 1
 
 
-        # INSTRUME (image)
+        # INSTRUMENT (image)
         nframes = self.ntrains * self.frames_per_train
         ds = f.create_dataset('INSTRUMENT/%s:xtdf/image/trainId' % self.device_id,
                               (nframes, 1), 'u8', maxshape=(None, 1))
         ds[:, 0] = np.repeat(trainids, self.frames_per_train)
+
+        pid = f.create_dataset('INSTRUMENT/%s:xtdf/image/pulseId' % self.device_id,
+                               (nframes, 1), 'u8', maxshape=(None, 1))
+        pid[:, 0] = np.tile(np.arange(0, self.frames_per_train, dtype='u8'),
+                                self.ntrains)
 
         for (key, datatype, dims) in self.image_keys:
             f.create_dataset('INSTRUMENT/%s:xtdf/image/%s' % (self.device_id, key),
