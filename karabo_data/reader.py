@@ -762,6 +762,18 @@ class DataCollection:
         return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
 
     def detector(self, detector_name=None, modules=None):
+        """Get an interface to X-ray detector data, from e.g. AGIPD or LPD.
+
+        Parameters
+        ----------
+
+        detector_name: str, optional
+          Name of a detector, e.g. 'SPB_DET_AGIPD1M-1'. This is only needed
+          if the dataset includes more than one detector.
+        modules: set of ints, optional
+          Detector module numbers to use. By default, all available modules
+          are used.
+        """
         source_to_modno = {}
         if detector_name is not None:
             detector_re = re.compile(re.escape(detector_name) + r'/DET/(\d+)CH')
@@ -787,6 +799,9 @@ class DataCollection:
         if modules is not None:
             source_to_modno = {s: n for (s, n) in source_to_modno.items()
                                if n in modules}
+
+        if not source_to_modno:
+            raise ValueError("No detector sources found in this data")
 
         data = self.select([(src, '*') for src in source_to_modno])
         return DetectorData(data, source_to_modno, detector_name)

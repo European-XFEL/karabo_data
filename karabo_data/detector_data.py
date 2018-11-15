@@ -92,6 +92,14 @@ class DetectorData:
                             dim='trainId')
 
     def get_array(self, key):
+        """Get a labelled array of detector data
+
+        Parameters
+        ----------
+
+        key: str
+          The data to get, e.g. 'image.data' for pixel values.
+        """
         arrays = []
         modnos = []
         for modno, source in sorted(self.modno_to_source.items()):
