@@ -48,7 +48,7 @@ class DetectorData:
                 trainids = np.repeat(np.arange(first_tid, last_tid+1, dtype=np.uint64),
                                      chunk_counts.astype(np.intp))
                 pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)][data_slice]
-                # Some older files have a spurious extra dimension
+                # Raw files have a spurious extra dimension
                 if pulse_id.ndim >= 2 and pulse_id.shape[1] == 1:
                     pulse_id = pulse_id[:, 0]
 
@@ -56,17 +56,21 @@ class DetectorData:
                                                   names=['trainId', 'pulseId'])
 
                 data = f.file[data_path][data_slice]
-                # Some older files have a spurious extra dimension
+                # Raw files have a spurious extra dimension
                 if data.ndim >= 2 and data.shape[1] == 1:
                     data = data[:, 0]
 
-                if data.ndim == 3:
-                    # This assumes that any per-pulse detector data with two
-                    # extra dimensions is pixel data. Hopefully this is true.
+                # TODO: this assumes we can tell what the axes are just from the
+                # number of dimensions. Works for the data we've seen, but we
+                # should look for a more reliable way.
+                if data.ndim == 4:
+                    # image.data in raw data
+                    dims = ['train_pulse', 'data_gain', 'ss', 'fs']
+                elif data.ndim == 3:
+                    # image.data, image.gain, image.mask in calibrated data
                     dims = ['train_pulse', 'ss', 'fs']
                 else:
-                    # TODO: this assumes that any non-pixel data is 1D.
-                    # This is valid in the data I have seen.
+                    # Everything else seems to be 1D
                     dims = ['train_pulse']
 
                 arr = xarray.DataArray(data, {'train_pulse': index}, dims=dims)
