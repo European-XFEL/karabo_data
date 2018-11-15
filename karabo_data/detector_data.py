@@ -103,4 +103,4 @@ class DetectorData:
                 arrays.append(self.data.get_array(source, key))
             modnos.append(modno)
 
-        return xarray.concat(arrays, pd.Index(modnos, name='modules'))
+        return xarray.concat(arrays, pd.Index(modnos, name='module'))
