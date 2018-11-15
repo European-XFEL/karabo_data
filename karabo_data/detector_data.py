@@ -77,8 +77,8 @@ class DetectorData:
 
                 # Separate train & pulse dimensions, and arrange dimensions
                 # so that the data is contiguous in memory.
-                arr = arr.unstack('train_pulse').transpose(
-                    'trainId',  'pulseId', 'ss', 'fs')
+                dim_order = ['trainId', 'pulseId'] + dims[1:]
+                arr = arr.unstack('train_pulse').transpose(*dim_order)
                 seq_arrays.append(arr)
 
         non_empty = [a for a in seq_arrays if (a.size > 0)]
