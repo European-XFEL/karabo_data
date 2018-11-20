@@ -22,8 +22,6 @@ import re
 import sys
 import xarray
 
-from .detector_data import DetectorData
-
 __all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
            'stack_data', 'stack_detector_data', 'by_id', 'by_index',
            'SourceNameError', 'PropertyNameError',
@@ -774,6 +772,9 @@ class DataCollection:
           Detector module numbers to use. By default, all available modules
           are used.
         """
+        # Delayed import to avoid circular import issues
+        from .detector_data import DetectorData
+
         source_to_modno = {}
         if detector_name is not None:
             detector_re = re.compile(re.escape(detector_name) + r'/DET/(\d+)CH')

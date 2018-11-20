@@ -2,10 +2,12 @@ import numpy as np
 import pandas as pd
 import xarray
 
+from .reader import DataCollection, by_id, by_index
+
 class DetectorData:
     """Interface to access X-ray detector data, from e.g. AGIPD or LPD
     """
-    def __init__(self, data, source_to_modno, det_name):
+    def __init__(self, data: DataCollection, source_to_modno, det_name):
         self.data = data
         self.source_to_modno = source_to_modno
         self.det_name = det_name
@@ -24,7 +26,35 @@ class DetectorData:
             self.det_name, len(self.source_to_modno),
         )
 
-    def _get_module_pulse_data(self, source, key):
+    def _expand_pulse_selection(self, pulses, pulse_ids, firsts):
+        """Select pulses across a chunk of trains
+
+        Returns pulse_ids, a subset of the pulse_ids passed, and an array or
+        slice of the indexes to include.
+        """
+        if isinstance(pulses.value, slice):
+            if pulses.value.start in (0, None) and pulses.value.stop is None:
+                # All pulses included
+                return slice(0, len(pulse_ids))
+            else:
+                start = pulses.value.start or 0
+                stop = pulses.value.stop
+                if stop is None:
+                    stop = pulse_ids.max() + 1
+                pulses.value = np.arange(start, stop, dtype=np.uint64)
+
+        elif isinstance(pulses.value, int):
+            pulses.value = np.array([pulses.value], dtype=np.uint64)
+        elif isinstance(pulses.value, list):
+            pulses.value = np.array(pulses.value, dtype=np.uint64)
+
+        if isinstance(pulses, by_id):
+            return np.nonzero(np.isin(pulse_ids, pulses.value))[0]
+        else:  # by_index
+            return (firsts[:, np.newaxis].repeat(len(pulses.value), axis=1)
+                      + pulses.value).flatten()
+
+    def _get_module_pulse_data(self, source, key, pulses):
         seq_arrays = []
         data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
         for f in self.data._source_index[source]:
@@ -52,10 +82,25 @@ class DetectorData:
                 if pulse_id.ndim >= 2 and pulse_id.shape[1] == 1:
                     pulse_id = pulse_id[:, 0]
 
+                positions = self._expand_pulse_selection(
+                    pulses, pulse_id, chunk_firsts - data_slice.start
+                )
+                trainids = trainids[positions]
+                pulse_id = pulse_id[positions]
                 index = pd.MultiIndex.from_arrays([trainids, pulse_id],
                                                   names=['trainId', 'pulseId'])
 
-                data = f.file[data_path][data_slice]
+                if isinstance(positions, slice):
+                    data_positions = slice(
+                        int(data_slice.start + positions.start),
+                        int(data_slice.start + positions.stop),
+                        positions.step
+                    )
+                else:  # ndarray
+                    # h5py fancy indexing needs a list, not an ndarray
+                    data_positions = list(data_slice.start + positions)
+
+                data = f.file[data_path][data_positions]
                 # Raw files have a spurious extra dimension
                 if data.ndim >= 2 and data.shape[1] == 1:
                     data = data[:, 0]
@@ -95,7 +140,7 @@ class DetectorData:
                                    key=lambda a: a.coords['trainId'][0]),
                             dim='trainId')
 
-    def get_array(self, key):
+    def get_array(self, key, pulses=by_index[:]):
         """Get a labelled array of detector data
 
         Parameters
@@ -103,6 +148,10 @@ class DetectorData:
 
         key: str
           The data to get, e.g. 'image.data' for pixel values.
+        pulses: by_id or by_index
+          Select the pulses to include from each train. by_id selects by pulse
+          ID, by_index by index within the data being read. The default includes
+          all pulses. Only used for per-train data.
         """
         arrays = []
         modnos = []
@@ -110,7 +159,7 @@ class DetectorData:
             # At present, all the per-pulse data is stored in the 'image' key.
             # If that changes, this check will need to change as well.
             if key.startswith('image.'):
-                arrays.append(self._get_module_pulse_data(source, key))
+                arrays.append(self._get_module_pulse_data(source, key, pulses))
             else:
                 arrays.append(self.data.get_array(source, key))
             modnos.append(modno)
