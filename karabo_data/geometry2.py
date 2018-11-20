@@ -1,5 +1,6 @@
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
+from itertools import product
 import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
@@ -201,6 +202,70 @@ class AGIPD_1MGeometry:
         ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
 
         ax.set_title('AGIPD-1M detector geometry')
+        return fig
+
+    def compare(self, other, scale=1.):
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.collections import PatchCollection
+        from matplotlib.figure import Figure
+        from matplotlib.patches import Polygon, Arrow, FancyArrow
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+
+        rects = []
+        arrows = []
+        for p, module in enumerate(self.modules):
+            for a, fragment in enumerate(module):
+                name = 'p{}a{}'.format(p, a)
+                corner1, ss_side, fs_side = (
+                    fragment.corner_pos[:2], fragment.ss_vec[:2], fragment.fs_vec[:2])
+                corners = fragment.corners()[:, :2]  # Drop the Z dimension
+                centre = corner1 + (.5 * ss_side) + (.5 * fs_side)
+                corner1_opp = corner1 + ss_side + fs_side
+
+                rects.append(Polygon(corners))
+                if a in {0, 7}:
+                    ax.text(*centre, str(a),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+                elif a == 4:
+                    ax.text(*centre, 'p{}'.format(p),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+
+                panel2 = other.modules[p][a]
+                corner2, ss_side2, fs_side2 = (
+                    panel2.corner_pos[:2], panel2.ss_vec[:2], panel2.fs_vec[:2])
+                dx, dy = corner2 - corner1
+                if not (dx == dy == 0):
+                    arrows.append(
+                        FancyArrow(*corner1, scale * dx, scale * dy, width=5,
+                                   head_length=4))
+
+                corner2_opp = corner2 + ss_side2 + fs_side2
+                dx, dy = corner2_opp - corner1_opp
+                if not (dx == dy == 0):
+                    arrows.append(
+                        FancyArrow(*corner1_opp, scale * dx, scale * dy,
+                                   width=5, head_length=5))
+
+        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75),
+                             edgecolor=None)
+        ax.add_collection(pc)
+        ac = PatchCollection(arrows)
+        ax.add_collection(ac)
+
+        # Set axis limits to fit all shapes, with some margin
+        all_x = np.concatenate([s.xy[:, 0] for s in arrows + rects])
+        all_y = np.concatenate([s.xy[:, 1] for s in arrows + rects])
+        ax.set_xlim(all_x.min() - 20, all_x.max() + 20)
+        ax.set_ylim(all_y.min() - 40, all_y.max() + 20)
+
+        ax.text(1, 0, 'Arrows scaled: {}×'.format(scale),
+                horizontalalignment="right", verticalalignment="bottom",
+                transform=ax.transAxes)
         return fig
 
     def position_modules_interpolate(self, data):
