@@ -218,12 +218,9 @@ class AGIPD_1MGeometry:
         arrows = []
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
-                name = 'p{}a{}'.format(p, a)
-                corner1, ss_side, fs_side = (
-                    fragment.corner_pos[:2], fragment.ss_vec[:2], fragment.fs_vec[:2])
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
-                centre = corner1 + (.5 * ss_side) + (.5 * fs_side)
-                corner1_opp = corner1 + ss_side + fs_side
+                centre = fragment.centre()[:2]
+                corner1, corner1_opp = corners[0], corners[2]
 
                 rects.append(Polygon(corners))
                 if a in {0, 7}:
@@ -236,15 +233,14 @@ class AGIPD_1MGeometry:
                             horizontalalignment='center')
 
                 panel2 = other.modules[p][a]
-                corner2, ss_side2, fs_side2 = (
-                    panel2.corner_pos[:2], panel2.ss_vec[:2], panel2.fs_vec[:2])
+                corners2 = panel2.corners()[:, :2]
+                corner2, corner2_opp = corners2[0], corners2[2]
                 dx, dy = corner2 - corner1
                 if not (dx == dy == 0):
                     arrows.append(
                         FancyArrow(*corner1, scale * dx, scale * dy, width=5,
                                    head_length=4))
 
-                corner2_opp = corner2 + ss_side2 + fs_side2
                 dx, dy = corner2_opp - corner1_opp
                 if not (dx == dy == 0):
                     arrows.append(
