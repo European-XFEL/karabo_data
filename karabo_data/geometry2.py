@@ -239,16 +239,17 @@ class AGIPD_1MGeometry:
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
-                centre = fragment.centre()[:2]
                 corner1, corner1_opp = corners[0], corners[2]
 
                 rects.append(Polygon(corners))
                 if a in {0, 7}:
-                    ax.text(*centre, str(a),
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, str(a),
                             verticalalignment='center',
                             horizontalalignment='center')
                 elif a == 4:
-                    ax.text(*centre, 'p{}'.format(p),
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, 'p{}'.format(p),
                             verticalalignment='center',
                             horizontalalignment='center')
 
