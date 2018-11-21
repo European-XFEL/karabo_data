@@ -100,8 +100,11 @@ class AGIPD_1MGeometry:
     of the pixel size.
     """
     pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
-    def __init__(self, modules):
+    def __init__(self, modules, filename='No file'):
         self.modules = modules  # List of 16 lists of 8 fragments
+        # self.filename is metadata for plots, we don't read/write the file.
+        # There are separate methods for reading and writing.
+        self.filename = filename
         self._snapped_cache = None
 
     @classmethod
@@ -148,7 +151,7 @@ class AGIPD_1MGeometry:
             for a in range(8):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
                 tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
-        return cls(modules)
+        return cls(modules,  filename=filename)
 
     def write_crystfel_geom(self, filename):
         from . import __version__
@@ -162,6 +165,9 @@ class AGIPD_1MGeometry:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__))
             for chunk in panel_chunks:
                 f.write(chunk)
+
+        if self.filename == 'No file':
+            self.filename = filename
 
     def inspect(self):
         """Plot the 2D layout of this detector geometry.
@@ -201,7 +207,7 @@ class AGIPD_1MGeometry:
         ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
         ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
 
-        ax.set_title('AGIPD-1M detector geometry')
+        ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
         return fig
 
     def compare(self, other, scale=1.):
@@ -273,6 +279,8 @@ class AGIPD_1MGeometry:
         ax.set_xlim(all_x.min() - 20, all_x.max() + 20)
         ax.set_ylim(all_y.min() - 40, all_y.max() + 20)
 
+        ax.set_title('Geometry comparison: {} → {}'
+                     .format(self.filename, other.filename))
         ax.text(1, 0, 'Arrows scaled: {}×'.format(scale),
                 horizontalalignment="right", verticalalignment="bottom",
                 transform=ax.transAxes)
