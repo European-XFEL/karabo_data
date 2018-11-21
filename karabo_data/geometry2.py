@@ -205,10 +205,24 @@ class AGIPD_1MGeometry:
         return fig
 
     def compare(self, other, scale=1.):
+        """Show a comparison of this geometry with another in a 2D plot.
+
+        This shows the current geometry like :meth:`inspect`, with the addition
+        of arrows showing how each panel is shifted in the other geometry.
+
+        Parameters
+        ----------
+
+        other : AGIPD_1MGeometry
+          A second geometry object to compare with this one.
+        scale : float
+          Scale the arrows showing the difference in positions.
+          This is useful to show small differences clearly.
+        """
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         from matplotlib.collections import PatchCollection
         from matplotlib.figure import Figure
-        from matplotlib.patches import Polygon, Arrow, FancyArrow
+        from matplotlib.patches import Polygon, FancyArrow
 
         fig = Figure((10, 10))
         FigureCanvasAgg(fig)
