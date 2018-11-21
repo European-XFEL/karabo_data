@@ -1,6 +1,5 @@
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
-from itertools import product
 import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
@@ -258,14 +257,16 @@ class AGIPD_1MGeometry:
                 corner2, corner2_opp = corners2[0], corners2[2]
                 dx, dy = corner2 - corner1
                 if not (dx == dy == 0):
+                    sx, sy = corner1
                     arrows.append(
-                        FancyArrow(*corner1, scale * dx, scale * dy, width=5,
+                        FancyArrow(sx, sy, scale * dx, scale * dy, width=5,
                                    head_length=4))
 
                 dx, dy = corner2_opp - corner1_opp
                 if not (dx == dy == 0):
+                    sx, sy = corner1_opp
                     arrows.append(
-                        FancyArrow(*corner1_opp, scale * dx, scale * dy,
+                        FancyArrow(sx, sy, scale * dx, scale * dy,
                                    width=5, head_length=5))
 
         pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75),
