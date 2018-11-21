@@ -98,7 +98,7 @@ class AGIPD_1MGeometry:
     The coordinates used in this class are 3D (x, y, z), and represent multiples
     of the pixel size.
     """
-    pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
+    pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
     def __init__(self, modules, filename='No file'):
         self.modules = modules  # List of 16 lists of 8 fragments
         # self.filename is metadata for plots, we don't read/write the file.
@@ -420,6 +420,84 @@ class AGIPD_1MGeometry:
           (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
         """
         return self._snapped().plot_data(data)
+
+    def generateDistortion(self):
+        """ Return distortion matrix for LPD detector
+
+        Returns
+        -------
+        out: ndarray
+            Dimension (Ny=1024, Nx=1024, 4, 3)
+            type: float32
+            4 is the number of corners of a pixel
+            last dimension is for Z, Y, X location of each corner
+        """
+        _quad, _modules, _tiles = create_qmt_dict()
+
+        _, centre = self._plotting_dimensions()
+        modules_list = self.modules
+        distortion = np.zeros( (1024,1024,4,3), dtype=np.float32)
+
+        Tcycle  = list(range(1,9))[::-1]
+        for m, mod in enumerate(modules_list):
+            Q = m // 4 + 1
+            M = m%4 + 1
+            for T, tile in enumerate(mod, start = 1):
+                tile_corner = tile.corners()
+                if Q in {1,2}:
+                    # idx, idy : Bottom left index of tiles in
+                    # (1024,1024) array
+                    idx, idy = np.add(_quad['Q%d' % Q],
+                                      np.add(_modules['M%d' % M],
+                                             _tiles['T%01d' % T]))
+                    # bottom left position of tiles
+                    position = np.array(tile_corner[1])[:-1]
+                else:
+                    # See inspect() tiles in Quadrant 3 and 4 are
+                    # arranged from right to left
+                    T = Tcycle[T-1]
+                    idx, idy = np.add(_quad['Q%d' % Q],
+                                      np.add(_modules['M%d' % M],
+                                             _tiles['T%01d' % T]))
+
+                    # bottom left position of tiles
+                    position = np.array(tile_corner[3])[:-1]
+
+                xt, yt = position + centre
+                xt, yt = int(xt), int(yt)
+
+                # y_position contains y_indices of pixels for a tile
+                y_position = np.array(
+                    [yt+j for j, _ in product( range(128), range(64) ) ] ).\
+                     reshape(128, 64)
+
+                # x_position contains x_indices of pixels for a tile
+                x_position = np.array(
+                    [xt+i for _, i in product( range(128), range(64) ) ] ).\
+                     reshape(128, 64)
+
+                # From the pixel location evaluate X and Y corordinates
+                # of its 4 corners in real space.
+                # Z position is set to 0 (Flat detector)
+
+                distortion[idy:idy+128, idx:idx+64, 0,1] = (
+                    self.pixel_size*y_position[:,:] - 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 1,1] = (
+                    self.pixel_size*y_position[:,:] + 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 2,1] = (
+                    self.pixel_size*y_position[:,:] + 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 3,1] = (
+                    self.pixel_size*y_position[:,:] - 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 0,2] = (
+                    self.pixel_size*x_position[:,:] - 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 1,2] = (
+                    self.pixel_size*x_position[:,:] - 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 2,2] = (
+                    self.pixel_size*x_position[:,:] + 0.5*self.pixel_size)
+                distortion[idy:idy+128, idx:idx+64, 3,2] = (
+                    self.pixel_size*x_position[:,:] + 0.5*self.pixel_size)
+
+        return distortion
 
 class AGIPD_1M_SnappedGeometry:
     """AGIPD geometry approximated to align modules to a 2D grid
