@@ -254,7 +254,8 @@ class LPDGeometry(GeometryFragment):
 
                 # idx, idy : Bottom left index of tiles in (1024,1024) array
                 idx, idy = np.add(_quad['Q%d' % Q],
-                              np.add(_modules['M%d' % M], _tiles['T%01d' % T]))
+                                  np.add(_modules['M%d' % M],
+                                  _tiles['T%01d' % T]))
 
                 xt, yt = (position // self.pixel_size) + centre
                 xt, yt = int(xt), int(yt)
@@ -299,43 +300,37 @@ class LPDGeometry(GeometryFragment):
 
         # Bottom left position index of Quadrants Size (1024,1024)
         # See locations from inspect()
-        _quad['Q1'] = (512,0)
-        _quad['Q2'] = (512,512)
-        _quad['Q3'] = (0,512)
-        _quad['Q4'] = (0,0)
+        _quad['Q1'] = (512, 0)
+        _quad['Q2'] = (512, 512)
+        _quad['Q3'] = (0, 512)
+        _quad['Q4'] = (0, 0)
 
         # Bottom left position index of modules with respect to Quadrant
-        _modules['M1'] = (256,0)
-        _modules['M2'] = (256,256)
-        _modules['M3'] = (0,256)
-        _modules['M4'] = (0,0)
+        _modules['M1'] = (256, 0)
+        _modules['M2'] = (256, 256)
+        _modules['M3'] = (0, 256)
+        _modules['M4'] = (0, 0)
 
         # Bottom left position index of tiles with respect to Modules
-        offset_r = (128,0)
-        offset_l = (0,256)
+        offset_r = (128, 0)
+        offset_l = (0, 256)
         for tileno in range(1,17):
             if tileno <= 8:
-                _tiles['T%d'%tileno] = tuple(offset_r)
-                offset_r = np.add(offset_r,(0,32))
+                _tiles['T%d' % tileno] = tuple(offset_r)
+                offset_r = np.add(offset_r, (0, 32))
             else:
-                offset_l = np.subtract(offset_l,(0,32))
-                _tiles['T%d'%tileno] = tuple(offset_l)
+                offset_l = np.subtract(offset_l, (0, 32))
+                _tiles['T%d' % tileno] = tuple(offset_l)
 
         return _quad, _modules, _tiles
 
-if __name__ == '__main__':
 
-    import matplotlib.pyplot as plt
+if __name__ == '__main__':
 
     quadpos = [(-11.4, -299), (11.5, -8), (-254.5, 16), (-278.5, -275)]  # MAR 18
     with h5py.File(sys.argv[1], 'r') as f:
         geom = LPDGeometry.from_h5_file_and_quad_positions(f, quadpos, unit=1e-3)
 
-    distortion = geom.generateDistortion()
-
-    plt.figure()
-    plt.scatter(distortion[:,:,1,2],distortion[:,:,1,1], s=0.001)
-    plt.show()
     print(geom)
     print('Q2/M1/T07:', geom.find_offset(('Q2', 'M1', 'T07')))
 
