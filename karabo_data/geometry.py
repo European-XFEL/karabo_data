@@ -195,8 +195,8 @@ class LPDGeometry(GeometryFragment):
 
         Returns a matplotlib Figure object.
         """
-        # from matplotlib.backends.backend_agg import FigureCanvasAgg
-        # from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
 
         fig = Figure((10, 10))
         FigureCanvasAgg(fig)
@@ -231,31 +231,31 @@ class LPDGeometry(GeometryFragment):
         ax.set_title('LPD detector geometry')
         return fig
 
-    def generateDistortion(self):
+    def to_distortion_array(self):
         """ Return distortion matrix for LPD detector
 
         Returns
         -------
         out: ndarray
-            Dimension (Ny=1024, Nx=1024, 4, 3)
+            Dimension (4096=16(modules)*256(ss_dim), 256(fs_dim), 4, 3)
             type: float32
             4 is the number of corners of a pixel
             last dimension is for Z, Y, X location of each corner
         """
-        _quad, _modules, _tiles = self._create_qmt_dict()
+        _tiles = self._create_qmt_dict()
         _, centre = self._plotting_dimensions()
-        distortion = np.zeros((1024, 1024, 4, 3), dtype=np.float32)
+        distortion = np.zeros((4096, 256, 4, 3), dtype=np.float32)
 
-        for (Q, M) in product(range(1, 5), range(1, 5)):
-
+        for index, (Q, M) in enumerate(product(range(1, 5), range(1, 5))):
+            #ch: module offset along first dimension of distortion array
+            ch = index*256
             for T in range(1, 17):
                 position = self.find_offset(('Q%d' % Q,
                                              'M%d' % M, 'T%02d' % T))
 
-                # idx, idy : Bottom left index of tiles in (1024,1024) array
-                idx, idy = np.add(_quad['Q%d' % Q],
-                                  np.add(_modules['M%d' % M],
-                                  _tiles['T%01d' % T]))
+                # idx, idy : Bottom left index of tiles in (256,256)
+                #            module array
+                idx, idy = _tiles['T%01d' % T]
 
                 xt, yt = (position // self.pixel_size) + centre
                 xt, yt = int(xt), int(yt)
@@ -270,19 +270,19 @@ class LPDGeometry(GeometryFragment):
                 # From the pixel location evaluate X and Y corordinates
                 # of its 4 corners in real space.
                 # Z position is set to 0 (Flat detector)
-                distortion[idy:idy+32, idx:idx+128, 0, 1] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 0, 1] = (
                     self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 1, 1] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 1, 1] = (
                     self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 2, 1] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 2, 1] = (
                     self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 3, 1] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 3, 1] = (
                     self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 0, 2] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 0, 2] = (
                     self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 1, 2] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 1, 2] = (
                     self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 2, 2] = (
+                distortion[ch+idy:ch+idy+32, idx:idx+128, 2, 2] = (
                     self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
                 distortion[idy:idy+32, idx:idx+128, 3, 2] = (
                     self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
@@ -290,26 +290,12 @@ class LPDGeometry(GeometryFragment):
         return distortion
 
     def _create_qmt_dict(self):
-        """Returns dictionaries for bottom left indices
+        """Returns dictionary for bottom left indices of tiles
 
-        _quad : bottom left index of all 4 quadrants in 1024,1024 canvas
-        _modules: botton left index of 4 modules with respect to quadrant
         _tiles: bottom left index of 16 tiles with respect to the module
+                tiles are arranged in anti-clockwise fashion.
         """
-        _quad, _modules, _tiles = dict(), dict(), dict()
-
-        # Bottom left position index of Quadrants Size (1024,1024)
-        # See locations from inspect()
-        _quad['Q1'] = (512, 0)
-        _quad['Q2'] = (512, 512)
-        _quad['Q3'] = (0, 512)
-        _quad['Q4'] = (0, 0)
-
-        # Bottom left position index of modules with respect to Quadrant
-        _modules['M1'] = (256, 0)
-        _modules['M2'] = (256, 256)
-        _modules['M3'] = (0, 256)
-        _modules['M4'] = (0, 0)
+        _tiles = dict()
 
         # Bottom left position index of tiles with respect to Modules
         offset_r = (128, 0)
@@ -322,15 +308,19 @@ class LPDGeometry(GeometryFragment):
                 offset_l = np.subtract(offset_l, (0, 32))
                 _tiles['T%d' % tileno] = tuple(offset_l)
 
-        return _quad, _modules, _tiles
+        return _tiles
 
 
 if __name__ == '__main__':
 
+    import matplotlib.pyplot as plt
     quadpos = [(-11.4, -299), (11.5, -8), (-254.5, 16), (-278.5, -275)]  # MAR 18
     with h5py.File(sys.argv[1], 'r') as f:
         geom = LPDGeometry.from_h5_file_and_quad_positions(f, quadpos, unit=1e-3)
 
+    distortion = geom.to_distortion_array()
     print(geom)
     print('Q2/M1/T07:', geom.find_offset(('Q2', 'M1', 'T07')))
-
+    plt.figure()
+    plt.scatter(distortion[:,:,1,2],distortion[:,:,1,1], s=0.001)
+    plt.show()
