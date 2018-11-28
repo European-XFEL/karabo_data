@@ -260,32 +260,23 @@ class LPDGeometry(GeometryFragment):
                 xt, yt = (position // self.pixel_size) + centre
                 xt, yt = int(xt), int(yt)
                 # y_position contains y_indices of pixels for a tile
-                y_position = np.array(
-                    [yt+j for j, _ in product(range(32), range(128))]).\
-                    reshape(32, 128)
                 # x_position contains x_indices of pixels for a tile
-                x_position = np.array(
-                    [xt+i for _, i in product(range(32), range(128))]).\
-                    reshape(32, 128)
+                x_position, y_position = np.meshgrid(range(128), range(32))
+                x_position = x_position + xt
+                y_position = y_position + yt
+
                 # From the pixel location evaluate X and Y corordinates
                 # of its 4 corners in real space.
                 # Z position is set to 0 (Flat detector)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 0, 1] = (
-                    self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 1, 1] = (
-                    self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 2, 1] = (
-                    self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 3, 1] = (
-                    self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 0, 2] = (
-                    self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 1, 2] = (
-                    self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[ch+idy:ch+idy+32, idx:idx+128, 2, 2] = (
-                    self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+32, idx:idx+128, 3, 2] = (
-                    self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
+                corner_y_offsets = np.array([-.5, .5, .5, -.5]) * self.pixel_size
+                corner_x_offsets = np.array([-.5, -.5, .5, .5]) * self.pixel_size
+
+                distortion[ch+idy:ch+idy+32, idx:idx+128, :, 1] = (
+                    self.pixel_size*y_position[:, :, np.newaxis] +
+                    corner_y_offsets)
+                distortion[ch+idy:ch+idy+32, idx:idx+128, :, 2] = (
+                    self.pixel_size*x_position[:, :, np.newaxis] +
+                    corner_x_offsets)
 
         return distortion
 
