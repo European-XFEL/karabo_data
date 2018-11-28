@@ -253,7 +253,7 @@ class LPDGeometry(GeometryFragment):
                 position = self.find_offset(('Q%d' % Q,
                                              'M%d' % M, 'T%02d' % T))
 
-                # idx, idy : Bottom left index of tiles in (256,256)
+                # idx, idy : top left index of tiles in (256,256)
                 #            module array
                 idx, idy = _tiles['T%01d' % T]
 
@@ -293,7 +293,8 @@ class LPDGeometry(GeometryFragment):
         """Returns dictionary for bottom left indices of tiles
 
         _tiles: bottom left index of 16 tiles with respect to the module
-                tiles are arranged in anti-clockwise fashion.
+                tiles are arranged in clockwise order starting from top
+                right.
         """
         _tiles = dict()
 
