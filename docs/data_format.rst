@@ -2,7 +2,7 @@ Data files format
 =================
 
 The main unit of data this tool works with is a *run*. A run is data collected
-in a specific period, and each research proposal given beantime at European XFEL
+in a specific period, and each research proposal given beamtime at European XFEL
 may collect hundreds of runs.
 
 A run is stored as a directory containing HDF5 data files from different
