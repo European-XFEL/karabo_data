@@ -184,6 +184,47 @@ class AGIPD_1MGeometry:
                 tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
         return cls(modules)
 
+    def write_xfel_geom(self, filename):
+        #from . import __version__
+        with File(filename, 'w') as h5:
+            h5.PixelShape = b'Quadratic'
+            h5.PixelPitch = self.pixel_size
+            h5.Timestamp = str.encode(datetime.now().__str__())
+            for p, module in enumerate(self.modules):
+                quad = p // 4
+                p_in_quad = p % 4
+                try:
+                    q_group = h5.create_group('Q{}'.format(quad+1))
+                    q_group.LocalId = quad
+                    q_group.UniqueId = str.encode('Q{}'.format(quad+1))
+                except (ValueError, RuntimeError):
+                    pass
+                mod_group = q_group.create_group('M{}'.format(p_in_quad+1))
+                mod_group.LocalId = p_in_quad
+                mod_group.UniqueId = str.encode(
+                         'SM{}{}'.format(quad+1, p_in_quad+1))
+                pos_dset = mod_group.create_dataset('Position', dtype='f8',
+                                                     shape=(2,))
+                pos = self.get_mod_position(p)
+                pos_dset[:] = pos
+                pos_dset.dims[0].units = b'pixels'
+                pos_dset.dims[0].label = b'mod_pos_in_quad'
+
+                for a, fragment in enumerate(module):
+                    y, x = tuple(fragment.corner_idx[1:] - pos[::-1])
+                    y += fragment.pixel_dims[0]
+                    t_group = mod_group.create_group('T{:02d}'.format(a+1))
+                    t_group.LocalId = a
+                    t_group.UniqueId = str.encode('Q{}M{}T{:02d}'.format(quad+1,
+                                                              p_in_quad+1,
+                                                              a+1))
+                    t_dset = t_group.create_dataset('Position', dtype='f8',
+                                                    shape=(2,))
+                    t_dset[:] = np.array([x, y], dtype='f8')
+                    pos_dset.dims[0].units = b'pixels'
+                    pos_dset.dims[0].label = b'tile_pos_in_mod'
+
+
     def write_crystfel_geom(self, filename):
         from . import __version__
 
