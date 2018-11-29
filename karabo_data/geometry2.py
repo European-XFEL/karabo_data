@@ -150,7 +150,7 @@ class AGIPD_1MGeometry:
             for a in range(8):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
                 tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
-        return cls(modules,  filename=filename)
+        return cls(modules, filename=filename)
 
     def write_crystfel_geom(self, filename):
         from . import __version__
