@@ -19,7 +19,7 @@ def test_get_array_pulse_id(mock_fxe_run):
 
     arr = det.get_array('image.data', pulses=by_id[[1, 7, 22, 23]])
     assert arr.shape == (16, 3, 4, 256, 256)
-    assert list(arr.coords['pulse'][:4]) == [1, 7, 22, 23]
+    assert list(arr.coords['pulse']) == [1, 7, 22, 23]
 
 
 def test_get_array_pulse_indexes(mock_fxe_run):
