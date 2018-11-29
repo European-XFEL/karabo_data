@@ -1,5 +1,8 @@
-from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
+from datetime import datetime
+
+from cfelpyutils.crystfel_utils import load_crystfel_geometry
+from h5py import File
 import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
