@@ -97,7 +97,7 @@ class GridGeometryFragment:
             fs_order = fs_vec[1]
             ss_order = ss_vec[0]
             self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
-            corner_shift = np.array([
+            self.corner_shift = np.array([
                 min(ss_order, 0) * self.ss_pixels,
                 min(fs_order, 0) * self.fs_pixels
             ])
@@ -107,12 +107,12 @@ class GridGeometryFragment:
             fs_order = fs_vec[0]
             ss_order = ss_vec[1]
             self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
-            corner_shift = np.array([
+            self.corner_shift = np.array([
                 min(fs_order, 0) * self.fs_pixels,
                 min(ss_order, 0) * self.ss_pixels
             ])
             self.pixel_dims = np.array([self.fs_pixels, self.ss_pixels])
-        self.corner_idx = corner_pos + corner_shift
+        self.corner_idx = corner_pos + self.corner_shift
         self.opp_corner_idx = self.corner_idx + self.pixel_dims
 
 
