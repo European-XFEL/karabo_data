@@ -53,3 +53,20 @@ def test_inspect():
     # Smoketest
     fig = geom.inspect()
     assert isinstance(fig, Figure)
+
+def test_compare():
+    geom1 = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
+        (-525, 625),
+        (-550, -10),
+        (520, -160),
+        (542.5, 475),
+    ])
+    geom2 = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
+        (-527, 625),
+        (-548, -10),
+        (520, -162),
+        (542.5, 473),
+    ])
+    # Smoketest
+    fig = geom1.compare(geom2)
+    assert isinstance(fig, Figure)

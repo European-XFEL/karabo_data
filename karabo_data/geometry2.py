@@ -99,8 +99,11 @@ class AGIPD_1MGeometry:
     of the pixel size.
     """
     pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
-    def __init__(self, modules):
+    def __init__(self, modules, filename='No file'):
         self.modules = modules  # List of 16 lists of 8 fragments
+        # self.filename is metadata for plots, we don't read/write the file.
+        # There are separate methods for reading and writing.
+        self.filename = filename
         self._snapped_cache = None
 
     @classmethod
@@ -147,7 +150,7 @@ class AGIPD_1MGeometry:
             for a in range(8):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
                 tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
-        return cls(modules)
+        return cls(modules, filename=filename)
 
     def write_crystfel_geom(self, filename):
         from . import __version__
@@ -161,6 +164,9 @@ class AGIPD_1MGeometry:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__))
             for chunk in panel_chunks:
                 f.write(chunk)
+
+        if self.filename == 'No file':
+            self.filename = filename
 
     def inspect(self):
         """Plot the 2D layout of this detector geometry.
@@ -200,7 +206,86 @@ class AGIPD_1MGeometry:
         ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
         ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
 
-        ax.set_title('AGIPD-1M detector geometry')
+        ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
+        return fig
+
+    def compare(self, other, scale=1.):
+        """Show a comparison of this geometry with another in a 2D plot.
+
+        This shows the current geometry like :meth:`inspect`, with the addition
+        of arrows showing how each panel is shifted in the other geometry.
+
+        Parameters
+        ----------
+
+        other : AGIPD_1MGeometry
+          A second geometry object to compare with this one.
+        scale : float
+          Scale the arrows showing the difference in positions.
+          This is useful to show small differences clearly.
+        """
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.collections import PatchCollection
+        from matplotlib.figure import Figure
+        from matplotlib.patches import Polygon, FancyArrow
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+
+        rects = []
+        arrows = []
+        for p, module in enumerate(self.modules):
+            for a, fragment in enumerate(module):
+                corners = fragment.corners()[:, :2]  # Drop the Z dimension
+                corner1, corner1_opp = corners[0], corners[2]
+
+                rects.append(Polygon(corners))
+                if a in {0, 7}:
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, str(a),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+                elif a == 4:
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, 'p{}'.format(p),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+
+                panel2 = other.modules[p][a]
+                corners2 = panel2.corners()[:, :2]
+                corner2, corner2_opp = corners2[0], corners2[2]
+                dx, dy = corner2 - corner1
+                if not (dx == dy == 0):
+                    sx, sy = corner1
+                    arrows.append(
+                        FancyArrow(sx, sy, scale * dx, scale * dy, width=5,
+                                   head_length=4))
+
+                dx, dy = corner2_opp - corner1_opp
+                if not (dx == dy == 0):
+                    sx, sy = corner1_opp
+                    arrows.append(
+                        FancyArrow(sx, sy, scale * dx, scale * dy,
+                                   width=5, head_length=5))
+
+        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75),
+                             edgecolor=None)
+        ax.add_collection(pc)
+        ac = PatchCollection(arrows)
+        ax.add_collection(ac)
+
+        # Set axis limits to fit all shapes, with some margin
+        all_x = np.concatenate([s.xy[:, 0] for s in arrows + rects])
+        all_y = np.concatenate([s.xy[:, 1] for s in arrows + rects])
+        ax.set_xlim(all_x.min() - 20, all_x.max() + 20)
+        ax.set_ylim(all_y.min() - 40, all_y.max() + 20)
+
+        ax.set_title('Geometry comparison: {} → {}'
+                     .format(self.filename, other.filename))
+        ax.text(1, 0, 'Arrows scaled: {}×'.format(scale),
+                horizontalalignment="right", verticalalignment="bottom",
+                transform=ax.transAxes)
         return fig
 
     def position_modules_interpolate(self, data):
