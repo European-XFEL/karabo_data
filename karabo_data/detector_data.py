@@ -110,10 +110,10 @@ class DetectorData:
                 # should look for a more reliable way.
                 if data.ndim == 4:
                     # image.data in raw data
-                    dims = ['train_pulse', 'data_gain', 'ss', 'fs']
+                    dims = ['train_pulse', 'data_gain', 'slow_scan', 'fast_scan']
                 elif data.ndim == 3:
                     # image.data, image.gain, image.mask in calibrated data
-                    dims = ['train_pulse', 'ss', 'fs']
+                    dims = ['train_pulse', 'slow_scan', 'fast_scan']
                 else:
                     # Everything else seems to be 1D
                     dims = ['train_pulse']
