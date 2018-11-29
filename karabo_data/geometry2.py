@@ -161,6 +161,17 @@ class AGIPD_1MGeometry:
                 ))
         return cls(modules)
 
+    def get_mod_position(self, i):
+        Y, X = [], []
+        for fragment in self.modules[i]:
+            # Offset by centre to make all coordinates positive
+            _ ,  y, x = tuple(fragment.corner_idx)
+            h, w = tuple(fragment.pixel_dims)
+            Y.append(y+h)
+            X.append(x)
+            X.append(x)
+        return np.array([max(X), max(Y)], dtype='f8')
+
     @classmethod
     def from_crystfel_geom(cls, filename):
         geom_dict = load_crystfel_geometry(filename)
