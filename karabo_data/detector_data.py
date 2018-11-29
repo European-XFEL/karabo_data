@@ -88,7 +88,7 @@ class DetectorData:
                 trainids = trainids[positions]
                 pulse_id = pulse_id[positions]
                 index = pd.MultiIndex.from_arrays([trainids, pulse_id],
-                                                  names=['trainId', 'pulseId'])
+                                                  names=['train', 'pulse'])
 
                 if isinstance(positions, slice):
                     data_positions = slice(
@@ -122,7 +122,7 @@ class DetectorData:
 
                 # Separate train & pulse dimensions, and arrange dimensions
                 # so that the data is contiguous in memory.
-                dim_order = ['trainId', 'pulseId'] + dims[1:]
+                dim_order = ['train', 'pulse'] + dims[1:]
                 arr = arr.unstack('train_pulse').transpose(*dim_order)
                 seq_arrays.append(arr)
 
@@ -137,8 +137,8 @@ class DetectorData:
                             .format(source, key))
 
         return xarray.concat(sorted(non_empty,
-                                   key=lambda a: a.coords['trainId'][0]),
-                            dim='trainId')
+                                   key=lambda a: a.coords['train'][0]),
+                            dim='train')
 
     def get_array(self, key, pulses=by_index[:]):
         """Get a labelled array of detector data
