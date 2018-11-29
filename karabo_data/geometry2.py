@@ -24,7 +24,28 @@ class AGIPDGeometryFragment:
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
-
+        if fs_vec[0] == 0:
+            # Flip without transposing
+            fs_order = fs_vec[1]
+            ss_order = ss_vec[0]
+            self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
+            self.corner_shift = np.array([
+                min(ss_order, 0) * self.ss_pixels,
+                min(fs_order, 0) * self.fs_pixels,
+                0
+            ])
+            self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
+        else:
+            # Transpose and then flip
+            fs_order = fs_vec[0]
+            ss_order = ss_vec[1]
+            self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
+            self.corner_shift = np.array([
+                min(fs_order, 0) * self.fs_pixels,
+                min(ss_order, 0) * self.ss_pixels,
+                0
+            ])
+        self.corner_idx = (corner_pos + self.corner_shift)[::-1]
     @classmethod
     def from_panel_dict(cls, d):
         corner_pos = np.array([d['cnx'], d['cny'], d['coffset']])
