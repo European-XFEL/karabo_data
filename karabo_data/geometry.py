@@ -232,7 +232,7 @@ class LPDGeometry(GeometryFragment):
         return fig
 
     def to_distortion_array(self):
-        """ Return distortion matrix for LPD detector
+        """Return distortion matrix for LPD detector, suitable for pyFAI
 
         Returns
         -------
@@ -242,7 +242,7 @@ class LPDGeometry(GeometryFragment):
             4 is the number of corners of a pixel
             last dimension is for Z, Y, X location of each corner
         """
-        _tiles = self._create_qmt_dict()
+        _tiles = self._tile_offsets()
         _, centre = self._plotting_dimensions()
         distortion = np.zeros((4096, 256, 4, 3), dtype=np.float32)
 
@@ -281,7 +281,7 @@ class LPDGeometry(GeometryFragment):
 
         return distortion
 
-    def _create_qmt_dict(self):
+    def _tile_offsets(self):
         """Returns dictionary for top left indices of tiles
 
         _tiles: top left index of 16 tiles with respect to the module
