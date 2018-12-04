@@ -793,7 +793,7 @@ class DataCollection:
                 raise ValueError("No detector sources found in this data")
             elif len(detector_names) > 1:
                 raise ValueError("Multiple detectors found in the data: {}. "
-                                 "Pass a name to data.detectors() to pick one."
+                                 "Pass a name to data.detector() to pick one."
                          .format(', '.join(repr(n) for n in detector_names)))
             detector_name = detector_names.pop()
 
