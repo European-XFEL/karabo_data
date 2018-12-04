@@ -82,3 +82,7 @@ def test_to_distortion_array():
     distortion = geom.to_distortion_array()
     assert isinstance(distortion, np.ndarray)
     assert distortion.shape == (8192, 128, 4, 3)
+
+    # Coordinates in m; max x & y should be ~ 12 cm from centre
+    assert .08 < distortion[..., 1].max() < .15
+    assert .08 < distortion[..., 2].max() < .15
