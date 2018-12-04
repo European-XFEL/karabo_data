@@ -423,7 +423,7 @@ class AGIPD_1MGeometry:
         return self._snapped().plot_data(data)
 
     def to_distortion_array(self):
-        """ Return distortion matrix for AGIPD detector
+        """Return distortion matrix for AGIPD detector, suitable for pyFAI
 
         Returns
         -------
@@ -433,69 +433,70 @@ class AGIPD_1MGeometry:
             4 is the number of corners of a pixel
             last dimension is for Z, Y, X location of each corner
         """
-        _tiles = self._create_qmt_dict()
-
-        _, centre = self._get_dimensions()
-
-        modules_list = self.modules
         distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
 
-        Tcycle  = list(range(8,0,-1))
-        for m, mod in enumerate(modules, start = 0):
-            # ch: module offset along first dimension of distortion array
-            ch = m*512
-            Q = m // 4 + 1
-            M = m%4 + 1
-            for T, tile in enumerate(mod, start = 1):
-                tile_corner = tile.corners()
-                if Q in {1,2}:
-                    idx, idy = _tiles['T%01d' % T]
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, 64), np.arange(0, 128), indexing='ij'
+        )
+        corner_ss_offsets = np.array([-.5, .5, .5, -.5])
+        corner_fs_offsets = np.array([-.5, -.5, .5, .5])
 
-                    position = np.array(tile_corner[0][:-1])
-                else:
-                    T = Tcycle[T-1]
-                    idx, idy = _tiles['T%01d' % T]
+        for m, mod in enumerate(self.modules, start=0):
+            # module offset along first dimension of distortion array
+            module_offset = m * 512
 
-                    position = np.array(tile_corner[2][:-1])
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
 
-                yt, xt = position + centre
-                yt, xt = int(yt), int(xt)
+                # Calculate coordinates of each pixel centre
+                # 2D arrays, shape: (64, 128)
+                pixel_centres_x = (
+                    corner_x +
+                    pixel_ss_index * ss_unit_x +
+                    pixel_fs_index * fs_unit_x
+                )
+                pixel_centres_y = (
+                    corner_y +
+                    pixel_ss_index * ss_unit_y +
+                    pixel_fs_index * fs_unit_y
+                )
+                pixel_centres_z = (
+                    corner_z +
+                    pixel_ss_index * ss_unit_z +
+                    pixel_fs_index * fs_unit_z
+                )
 
-                # y_position contains y_indices of pixels for a tile
-                # x_position contains x_indices of pixels for a tile
-                x_position, y_position = np.meshgrid(range(128), range(64))
-                x_position = x_position + xt
-                y_position = y_position + yt
+                # Calculate corner coordinates for each pixel
+                # 3D arrays, shape: (64, 128, 4)
+                corners_x = (
+                    pixel_centres_x[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_x +
+                    corner_fs_offsets * fs_unit_x
+                )
+                corners_y = (
+                    pixel_centres_y[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_y +
+                    corner_fs_offsets * fs_unit_y
+                )
+                corners_z = (
+                    pixel_centres_z[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_z +
+                    corner_fs_offsets * fs_unit_z
+                )
 
-                # From the pixel location evaluate X and Y corordinates
-                # of its 4 corners in real space.
-                # Z position is set to 0 (Flat detector)
-                corner_y_offsets = np.array([-.5, .5, .5, -.5]) * self.pixel_size
-                corner_x_offsets = np.array([-.5, -.5, .5, .5]) * self.pixel_size
+                # Which part of the array is this tile?
+                tile_offset = module_offset + (t * 64)
+                tile_slice = slice(tile_offset, tile_offset + tile.ss_pixels)
 
-                distortion[ch+idy:ch+idy+64, idx:idx+128, :, 1] = (
-                    self.pixel_size*y_position[:, :, np.newaxis] +
-                    corner_y_offsets)
-                distortion[ch+idy:ch+idy+64, idx:idx+128, :, 2] = (
-                    self.pixel_size*x_position[:, :, np.newaxis] +
-                    corner_x_offsets)
+                # Insert the data into the array
+                distortion[tile_slice, :, :, 0] = corners_z
+                distortion[tile_slice, :, :, 1] = corners_y
+                distortion[tile_slice, :, :, 2] = corners_x
 
         return distortion
-
-    def _create_qmt_dict(self):
-        """Returns dictionaries for top left indices
-
-        _tiles: top left index of 16 tiles with respect to the module
-        """
-        _tiles = dict()
-
-        # Bottom left position index of tiles with respect to Modules
-        offset_r = (0, 0)
-        for tileno in range(1, 9):
-            _tiles['T%d' % tileno] = tuple(offset_r)
-            offset_r = np.add(offset_r, (64, 0))
-
-        return _tiles
 
 
 class AGIPD_1M_SnappedGeometry:
