@@ -4,6 +4,31 @@ import xarray
 
 from .reader import DataCollection, by_id, by_index
 
+def _guess_axes(data, train_pulse_ids):
+    # Raw files have a spurious extra dimension
+    if data.ndim >= 2 and data.shape[1] == 1:
+        data = data[:, 0]
+
+    # TODO: this assumes we can tell what the axes are just from the
+    # number of dimensions. Works for the data we've seen, but we
+    # should look for a more reliable way.
+    if data.ndim == 4:
+        # image.data in raw data
+        dims = ['train_pulse', 'data_gain', 'slow_scan', 'fast_scan']
+    elif data.ndim == 3:
+        # image.data, image.gain, image.mask in calibrated data
+        dims = ['train_pulse', 'slow_scan', 'fast_scan']
+    else:
+        # Everything else seems to be 1D
+        dims = ['train_pulse']
+
+    arr = xarray.DataArray(data, {'train_pulse': train_pulse_ids}, dims=dims)
+
+    # Separate train & pulse dimensions, and arrange dimensions
+    # so that the data is contiguous in memory.
+    dim_order = ['train', 'pulse'] + dims[1:]
+    return arr.unstack('train_pulse').transpose(*dim_order)
+
 class DetectorData:
     """Interface to access X-ray detector data, from e.g. AGIPD or LPD
     """
@@ -20,6 +45,9 @@ class DetectorData:
         split_indices = np.where(np.diff(train_id_arr) != 1)[0]+1
         self.train_id_chunks = np.split(train_id_arr, split_indices)
 
+    @property
+    def train_ids(self):
+        return self.data.train_ids
 
     def __repr__(self):
         return "<DetectorData for detector {!r} with {} modules>".format(
@@ -101,29 +129,9 @@ class DetectorData:
                     data_positions = list(data_slice.start + positions)
 
                 data = f.file[data_path][data_positions]
-                # Raw files have a spurious extra dimension
-                if data.ndim >= 2 and data.shape[1] == 1:
-                    data = data[:, 0]
 
-                # TODO: this assumes we can tell what the axes are just from the
-                # number of dimensions. Works for the data we've seen, but we
-                # should look for a more reliable way.
-                if data.ndim == 4:
-                    # image.data in raw data
-                    dims = ['train_pulse', 'data_gain', 'slow_scan', 'fast_scan']
-                elif data.ndim == 3:
-                    # image.data, image.gain, image.mask in calibrated data
-                    dims = ['train_pulse', 'slow_scan', 'fast_scan']
-                else:
-                    # Everything else seems to be 1D
-                    dims = ['train_pulse']
+                arr = _guess_axes(data, index)
 
-                arr = xarray.DataArray(data, {'train_pulse': index}, dims=dims)
-
-                # Separate train & pulse dimensions, and arrange dimensions
-                # so that the data is contiguous in memory.
-                dim_order = ['train', 'pulse'] + dims[1:]
-                arr = arr.unstack('train_pulse').transpose(*dim_order)
                 seq_arrays.append(arr)
 
         non_empty = [a for a in seq_arrays if (a.size > 0)]
@@ -165,3 +173,174 @@ class DetectorData:
             modnos.append(modno)
 
         return xarray.concat(arrays, pd.Index(modnos, name='module'))
+
+    def trains(self, pulses=by_index[:]):
+        """Iterate over trains for detector data
+        """
+        return DetectorTrainIterator(self, pulses)
+
+
+class DetectorTrainIterator:
+    """Iterate over trains in detector data, assembling arrays.
+
+    Created by :meth:`DetectorData.trains`.
+    """
+    def __init__(self, data, pulses=by_index[:], require_all=True):
+        self.data = data
+        self.pulses = pulses
+        self.require_all = require_all
+        # {(source, key): (f, dataset)}
+        self._datasets_cache = {}
+
+    def _find_data(self, source, key, tid):
+        try:
+            file, ds = self._datasets_cache[(source, key)]
+        except KeyError:
+            pass
+        else:
+            ixs = (file.train_ids == tid).nonzero()[0]
+            if ixs.size > 0:
+                return file, ixs[0], ds
+
+        data = self.data.data
+        path = '/INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
+        f, pos = data._find_data(source, tid)
+        if f is not None:
+            ds = f.file[path]
+            self._datasets_cache[(source, key)] = (f, ds)
+            return f, pos, ds
+
+        return None, None, None
+
+    def _get_slow_data(self, source, key, tid):
+        file, pos, ds = self._find_data(source, key, tid)
+        if file is None:
+            return None
+
+        group = key.partition('.')[0]
+        firsts, counts = file.get_index(source, group)
+        first, count = firsts[pos], counts[pos]
+        if count == 1:
+            return xarray.DataArray(ds[first])
+        else:
+            return xarray.DataArray(ds[first:first + count])
+
+    def _get_pulse_data(self, source, key, tid):
+        file, pos, ds = self._find_data(source, key, tid)
+        if file is None:
+            return None
+
+        group = key.partition('.')[0]
+        firsts, counts = file.get_index(source, group)
+        first, count = firsts[pos], counts[pos]
+
+        pulse_ids = (file.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)]
+                              [first:first + count])
+        # Raw files have a spurious extra dimension
+        if pulse_ids.ndim >= 2 and pulse_ids.shape[1] == 1:
+            pulse_ids = pulse_ids[:, 0]
+
+        if isinstance(self.pulses, by_id):
+            positions = self._select_pulse_ids(pulse_ids)
+        else:  # by_index
+            positions = self._select_pulse_indices(count)
+        pulse_ids = pulse_ids[positions]
+        train_ids = np.array([tid] * len(pulse_ids), dtype=np.uint64)
+        train_pulse_ids = pd.MultiIndex.from_arrays([train_ids, pulse_ids],
+                                                  names=['train', 'pulse'])
+
+        if isinstance(positions, slice):
+            data_positions = slice(
+                int(first + positions.start),
+                int(first + positions.stop),
+                positions.step
+            )
+        else:  # ndarray
+            # h5py fancy indexing needs a list, not an ndarray
+            data_positions = list(first + positions)
+
+        return _guess_axes(ds[data_positions], train_pulse_ids)
+
+    def _select_pulse_ids(self, pulse_ids):
+        """Select pulses by ID
+
+        Returns an array or slice of the indexes to include.
+        """
+        pulses = self.pulses
+        N = len(pulse_ids)
+        if isinstance(pulses.value, slice):
+            s = pulses.value
+            start_val = s.start or 0
+            stop_val = s.stop
+            if stop_val is None:
+                stop_val = pulse_ids.max() + 1
+
+            if pulses.value.step == 1:
+                start = (np.nonzero(pulse_ids >= start_val)[0] or [N])[0]
+                stop = (np.nonzero(pulse_ids >= stop_val)[0] or [N])[0]
+                return slice(start, stop)
+
+            # step != 1
+            desired = np.arange(start_val, stop_val, step=s.step, dtype=np.uint64)
+
+        elif isinstance(pulses.value, int):
+            desired = np.array([pulses.value], dtype=np.uint64)
+        else:
+            desired = np.array(pulses.value, dtype=np.uint64)
+
+        return np.nonzero(np.isin(pulse_ids, desired))[0]
+
+    def _select_pulse_indices(self, count):
+        """Select pulses by index
+
+        Returns an array or slice of the indexes to include.
+        """
+        pulses = self.pulses
+        if isinstance(pulses.value, slice):
+            s = pulses.value
+            start = s.start or 0
+            stop = s.stop
+            if stop is None:
+                stop = count
+            return slice(start, stop, s.step)
+
+        elif isinstance(pulses.value, int):
+            return np.array([pulses.value], dtype=np.uint64)
+        else:  # list, ndarray
+            return np.asarray(pulses.value, dtype=np.uint64)
+
+    def _assemble_data(self, tid):
+        key_module_arrays = {}
+
+        for modno, source in sorted(self.data.modno_to_source.items()):
+
+            for key in self.data.data._keys_for_source(source):
+                # At present, all the per-pulse data is stored in the 'image' key.
+                # If that changes, this check will need to change as well.
+
+                if key.startswith('image.'):
+                    mod_data = self._get_pulse_data(source, key, tid)
+                else:
+                    mod_data = self._get_slow_data(source, key, tid)
+
+                if mod_data is None:
+                    continue
+
+                if key not in key_module_arrays:
+                    key_module_arrays[key] = [], []
+                modnos, data = key_module_arrays[key]
+                modnos.append(modno)
+                data.append(mod_data)
+
+        # Assemble the data for each key into one xarray
+        return {
+            k: xarray.concat(data, pd.Index(modnos, name='module'))
+            for (k, (modnos, data)) in key_module_arrays.items()
+        }
+
+    def __iter__(self):
+        for tid in self.data.train_ids:
+            tid = int(tid)  # Convert numpy int to regular Python int
+            if self.require_all and self.data.data._check_data_missing(tid):
+                continue
+            yield tid, self._assemble_data(tid)
