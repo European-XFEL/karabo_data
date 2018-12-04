@@ -422,106 +422,72 @@ class AGIPD_1MGeometry:
         """
         return self._snapped().plot_data(data)
 
-    def generateDistortion(self):
-        """ Return distortion matrix for LPD detector
+    def to_distortion_array(self):
+        """ Return distortion matrix for AGIPD detector
 
         Returns
         -------
         out: ndarray
-            Dimension (Ny=1024, Nx=1024, 4, 3)
+            Dimension (8192=16(modules)*512(ss_dim), 128(fs_dim), 4, 3)
             type: float32
             4 is the number of corners of a pixel
             last dimension is for Z, Y, X location of each corner
         """
-        _quad, _modules, _tiles = self._create_qmt_dict()
+        _tiles = self._create_qmt_dict()
 
         _, centre = self._get_dimensions()
 
         modules_list = self.modules
-        distortion = np.zeros((1024, 1024, 4, 3), dtype=np.float32)
+        distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
 
-        Tcycle = list(range(1, 9))[::-1]
-        for m, mod in enumerate(modules_list):
+        Tcycle  = list(range(8,0,-1))
+        for m, mod in enumerate(modules, start = 0):
+            # ch: module offset along first dimension of distortion array
+            ch = m*512
             Q = m // 4 + 1
-            M = m % 4 + 1
-            for T, tile in enumerate(mod, start=1):
+            M = m%4 + 1
+            for T, tile in enumerate(mod, start = 1):
                 tile_corner = tile.corners()
-                if Q in {1, 2}:
-                    # idx, idy : Bottom left index of tiles in
-                    # (1024,1024) array
-                    idx, idy = np.add(_quad['Q%d' % Q],
-                                      np.add(_modules['M%d' % M],
-                                             _tiles['T%01d' % T]))
-                    # bottom left position of tiles
-                    position = np.array(tile_corner[1])[:-1]
+                if Q in {1,2}:
+                    idx, idy = _tiles['T%01d' % T]
+
+                    position = np.array(tile_corner[0][:-1])
                 else:
-                    # See inspect() tiles in Quadrant 3 and 4 are
-                    # arranged from right to left
                     T = Tcycle[T-1]
-                    idx, idy = np.add(_quad['Q%d' % Q],
-                                      np.add(_modules['M%d' % M],
-                                             _tiles['T%01d' % T]))
+                    idx, idy = _tiles['T%01d' % T]
 
-                    # bottom left position of tiles
-                    position = np.array(tile_corner[3])[:-1]
+                    position = np.array(tile_corner[2][:-1])
 
-                xt, yt = position + centre[::-1]
-                xt, yt = int(xt), int(yt)
+                yt, xt = position + centre
+                yt, xt = int(yt), int(xt)
 
                 # y_position contains y_indices of pixels for a tile
-                y_position = np.array(
-                    [yt+j for j, _ in product(range(128), range(64))]).\
-                    reshape(128, 64)
-
                 # x_position contains x_indices of pixels for a tile
-                x_position = np.array(
-                    [xt+i for _, i in product(range(128), range(64))]).\
-                    reshape(128, 64)
+                x_position, y_position = np.meshgrid(range(128), range(64))
+                x_position = x_position + xt
+                y_position = y_position + yt
 
                 # From the pixel location evaluate X and Y corordinates
                 # of its 4 corners in real space.
                 # Z position is set to 0 (Flat detector)
+                corner_y_offsets = np.array([-.5, .5, .5, -.5]) * self.pixel_size
+                corner_x_offsets = np.array([-.5, -.5, .5, .5]) * self.pixel_size
 
-                distortion[idy:idy+128, idx:idx+64, 0, 1] = (
-                    self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 1, 1] = (
-                    self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 2, 1] = (
-                    self.pixel_size*y_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 3, 1] = (
-                    self.pixel_size*y_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 0, 2] = (
-                    self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 1, 2] = (
-                    self.pixel_size*x_position[:, :] - 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 2, 2] = (
-                    self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
-                distortion[idy:idy+128, idx:idx+64, 3, 2] = (
-                    self.pixel_size*x_position[:, :] + 0.5*self.pixel_size)
+                distortion[ch+idy:ch+idy+64, idx:idx+128, :, 1] = (
+                    self.pixel_size*y_position[:, :, np.newaxis] +
+                    corner_y_offsets)
+                distortion[ch+idy:ch+idy+64, idx:idx+128, :, 2] = (
+                    self.pixel_size*x_position[:, :, np.newaxis] +
+                    corner_x_offsets)
 
         return distortion
 
     def _create_qmt_dict(self):
-        """Returns dictionaries for bottom left indices
+        """Returns dictionaries for top left indices
 
-        _quad : bottom left index of all 4 quadrants in 1024,1024 canvas
-        _modules: botton left index of 4 modules with respect to quadrant
-        _tiles: bottom left index of 16 tiles with respect to the module
+        _tiles: top left index of 16 tiles with respect to the module
         """
-        _quad, _modules, _tiles = dict(), dict(), dict()
-
-        # Bottom left position index of Quadrants Size (1024,1024)
-        # See locations from inspect()
-        _quad['Q1'] = (0, 512)
-        _quad['Q2'] = (0, 0)
-        _quad['Q3'] = (512, 0)
-        _quad['Q4'] = (512, 512)
-
-        # Bottom left position index of modules with respect to Quadrant
-        _modules['M1'] = (0, 384)
-        _modules['M2'] = (0, 256)
-        _modules['M3'] = (0, 128)
-        _modules['M4'] = (0, 0)
+        _tiles = dict()
 
         # Bottom left position index of tiles with respect to Modules
         offset_r = (0, 0)
@@ -529,7 +495,7 @@ class AGIPD_1MGeometry:
             _tiles['T%d' % tileno] = tuple(offset_r)
             offset_r = np.add(offset_r, (64, 0))
 
-        return _quad, _modules, _tiles
+        return _tiles
 
 
 class AGIPD_1M_SnappedGeometry:
@@ -539,6 +505,7 @@ class AGIPD_1M_SnappedGeometry:
     Numpy array; this does not match the (x, y, z) coordinates in the more
     precise geometry above.
     """
+    pixel_size = 2e-4
     def __init__(self, modules):
         self.modules = modules
 
