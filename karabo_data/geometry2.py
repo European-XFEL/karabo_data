@@ -447,9 +447,9 @@ class AGIPD_1MGeometry:
             module_offset = m * 512
 
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
                 # Calculate coordinates of each pixel centre
                 # 2D arrays, shape: (64, 128)
