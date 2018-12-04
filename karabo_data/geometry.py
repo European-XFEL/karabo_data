@@ -258,6 +258,7 @@ class LPDGeometry(GeometryFragment):
                 idx, idy = _tiles['T%01d' % T]
 
                 xt, yt = (position // self.pixel_size) + centre
+
                 xt, yt = int(xt), int(yt)
                 # y_position contains y_indices of pixels for a tile
                 # x_position contains x_indices of pixels for a tile
@@ -281,15 +282,15 @@ class LPDGeometry(GeometryFragment):
         return distortion
 
     def _create_qmt_dict(self):
-        """Returns dictionary for bottom left indices of tiles
+        """Returns dictionary for top left indices of tiles
 
-        _tiles: bottom left index of 16 tiles with respect to the module
+        _tiles: top left index of 16 tiles with respect to the module
                 tiles are arranged in clockwise order starting from top
                 right.
         """
         _tiles = dict()
 
-        # Bottom left position index of tiles with respect to Modules
+        # top left position index of tiles with respect to Modules
         offset_r = (128, 0)
         offset_l = (0, 256)
         for tileno in range(1,17):
