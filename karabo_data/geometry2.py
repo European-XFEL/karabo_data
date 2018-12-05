@@ -496,6 +496,10 @@ class AGIPD_1MGeometry:
                 distortion[tile_slice, :, :, 1] = corners_y
                 distortion[tile_slice, :, :, 2] = corners_x
 
+        # Shift the x & y origin from the centre to the corner
+        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+        distortion[..., 1:] -= min_yx
+
         return distortion
 
 
