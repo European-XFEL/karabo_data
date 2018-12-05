@@ -49,6 +49,8 @@ def test_iterate(mock_fxe_run):
     it = iter(det.trains())
     tid, d = next(it)
     assert d['image.data'].shape == (16, 1, 128, 256, 256)
+    assert d['image.data'].dims == ('module', 'train', 'pulse', 'slow_scan', 'fast_scan')
+
     tid, d = next(it)
     assert d['image.data'].shape == (16, 1, 128, 256, 256)
 
@@ -69,6 +71,7 @@ def test_iterate_pulse_id(mock_fxe_run):
 
     tid, d = next(iter(det.trains(pulses=by_id[[1, 7, 22, 23]])))
     assert d['image.data'].shape == (16, 1, 4, 256, 256)
+    assert list(d['image.data'].coords['pulse']) == [1, 7, 22, 23]
 
 def test_iterate_pulse_index(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
@@ -84,3 +87,4 @@ def test_iterate_pulse_index(mock_fxe_run):
 
     tid, d = next(iter(det.trains(pulses=by_index[[1, 7, 22, 23]])))
     assert d['image.data'].shape == (16, 1, 4, 256, 256)
+    assert list(d['image.data'].coords['pulse']) == [1, 7, 22, 23]
