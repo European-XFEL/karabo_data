@@ -83,6 +83,8 @@ def test_to_distortion_array():
     assert isinstance(distortion, np.ndarray)
     assert distortion.shape == (8192, 128, 4, 3)
 
-    # Coordinates in m; max x & y should be ~ 12 cm from centre
-    assert .08 < distortion[..., 1].max() < .15
-    assert .08 < distortion[..., 2].max() < .15
+    # Coordinates in m, origin at corner; max x & y should be ~ 25cm
+    assert .20 < distortion[..., 1].max() < .30
+    assert .20 < distortion[..., 2].max() < .30
+    assert -.01 < distortion[..., 1].min() < .01
+    assert -.01 < distortion[..., 2].min() < .01
