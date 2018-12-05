@@ -44,6 +44,13 @@ def test_detector_info(mock_lpd_data):
         assert di['frames_per_train'] == 128
         assert di['total_frames'] == 128 * 480
 
+def test_train_info(mock_lpd_data,  capsys):
+    with H5File(mock_lpd_data) as f:
+        f.train_info(10004)
+        out, err = capsys.readouterr()
+        assert "Devices" in out
+        assert "FXE_DET_LPD1M-1/DET/0CH0:xtdf" in out
+
 def test_iterate_trains_fxe(mock_fxe_control_data):
     with H5File(mock_fxe_control_data) as f:
         for train_id, data in islice(f.trains(), 10):

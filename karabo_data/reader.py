@@ -927,11 +927,11 @@ class DataCollection:
         ValueError
             if `train_id` is not found in the run.
         """
-        tid, files = next((t for t in self.ordered_trains
-                          if t[0] == train_id), (None, None))
-        if tid is None:
+        if train_id not in self.train_ids:
             raise ValueError("train {} not found in run.".format(train_id))
-        ctrl, inst = self._get_sources(files)
+        files = [f for f in self.files if train_id in f.train_ids]
+        ctrl = set().union(*[f.control_sources for f in files])
+        inst = set().union(*[f.instrument_sources for f in files])
 
         # disp
         print('Train [{}] information'.format(train_id))
