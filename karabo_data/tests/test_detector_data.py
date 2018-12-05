@@ -19,6 +19,9 @@ def test_get_array_pulse_id(mock_fxe_run):
     arr = det.get_array('image.data', pulses=by_id[:5])
     assert arr.shape == (16, 3, 5, 256, 256)
 
+    arr = det.get_array('image.data', pulses=by_id[122:])
+    assert arr.shape == (16, 3, 6, 256, 256)
+
     arr = det.get_array('image.data', pulses=by_id[[1, 7, 22, 23]])
     assert arr.shape == (16, 3, 4, 256, 256)
     assert list(arr.coords['pulse']) == [1, 7, 22, 23]
@@ -33,6 +36,9 @@ def test_get_array_pulse_indexes(mock_fxe_run):
 
     arr = det.get_array('image.data', pulses=by_index[:5])
     assert arr.shape == (16, 3, 5, 256, 256)
+
+    arr = det.get_array('image.data', pulses=by_index[122:])
+    assert arr.shape == (16, 3, 6, 256, 256)
 
     arr = det.get_array('image.data', pulses=by_index[[1, 7, 22, 23]])
     assert arr.shape == (16, 3, 4, 256, 256)
@@ -58,5 +64,23 @@ def test_iterate_pulse_id(mock_fxe_run):
     tid, d = next(iter(det.trains(pulses=by_id[:5])))
     assert d['image.data'].shape == (16, 1, 5, 256, 256)
 
+    tid, d = next(iter(det.trains(pulses=by_id[122:])))
+    assert d['image.data'].shape == (16, 1, 6, 256, 256)
+
     tid, d = next(iter(det.trains(pulses=by_id[[1, 7, 22, 23]])))
+    assert d['image.data'].shape == (16, 1, 4, 256, 256)
+
+def test_iterate_pulse_index(mock_fxe_run):
+    run = RunDirectory(mock_fxe_run)
+    det = run.select_trains(by_index[:3]).detector()
+    tid, d = next(iter(det.trains(pulses=by_index[0])))
+    assert d['image.data'].shape == (16, 1, 1, 256, 256)
+
+    tid, d = next(iter(det.trains(pulses=by_index[:5])))
+    assert d['image.data'].shape == (16, 1, 5, 256, 256)
+
+    tid, d = next(iter(det.trains(pulses=by_index[122:])))
+    assert d['image.data'].shape == (16, 1, 6, 256, 256)
+
+    tid, d = next(iter(det.trains(pulses=by_index[[1, 7, 22, 23]])))
     assert d['image.data'].shape == (16, 1, 4, 256, 256)

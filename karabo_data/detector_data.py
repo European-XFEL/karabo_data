@@ -4,6 +4,9 @@ import xarray
 
 from .reader import DataCollection, by_id, by_index
 
+MAX_PULSES = 2700
+
+
 def _guess_axes(data, train_pulse_ids):
     # Raw files have a spurious extra dimension
     if data.ndim >= 2 and data.shape[1] == 1:
@@ -28,6 +31,43 @@ def _guess_axes(data, train_pulse_ids):
     # so that the data is contiguous in memory.
     dim_order = ['train', 'pulse'] + dims[1:]
     return arr.unstack('train_pulse').transpose(*dim_order)
+
+
+def _check_pulse_selection(pulses):
+    """Check and normalise a pulse selection"""
+    if not isinstance(pulses, (by_id, by_index)):
+        raise TypeError("pulses selection should be by_id or by_index object")
+
+    val = pulses.value
+
+    if isinstance(pulses.value, slice):
+        # Ensure start/stop/step are all real numbers
+        start = val.start if (val.start is not None) else 0
+        stop  = val.stop  if (val.stop  is not None) else MAX_PULSES
+        step  = val.step  if (val.step  is not None) else 1
+
+        if not all(isinstance(s, int) for s in (start, stop, step)):
+            raise TypeError("Pulse selection slice must use integers or None")
+        if step < 1:
+            raise ValueError("Pulse selection slice must have positive step")
+        if (start < 0) or (stop < 0):
+            raise NotImplementedError("Negative pulse indices not supported")
+
+        return type(pulses)(slice(start, stop, step))
+
+    # Convert everything except slices to numpy arrays
+    elif isinstance(pulses.value, int):
+        val = np.array([val], dtype=np.uint64)
+    else:
+        val = np.asarray(val, dtype=np.uint64)
+
+    if (val < 0).any():
+        if isinstance(pulses, by_id):
+            raise ValueError("Pulse IDs cannot be negative")
+        else:
+            raise NotImplementedError("Negative pulse indices not supported")
+
+    return type(pulses)(val)
 
 class DetectorData:
     """Interface to access X-ray detector data, from e.g. AGIPD or LPD
@@ -54,33 +94,46 @@ class DetectorData:
             self.det_name, len(self.source_to_modno),
         )
 
-    def _expand_pulse_selection(self, pulses, pulse_ids, firsts):
-        """Select pulses across a chunk of trains
+    @staticmethod
+    def _select_pulse_ids(pulses, data_pulse_ids):
+        """Select pulses by ID across a chunk of trains
 
-        Returns pulse_ids, a subset of the pulse_ids passed, and an array or
-        slice of the indexes to include.
+        Returns an array or slice of the indexes to include.
         """
         if isinstance(pulses.value, slice):
-            if pulses.value.start in (0, None) and pulses.value.stop is None:
+            if pulses.value == slice(0, MAX_PULSES, 1):
                 # All pulses included
-                return slice(0, len(pulse_ids))
+                return slice(0, len(data_pulse_ids))
             else:
-                start = pulses.value.start or 0
-                stop = pulses.value.stop
-                if stop is None:
-                    stop = pulse_ids.max() + 1
-                pulses.value = np.arange(start, stop, dtype=np.uint64)
+                s = pulses.value
+                desired = np.arange(s.start, s.stop, step=s.step, dtype=np.uint64)
+        else:
+            desired = pulses.value
 
-        elif isinstance(pulses.value, int):
-            pulses.value = np.array([pulses.value], dtype=np.uint64)
-        elif isinstance(pulses.value, list):
-            pulses.value = np.array(pulses.value, dtype=np.uint64)
+        return np.nonzero(np.isin(data_pulse_ids, desired))[0]
 
-        if isinstance(pulses, by_id):
-            return np.nonzero(np.isin(pulse_ids, pulses.value))[0]
-        else:  # by_index
-            return (firsts[:, np.newaxis].repeat(len(pulses.value), axis=1)
-                      + pulses.value).flatten()
+    @staticmethod
+    def _select_pulse_indices(pulses, firsts, counts):
+        """Select pulses by index across a chunk of trains
+
+        Returns an array or slice of the indexes to include.
+        """
+        if isinstance(pulses.value, slice):
+            if pulses.value == slice(0, MAX_PULSES, 1):
+                # All pulses included
+                return slice(0, counts.sum())
+            else:
+                s = pulses.value
+                desired = np.arange(s.start, s.stop, step=s.step, dtype=np.uint64)
+        else:
+            desired = pulses.value
+
+        positions = []
+        for first, count in zip(firsts, counts):
+            train_desired = desired[desired < count]
+            positions.append(first + train_desired)
+
+        return np.concatenate(positions)
 
     def _get_module_pulse_data(self, source, key, pulses):
         seq_arrays = []
@@ -110,9 +163,12 @@ class DetectorData:
                 if pulse_id.ndim >= 2 and pulse_id.shape[1] == 1:
                     pulse_id = pulse_id[:, 0]
 
-                positions = self._expand_pulse_selection(
-                    pulses, pulse_id, chunk_firsts - data_slice.start
-                )
+                if isinstance(pulses, by_id):
+                    positions = self._select_pulse_ids(pulses, pulse_id)
+                else:  # by_index
+                    positions = self._select_pulse_indices(
+                        pulses, chunk_firsts - data_slice.start, chunk_counts)
+
                 trainids = trainids[positions]
                 pulse_id = pulse_id[positions]
                 index = pd.MultiIndex.from_arrays([trainids, pulse_id],
@@ -161,6 +217,8 @@ class DetectorData:
           ID, by_index by index within the data being read. The default includes
           all pulses. Only used for per-train data.
         """
+        pulses = _check_pulse_selection(pulses)
+
         arrays = []
         modnos = []
         for modno, source in sorted(self.modno_to_source.items()):
@@ -177,6 +235,7 @@ class DetectorData:
     def trains(self, pulses=by_index[:]):
         """Iterate over trains for detector data
         """
+        pulses = _check_pulse_selection(pulses)
         return DetectorTrainIterator(self, pulses)
 
 
@@ -266,27 +325,22 @@ class DetectorTrainIterator:
 
         Returns an array or slice of the indexes to include.
         """
-        pulses = self.pulses
+        val = self.pulses.value
         N = len(pulse_ids)
-        if isinstance(pulses.value, slice):
-            s = pulses.value
-            start_val = s.start or 0
-            stop_val = s.stop
-            if stop_val is None:
-                stop_val = pulse_ids.max() + 1
-
-            if pulses.value.step == 1:
-                start = (np.nonzero(pulse_ids >= start_val)[0] or [N])[0]
-                stop = (np.nonzero(pulse_ids >= stop_val)[0] or [N])[0]
-                return slice(start, stop)
+        if isinstance(val, slice):
+            if val.step == 1:
+                after_start = np.nonzero(pulse_ids >= val.start)[0]
+                after_stop = np.nonzero(pulse_ids >= val.stop)[0]
+                start_ix = after_start[0] if (after_start.size > 0) else N
+                stop_ix = after_stop[0] if (after_stop.size > 0) else N
+                return slice(start_ix, stop_ix)
 
             # step != 1
-            desired = np.arange(start_val, stop_val, step=s.step, dtype=np.uint64)
+            desired = np.arange(val.start, val.stop, step=val.step,
+                                dtype=np.uint64)
 
-        elif isinstance(pulses.value, int):
-            desired = np.array([pulses.value], dtype=np.uint64)
         else:
-            desired = np.array(pulses.value, dtype=np.uint64)
+            desired = val
 
         return np.nonzero(np.isin(pulse_ids, desired))[0]
 
@@ -295,19 +349,12 @@ class DetectorTrainIterator:
 
         Returns an array or slice of the indexes to include.
         """
-        pulses = self.pulses
-        if isinstance(pulses.value, slice):
-            s = pulses.value
-            start = s.start or 0
-            stop = s.stop
-            if stop is None:
-                stop = count
-            return slice(start, stop, s.step)
+        val = self.pulses.value
+        if isinstance(val, slice):
+            return slice(val.start, min(val.stop, count), val.step)
 
-        elif isinstance(pulses.value, int):
-            return np.array([pulses.value], dtype=np.uint64)
-        else:  # list, ndarray
-            return np.asarray(pulses.value, dtype=np.uint64)
+        # ndarray
+        return val[val < count]
 
     def _assemble_data(self, tid):
         key_module_arrays = {}
