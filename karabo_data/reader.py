@@ -535,7 +535,7 @@ class DataCollection:
             raise Exception("Unknown source category")
 
         ser = pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
-        return ser.loc[self.train_ids]
+        return ser.loc[ser.index.intersection(self.train_ids)]
 
     def get_dataframe(self, fields=None, *, timestamps=False):
         """Return a pandas dataframe for given data fields.
@@ -629,7 +629,8 @@ class DataCollection:
         arr = xarray.concat(sorted(non_empty,
                                    key=lambda a: a.coords['trainId'][0]),
                             dim='trainId')
-        return arr.sel(trainId=self.train_ids)
+        train_ids = np.intersect1d(arr.coords['trainId'], self.train_ids)
+        return arr.sel(trainId=train_ids)
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
