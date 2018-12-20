@@ -244,6 +244,18 @@ def test_file_get_array(mock_fxe_control_data):
     assert arr.shape == (400, 255, 1024)
     assert arr.coords['trainId'][0] == 10000
 
+def test_file_get_array_missing_trains(mock_sa3_control_data):
+    with H5File(mock_sa3_control_data) as f:
+        sel = f.select_trains(by_index[:6])
+        arr = sel.get_array('SA3_XTD10_IMGFEL/CAM/BEAMVIEW2:daqOutput',
+                            'data.image.dims')
+
+    assert isinstance(arr, DataArray)
+    assert arr.dims == ('trainId', 'dim_0')
+    assert arr.shape == (3, 2)
+    np.testing.assert_array_less(arr.coords['trainId'], 10006)
+    np.testing.assert_array_less(10000, arr.coords['trainId'])
+
 def test_run_get_array(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     arr = run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD',
