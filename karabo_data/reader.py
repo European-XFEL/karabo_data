@@ -141,13 +141,13 @@ class FileAccess:
     def __init__(self, file):
         self.file = file
         self.filename = file.filename
-        tid_data = file['INDEX/trainId'].value
+        tid_data = file['INDEX/trainId'][:]
         self.train_ids = tid_data[tid_data != 0]
 
         self.control_sources = set()
         self.instrument_sources = set()
 
-        for source in file['METADATA/dataSourceId'].value:
+        for source in file['METADATA/dataSourceId'][:]:
             if not source:
                 continue
             source = source.decode()
