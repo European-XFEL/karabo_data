@@ -535,7 +535,16 @@ class DataCollection:
             raise Exception("Unknown source category")
 
         ser = pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
-        return ser.loc[ser.index.intersection(self.train_ids)]
+
+        # Select out only the train IDs of interest
+        if isinstance(ser.index, pd.MultiIndex):
+            train_ids = ser.index.levels[0].intersection(self.train_ids)
+            # A numpy array works for selecting, but a pandas index doesn't
+            train_ids = np.asarray(train_ids)
+        else:
+            train_ids = ser.index.intersection(self.train_ids)
+
+        return ser.loc[train_ids]
 
     def get_dataframe(self, fields=None, *, timestamps=False):
         """Return a pandas dataframe for given data fields.

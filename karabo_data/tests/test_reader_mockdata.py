@@ -200,6 +200,14 @@ def test_file_get_series_instrument(mock_agipd_data):
         assert len(s2) == 16000
         assert len(s2.loc[10000:10004]) == 5 * 64
 
+        sel = f.select_trains(by_index[5:10])
+        s3 = sel.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'image.status')
+        assert isinstance(s3, pd.Series)
+        assert isinstance(s3.index, pd.MultiIndex)
+        assert len(s3) == 5 * 64
+        np.testing.assert_array_equal(s3.index.get_level_values(0),
+                                      np.arange(10005, 10010).repeat(64))
+
 def test_run_get_series_control(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     s = run.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
