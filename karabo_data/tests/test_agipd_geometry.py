@@ -70,3 +70,21 @@ def test_compare():
     # Smoketest
     fig = geom1.compare(geom2)
     assert isinstance(fig, Figure)
+
+def test_to_distortion_array():
+    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
+        (-525, 625),
+        (-550, -10),
+        (520, -160),
+        (542.5, 475),
+    ])
+    # Smoketest
+    distortion = geom.to_distortion_array()
+    assert isinstance(distortion, np.ndarray)
+    assert distortion.shape == (8192, 128, 4, 3)
+
+    # Coordinates in m, origin at corner; max x & y should be ~ 25cm
+    assert .20 < distortion[..., 1].max() < .30
+    assert .20 < distortion[..., 2].max() < .30
+    assert -.01 < distortion[..., 1].min() < .01
+    assert -.01 < distortion[..., 2].min() < .01

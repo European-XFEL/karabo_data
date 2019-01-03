@@ -98,7 +98,7 @@ class AGIPD_1MGeometry:
     The coordinates used in this class are 3D (x, y, z), and represent multiples
     of the pixel size.
     """
-    pixel_size = 2e-7  # 2e-7 metres == 0.2 mm
+    pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
     def __init__(self, modules, filename='No file'):
         self.modules = modules  # List of 16 lists of 8 fragments
         # self.filename is metadata for plots, we don't read/write the file.
@@ -421,6 +421,87 @@ class AGIPD_1MGeometry:
         """
         return self._snapped().plot_data(data)
 
+    def to_distortion_array(self):
+        """Return distortion matrix for AGIPD detector, suitable for pyFAI
+
+        Returns
+        -------
+        out: ndarray
+            Dimension (8192=16(modules)*512(ss_dim), 128(fs_dim), 4, 3)
+            type: float32
+            4 is the number of corners of a pixel
+            last dimension is for Z, Y, X location of each corner
+        """
+        distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
+
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, 64), np.arange(0, 128), indexing='ij'
+        )
+        corner_ss_offsets = np.array([-.5, .5, .5, -.5])
+        corner_fs_offsets = np.array([-.5, -.5, .5, .5])
+
+        for m, mod in enumerate(self.modules, start=0):
+            # module offset along first dimension of distortion array
+            module_offset = m * 512
+
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+
+                # Calculate coordinates of each pixel centre
+                # 2D arrays, shape: (64, 128)
+                pixel_centres_x = (
+                    corner_x +
+                    pixel_ss_index * ss_unit_x +
+                    pixel_fs_index * fs_unit_x
+                )
+                pixel_centres_y = (
+                    corner_y +
+                    pixel_ss_index * ss_unit_y +
+                    pixel_fs_index * fs_unit_y
+                )
+                pixel_centres_z = (
+                    corner_z +
+                    pixel_ss_index * ss_unit_z +
+                    pixel_fs_index * fs_unit_z
+                )
+
+                # Calculate corner coordinates for each pixel
+                # 3D arrays, shape: (64, 128, 4)
+                corners_x = (
+                    pixel_centres_x[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_x +
+                    corner_fs_offsets * fs_unit_x
+                )
+                corners_y = (
+                    pixel_centres_y[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_y +
+                    corner_fs_offsets * fs_unit_y
+                )
+                corners_z = (
+                    pixel_centres_z[:, :, np.newaxis] +
+                    corner_ss_offsets * ss_unit_z +
+                    corner_fs_offsets * fs_unit_z
+                )
+
+                # Which part of the array is this tile?
+                tile_offset = module_offset + (t * 64)
+                tile_slice = slice(tile_offset, tile_offset + tile.ss_pixels)
+
+                # Insert the data into the array
+                distortion[tile_slice, :, :, 0] = corners_z
+                distortion[tile_slice, :, :, 1] = corners_y
+                distortion[tile_slice, :, :, 2] = corners_x
+
+        # Shift the x & y origin from the centre to the corner
+        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+        distortion[..., 1:] -= min_yx
+
+        return distortion
+
+
 class AGIPD_1M_SnappedGeometry:
     """AGIPD geometry approximated to align modules to a 2D grid
 
@@ -428,6 +509,7 @@ class AGIPD_1M_SnappedGeometry:
     Numpy array; this does not match the (x, y, z) coordinates in the more
     precise geometry above.
     """
+    pixel_size = 2e-4
     def __init__(self, modules):
         self.modules = modules
 
