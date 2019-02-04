@@ -12,22 +12,24 @@ def _crystfel_format_vec(vec):
         s += ' {:+}z'.format(vec[2])
     return s
 
-class AGIPDGeometryFragment:
-    ss_pixels = 64
-    fs_pixels = 128
+class GeometryFragment:
 
     # The coordinates in this class are (x, y, z), in pixel units
-    def __init__(self, corner_pos, ss_vec, fs_vec):
+    def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
+        self.ss_pixels = ss_pixels
+        self.fs_pixels = fs_pixels
 
     @classmethod
     def from_panel_dict(cls, d):
         corner_pos = np.array([d['cnx'], d['cny'], d['coffset']])
         ss_vec = np.array([d['ssx'], d['ssy'], d['ssz']])
         fs_vec = np.array([d['fsx'], d['fsy'], d['fsz']])
-        return cls(corner_pos, ss_vec, fs_vec)
+        ss_pixels = d['max_ss'] - d['min_ss'] + 1
+        fs_pixels = d['max_fs'] - d['min_fs'] + 1
+        return cls(corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels)
 
     def corners(self):
         return np.stack([
@@ -58,16 +60,18 @@ class AGIPDGeometryFragment:
         fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
         assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
         # Convert xy coordinates to yx indexes
-        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1])
+        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1],
+                                    self.ss_pixels, self.fs_pixels)
+
 
 class GridGeometryFragment:
-    ss_pixels = 64
-    fs_pixels = 128
-
     # These coordinates are all (y, x), suitable for indexing a numpy array.
-    def __init__(self, corner_pos, ss_vec, fs_vec):
+    def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
+        self.ss_pixels = ss_pixels
+        self.fs_pixels = fs_pixels
+
         if fs_vec[0] == 0:
             # Flip without transposing
             fs_order = fs_vec[1]
@@ -99,6 +103,9 @@ class AGIPD_1MGeometry:
     of the pixel size.
     """
     pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
+    frag_ss_pixels = 64
+    frag_fs_pixels = 128
+
     def __init__(self, modules, filename='No file'):
         self.modules = modules  # List of 16 lists of 8 fragments
         # self.filename is metadata for plots, we don't read/write the file.
@@ -133,10 +140,12 @@ class AGIPD_1MGeometry:
 
             for a in range(8):
                 corner_x = quad_corner[0] + x_orient * (64 + asic_gap) * a
-                tiles.append(AGIPDGeometryFragment(
+                tiles.append(GeometryFragment(
                     corner_pos=np.array([corner_x, corner_y, 0.]),
                     ss_vec=np.array([x_orient, 0, 0]),
                     fs_vec=np.array([0, y_orient, 0]),
+                    ss_pixels=cls.frag_ss_pixels,
+                    fs_pixels=cls.frag_fs_pixels,
                 ))
         return cls(modules)
 
@@ -149,7 +158,7 @@ class AGIPD_1MGeometry:
             modules.append(tiles)
             for a in range(8):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
-                tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
+                tiles.append(GeometryFragment.from_panel_dict(d))
         return cls(modules, filename=filename)
 
     def write_crystfel_geom(self, filename):
@@ -630,6 +639,117 @@ CRYSTFEL_PANEL_TEMPLATE = """
 {name}/corner_y = {corner_y}
 {name}/coffset = {coffset}
 """
+
+class LPD_1MGeometry:
+    """Detector layout for LPD-1M
+
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
+    """
+    pixel_size = 5e-4  # 5e-4 metres == 0.5 mm
+    frag_ss_pixels = 32
+    frag_fs_pixels = 128
+
+    def __init__(self, modules, filename='No file'):
+        self.modules = modules  # List of 16 lists of 8 fragments
+        # self.filename is metadata for plots, we don't read/write the file.
+        # There are separate methods for reading and writing.
+        self.filename = filename
+        self._snapped_cache = None
+
+    @classmethod
+    def from_quad_positions(cls, quad_pos, asic_gap=4, panel_gap=4):
+        """Generate an LPD-1M geometry from quadrant positions.
+
+        This produces an idealised geometry, assuming all modules are perfectly
+        flat, aligned and equally spaced within their quadrant.
+
+        The quadrant positions are given in pixel units, referring to the first
+        pixel of the first module in each quadrant, corresponding to data
+        channels 0, 4, 8 and 12.
+        """
+        panels_across = [0, 0, 1, 1]
+        panels_up = [0, -1, -1, 0]
+        modules = []
+        for p in range(16):
+            quad = p // 4
+            quad_corner_x, quad_corner_y = quad_pos[quad]
+
+            p_in_quad = p % 4
+            panel_corner_x = (quad_corner_x +
+                  (panels_across[p_in_quad] * (256 + asic_gap + panel_gap)))
+            panel_corner_y = (quad_corner_y +
+                  (panels_up[p_in_quad] * (256 + (7 * asic_gap) + panel_gap)))
+
+            tiles = []
+            modules.append(tiles)
+
+            for a in range(16):
+                if a < 8:
+                    up = -a
+                    across = 0
+                else:
+                    up = -(15 - a)
+                    across = 1
+
+                corner_x = (panel_corner_x +
+                            (cls.frag_fs_pixels + asic_gap) * across)
+                # The first pixel read is the bottom left of the tile, whereas
+                # our quad & panel corner coordinates are for the top left.
+                # So there's an extra -32 pixel shift to correct it:
+                corner_y = (panel_corner_y - cls.frag_ss_pixels +
+                            ((cls.frag_ss_pixels + asic_gap) * up))
+
+                tiles.append(GeometryFragment(
+                    corner_pos=np.array([corner_x, corner_y, 0.]),
+                    ss_vec=np.array([0, 1, 0]),
+                    fs_vec=np.array([1, 0, 0]),
+                    ss_pixels=cls.frag_ss_pixels,
+                    fs_pixels=cls.frag_fs_pixels,
+                ))
+        return cls(modules)
+
+    def inspect(self):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Figure object.
+        """
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.collections import PatchCollection
+        from matplotlib.figure import Figure
+        from matplotlib.patches import Polygon
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+
+        rects = []
+        for p, module in enumerate(self.modules):
+            for a, fragment in enumerate(module):
+                corners = fragment.corners()[:, :2]  # Drop the Z dimension
+
+                rects.append(Polygon(corners))
+
+                if a in {7, 8, 15}:
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, str(a),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+                elif a == 0:
+                    cx, cy, _ = fragment.centre()
+                    ax.text(cx, cy, 'p{}'.format(p),
+                            verticalalignment='center',
+                            horizontalalignment='center')
+
+        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
+        ax.add_collection(pc)
+
+        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
+        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+
+        ax.set_title('LPD-1M detector geometry ({})'.format(self.filename))
+        return fig
+
 
 if __name__ == '__main__':
     geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
