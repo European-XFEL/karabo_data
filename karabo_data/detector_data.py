@@ -205,7 +205,7 @@ class DetectorData:
                             .format(source, key))
 
         return xarray.concat(sorted(non_empty,
-                                   key=lambda a: a.coords['train'][0]),
+                                    key=lambda a: a.coords['train'][0]),
                             dim='train')
 
     def get_array(self, key, pulses=by_index[:]):
@@ -310,7 +310,7 @@ class DetectorTrainIterator:
         pulse_ids = pulse_ids[positions]
         train_ids = np.array([tid] * len(pulse_ids), dtype=np.uint64)
         train_pulse_ids = pd.MultiIndex.from_arrays([train_ids, pulse_ids],
-                                                  names=['train', 'pulse'])
+                                                    names=['train', 'pulse'])
 
         if isinstance(positions, slice):
             data_positions = slice(
