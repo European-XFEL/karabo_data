@@ -96,7 +96,88 @@ class GridGeometryFragment:
         self.opp_corner_idx = self.corner_idx + self.pixel_dims
 
 
-class AGIPD_1MGeometry:
+class DetectorGeometryBase:
+    """Base class for detector geometry. Subclassed for specific detectors."""
+    # Define in subclasses:
+    pixel_size = 0.
+    frag_ss_pixels = 0
+    frag_fs_pixels = 0
+    expected_data_shape = ()
+
+    def __init__(self, modules, filename='No file'):
+        self.modules = modules  # List of 16 lists of 8 fragments
+        # self.filename is metadata for plots, we don't read/write the file.
+        # There are separate methods for reading and writing.
+        self.filename = filename
+        self._snapped_cache = None
+
+    def _snapped(self):
+        """Snap geometry to a 2D pixel grid
+
+        This returns a new geometry object. The 'snapped' geometry is
+        less accurate, but can assemble data into a 2D array more efficiently,
+        because it doesn't do any interpolation.
+        """
+        if self._snapped_cache is None:
+            new_modules = []
+            for module in self.modules:
+                new_tiles = [t.snap() for t in module]
+                new_modules.append(new_tiles)
+            self._snapped_cache = SnappedGeometry(new_modules, self)
+        return self._snapped_cache
+
+    @staticmethod
+    def split_tiles(module_data):
+        """Split data from a detector module into tiles.
+
+        Must be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    def position_modules_fast(self, data):
+        """Assemble data from this detector according to where the pixels are.
+
+        This approximates the geometry to align all pixels to a 2D grid. It's
+        less accurate than :meth:`position_modules_interpolate`, but much faster.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          The last three dimensions should be channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+
+        Returns
+        -------
+        out : ndarray
+          Array with one dimension fewer than the input.
+          The last two dimensions represent pixel y and x in the detector space.
+        centre : ndarray
+          (y, x) pixel location of the detector centre in this geometry.
+        """
+        return self._snapped().position_modules(data)
+
+    def position_all_modules(self, data):
+        """Deprecated alias for :meth:`position_modules_fast`"""
+        return self.position_modules_fast(data)
+
+    def plot_data_fast(self, data):
+        """Plot data from the detector using this geometry.
+
+        This approximates the geometry to align all pixels to a 2D grid.
+
+        Returns a matplotlib figure.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
+          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+        """
+        return self._snapped().plot_data(data)
+
+class AGIPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for AGIPD-1M
 
     The coordinates used in this class are 3D (x, y, z), and represent multiples
@@ -106,13 +187,6 @@ class AGIPD_1MGeometry:
     frag_ss_pixels = 64
     frag_fs_pixels = 128
     expected_data_shape = (16, 512, 128)
-
-    def __init__(self, modules, filename='No file'):
-        self.modules = modules  # List of 16 lists of 8 fragments
-        # self.filename is metadata for plots, we don't read/write the file.
-        # There are separate methods for reading and writing.
-        self.filename = filename
-        self._snapped_cache = None
 
     @classmethod
     def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29):
@@ -373,67 +447,10 @@ class AGIPD_1MGeometry:
         # Switch xy -> yx
         return tuple(size[::-1]), centre[::-1]
 
-    def _snapped(self):
-        """Snap geometry to a 2D pixel grid
-
-        This returns a new geometry object. The 'snapped' geometry is
-        less accurate, but can assemble data into a 2D array more efficiently,
-        because it doesn't do any interpolation.
-        """
-        if self._snapped_cache is None:
-            new_modules = []
-            for module in self.modules:
-                new_tiles = [t.snap() for t in module]
-                new_modules.append(new_tiles)
-            self._snapped_cache = SnappedGeometry(new_modules, self)
-        return self._snapped_cache
-
-    def split_tiles(self, module_data):
+    @staticmethod
+    def split_tiles(module_data):
         # Split into 8 tiles along the slow-scan axis
         return np.split(module_data, 8, axis=-2)
-
-    def position_modules_fast(self, data):
-        """Assemble data from this detector according to where the pixels are.
-
-        This approximates the geometry to align all pixels to a 2D grid. It's
-        less accurate than :meth:`position_modules_interpolate`, but much faster.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          The last three dimensions should be channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-
-        Returns
-        -------
-        out : ndarray
-          Array with one dimension fewer than the input.
-          The last two dimensions represent pixel y and x in the detector space.
-        centre : ndarray
-          (y, x) pixel location of the detector centre in this geometry.
-        """
-        return self._snapped().position_modules(data)
-
-    def position_all_modules(self, data):
-        """Deprecated alias for :meth:`position_modules_fast`"""
-        return self.position_modules_fast(data)
-
-    def plot_data_fast(self, data):
-        """Plot data from the detector using this geometry.
-
-        This approximates the geometry to align all pixels to a 2D grid.
-
-        Returns a matplotlib figure.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-        """
-        return self._snapped().plot_data(data)
 
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI
@@ -517,13 +534,13 @@ class AGIPD_1MGeometry:
 
 
 class SnappedGeometry:
-    """AGIPD geometry approximated to align modules to a 2D grid
+    """Detector geometry approximated to align modules to a 2D grid
 
     The coordinates used in this class are (y, x) suitable for indexing a
     Numpy array; this does not match the (x, y, z) coordinates in the more
     precise geometry above.
     """
-    def __init__(self, modules, geom):
+    def __init__(self, modules, geom: DetectorGeometryBase):
         self.modules = modules
         self.geom = geom
 
@@ -645,7 +662,7 @@ CRYSTFEL_PANEL_TEMPLATE = """
 {name}/coffset = {coffset}
 """
 
-class LPD_1MGeometry:
+class LPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for LPD-1M
 
     The coordinates used in this class are 3D (x, y, z), and represent multiples
@@ -654,15 +671,7 @@ class LPD_1MGeometry:
     pixel_size = 5e-4  # 5e-4 metres == 0.5 mm
     frag_ss_pixels = 32
     frag_fs_pixels = 128
-
     expected_data_shape = (16, 256, 256)
-
-    def __init__(self, modules, filename='No file'):
-        self.modules = modules  # List of 16 lists of 8 fragments
-        # self.filename is metadata for plots, we don't read/write the file.
-        # There are separate methods for reading and writing.
-        self.filename = filename
-        self._snapped_cache = None
 
     @classmethod
     def from_quad_positions(cls, quad_pos, asic_gap=4, panel_gap=4):
@@ -757,68 +766,12 @@ class LPD_1MGeometry:
         ax.set_title('LPD-1M detector geometry ({})'.format(self.filename))
         return fig
 
-    def _snapped(self):
-        """Snap geometry to a 2D pixel grid
-
-        This returns a new geometry object. The 'snapped' geometry is
-        less accurate, but can assemble data into a 2D array more efficiently,
-        because it doesn't do any interpolation.
-        """
-        if self._snapped_cache is None:
-            new_modules = []
-            for module in self.modules:
-                new_tiles = [t.snap() for t in module]
-                new_modules.append(new_tiles)
-            self._snapped_cache = SnappedGeometry(new_modules, self)
-        return self._snapped_cache
-
     @staticmethod
     def split_tiles(module_data):
         lhs, rhs = np.split(module_data, 2, axis=-1)
+        # Tiles 1-8 (lhs here) are numbered top to bottom, whereas the array
+        # starts at the bottom. So we reverse their order after splitting.
         return np.split(lhs, 8, axis=-2)[::-1] + np.split(rhs, 8, axis=-2)
-
-    def position_modules_fast(self, data):
-        """Assemble data from this detector according to where the pixels are.
-
-        This approximates the geometry to align all pixels to a 2D grid. It's
-        less accurate than :meth:`position_modules_interpolate`, but much faster.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          The last three dimensions should be channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-
-        Returns
-        -------
-        out : ndarray
-          Array with one dimension fewer than the input.
-          The last two dimensions represent pixel y and x in the detector space.
-        centre : ndarray
-          (y, x) pixel location of the detector centre in this geometry.
-        """
-        return self._snapped().position_modules(data)
-
-    def position_all_modules(self, data):
-        """Deprecated alias for :meth:`position_modules_fast`"""
-        return self.position_modules_fast(data)
-
-    def plot_data_fast(self, data):
-        """Plot data from the detector using this geometry.
-
-        This approximates the geometry to align all pixels to a 2D grid.
-
-        Returns a matplotlib figure.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-        """
-        return self._snapped().plot_data(data)
 
 
 if __name__ == '__main__':
