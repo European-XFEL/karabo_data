@@ -775,7 +775,7 @@ class LPD_1MGeometry:
     @staticmethod
     def split_tiles(module_data):
         lhs, rhs = np.split(module_data, 2, axis=-1)
-        tiles = np.split(lhs, 8, axis=-2)[::-1] + np.split(rhs, 8, axis=-2)
+        return np.split(lhs, 8, axis=-2)[::-1] + np.split(rhs, 8, axis=-2)
 
     def position_modules_fast(self, data):
         """Assemble data from this detector according to where the pixels are.
