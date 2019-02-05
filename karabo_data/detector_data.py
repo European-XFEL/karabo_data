@@ -183,6 +183,10 @@ class DetectorData:
                 else:  # ndarray
                     # h5py fancy indexing needs a list, not an ndarray
                     data_positions = list(data_slice.start + positions)
+                    if data_positions == []:
+                        # Work around a limitation of h5py
+                        # https://github.com/h5py/h5py/issues/1169
+                        data_positions = slice(0, 0)
 
                 data = f.file[data_path][data_positions]
 
