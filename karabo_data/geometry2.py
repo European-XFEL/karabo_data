@@ -680,9 +680,12 @@ class LPD_1MGeometry(DetectorGeometryBase):
         This produces an idealised geometry, assuming all modules are perfectly
         flat, aligned and equally spaced within their quadrant.
 
-        The quadrant positions are given in pixel units, referring to the first
-        pixel of the first module in each quadrant, corresponding to data
-        channels 0, 4, 8 and 12.
+        The quadrant positions are given in pixel units, referring to the
+        corner of each quadrant where module 1, tile 1 is positioned.
+        This is not the corner of the first pixel as the data is stored
+        (the data starts in tile 8). In the initial detector layout, the corner
+        positions are for the top-left corner of the quadrant, looking into
+        the beam.
         """
         panels_across = [0, 0, 1, 1]
         panels_up = [0, -1, -1, 0]
