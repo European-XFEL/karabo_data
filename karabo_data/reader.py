@@ -570,7 +570,7 @@ class DataCollection:
 
         return pd.concat(series, axis=1)
 
-    def get_array(self, source, key, extra_dims=None):
+    def get_array(self, source, key, extra_dims=None, roi=by_index[...]):
         """Return a labelled array for a particular data field.
 
         The first axis of the returned data will be the train IDs.
@@ -589,14 +589,28 @@ class DataCollection:
             Name extra dimensions in the array. The first dimension is
             automatically called 'train'. The default for extra dimensions
             is dim_0, dim_1, ...
+        roi: by_index
+            The region of interest. This expression selects data in all
+            dimensions apart from the first (trains) dimension. If the data
+            holds a 1D array for each train, roi=by_index[:8] would get the
+            first 8 values from every train.
         """
         self._check_field(source, key)
+
+        if not isinstance(roi, by_index):
+            raise TypeError("roi parameter must be instance of by_index")
+        else:
+            roi = roi.value
+            if not isinstance(roi, tuple):
+                roi = (roi,)
+
         seq_arrays = []
 
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
             for f in self._source_index[source]:
-                data = f.file[data_path][:len(f.train_ids), ...]
+                slices = (slice(None, len(f.train_ids)),) + roi
+                data = f.file[data_path][slices]
                 if extra_dims is None:
                     extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
                 dims = ['trainId'] + extra_dims
@@ -614,7 +628,8 @@ class DataCollection:
                                      .format(source, group))
                 trainids = self._expand_trainids(counts, f.train_ids)
 
-                data = f.file[data_path][:len(trainids), ...]
+                slices = (slice(None, len(trainids)),) + roi
+                data = f.file[data_path][slices]
 
                 if extra_dims is None:
                     extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
