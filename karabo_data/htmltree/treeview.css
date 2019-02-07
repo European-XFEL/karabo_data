@@ -1,0 +1,13 @@
+.karabodata-css-treeview summary {
+    display: list-item;
+    cursor: default;
+}
+
+.karabodata-css-treeview ul {
+    margin-top: 0;
+    list-style: none;
+}
+
+.karabodata-css-treeview ul li {
+    margin-bottom: 2px;
+}

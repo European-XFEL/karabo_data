@@ -963,6 +963,10 @@ class DataCollection:
         from .writer import FileWriter
         FileWriter(filename, self).write()
 
+    def view_tree(self):
+        from .htmltree import DataTree
+        return DataTree(self)
+
 class TrainIterator:
     """Iterate over trains in a collection of data
 
