@@ -592,8 +592,9 @@ class DataCollection:
         roi: by_index
             The region of interest. This expression selects data in all
             dimensions apart from the first (trains) dimension. If the data
-            holds a 1D array for each train, roi=by_index[:8] would get the
-            first 8 values from every train.
+            holds a 1D array for each entry, roi=by_index[:8] would get the
+            first 8 values from every train. If the data is 2D or more at
+            each entry, selection looks like roi=by_index[:8, 5:10] .
         """
         self._check_field(source, key)
 
