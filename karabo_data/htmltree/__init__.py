@@ -123,6 +123,9 @@ class DataTree:
     def __init__(self, obj):
         self.obj = obj
 
+    def __repr__(self):
+        return "<The karabo_data HTML tree view is only visible in a Jupyter notebook>"
+
     def _repr_html_(self):
         return h5obj_to_html(self.obj)
 
