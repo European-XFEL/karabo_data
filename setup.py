@@ -32,6 +32,7 @@ setup(name="karabo_data",
       long_description_content_type='text/markdown',
       license="BSD-3-Clause",
       packages=find_packages(),
+      package_data = {'karabo_data.htmltree': ['*.js', '*.css']},
       entry_points={
           "console_scripts": [
               "lsxfel = karabo_data.lsxfel:main",
@@ -47,6 +48,7 @@ setup(name="karabo_data",
           # https://github.com/ondateam/cfelpyutils/pull/3
           'future',
           'h5py>=2.7.1',
+          'htmlgen',
           'karabo-bridge',
           'matplotlib',
           'msgpack>=0.5.4',
