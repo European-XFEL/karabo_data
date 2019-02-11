@@ -161,7 +161,7 @@ class DetectorGeometryBase:
         """Deprecated alias for :meth:`position_modules_fast`"""
         return self.position_modules_fast(data)
 
-    def plot_data_fast(self, data):
+    def plot_data_fast(self, data, axis_units='px'):
         """Plot data from the detector using this geometry.
 
         This approximates the geometry to align all pixels to a 2D grid.
@@ -174,8 +174,10 @@ class DetectorGeometryBase:
         data : ndarray
           Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
           (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         """
-        return self._snapped().plot_data(data)
+        return self._snapped().plot_data(data, axis_units=axis_units)
 
 class AGIPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for AGIPD-1M
@@ -582,12 +584,16 @@ class SnappedGeometry:
         centre = -min_yx
         return tuple(size), centre
 
-    def plot_data(self, modules_data):
+    def plot_data(self, modules_data, axis_units='px'):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         from matplotlib.figure import Figure
+
+        if axis_units not in {'px', 'm'}:
+            raise ValueError("axis_units must be 'px' or 'm', not {!r}"
+                             .format(axis_units))
 
         fig = Figure((10, 10))
         FigureCanvasAgg(fig)
@@ -597,11 +603,22 @@ class SnappedGeometry:
         my_viridis.set_bad('0.25', 1.)
 
         res, centre = self.position_modules(modules_data)
-        ax.imshow(res, origin='lower', cmap=my_viridis)
+        min_y, min_x = -centre
+        max_y, max_x = np.array(res.shape) - centre
 
-        cy, cx = centre
-        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
-        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
+        extent = np.array((min_x - 0.5, max_x + 0.5, min_y - 0.5, max_y + 0.5))
+        cross_size = 20
+        if axis_units == 'm':
+            extent *= self.geom.pixel_size
+            cross_size *= self.geom.pixel_size
+
+        ax.imshow(res, origin='lower', cmap=my_viridis, extent=extent)
+        ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
+        ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
+
+        # Draw a cross at the centre
+        ax.hlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
+        ax.vlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         return fig
 
 
