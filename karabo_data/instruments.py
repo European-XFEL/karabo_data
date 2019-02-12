@@ -1,5 +1,8 @@
+"""Interfaces to data from specific instruments
+"""
 import numpy as np
 import pandas as pd
+import re
 import xarray
 
 from .reader import DataCollection, by_id, by_index
@@ -69,13 +72,20 @@ def _check_pulse_selection(pulses):
 
     return type(pulses)(val)
 
-class DetectorData:
-    """Interface to access X-ray detector data, from e.g. AGIPD or LPD
+class MPxDetectorBase:
+    """Base class for megapixel detectors (AGIPD, LPD)
     """
-    def __init__(self, data: DataCollection, source_to_modno, det_name):
-        self.data = data
+    _source_re = re.compile(r'(?P<detname>.+)/DET/(\d+)CH')
+
+    def __init__(self, data: DataCollection, detector_name=None, modules=None):
+        if detector_name is None:
+            detector_name = self._find_detector_name(data)
+
+        source_to_modno = self._identify_sources(data, detector_name, modules)
+
+        self.data = data.select([(src, '*') for src in source_to_modno])
+        self.detector_name = detector_name
         self.source_to_modno = source_to_modno
-        self.det_name = det_name
 
         # This should be a reversible 1-to-1 mapping
         self.modno_to_source = {m:s for (s, m) in source_to_modno.items()}
@@ -85,13 +95,47 @@ class DetectorData:
         split_indices = np.where(np.diff(train_id_arr) != 1)[0]+1
         self.train_id_chunks = np.split(train_id_arr, split_indices)
 
+    @classmethod
+    def _find_detector_name(cls, data):
+        detector_names = set()
+        for source in data.instrument_sources:
+            m = cls._source_re.match(source)
+            if m:
+                detector_names.add(m.group(1))
+        if not detector_names:
+            raise ValueError("No detector sources found in this data")
+        elif len(detector_names) > 1:
+            raise ValueError(
+                "Multiple detectors found in the data: {}. "
+                "Pass a name to data.detector() to pick one."
+                    .format(', '.join(repr(n) for n in detector_names)))
+        return detector_names.pop()
+
+    @staticmethod
+    def _identify_sources(data, detector_name=None, modules=None):
+        detector_re = re.compile(re.escape(detector_name) + r'/DET/(\d+)CH')
+        source_to_modno = {}
+        for source in data.instrument_sources:
+            m = detector_re.match(source)
+            if m:
+                source_to_modno[source] = int(m.group(1))
+
+        if modules is not None:
+            source_to_modno = {s: n for (s, n) in source_to_modno.items()
+                               if n in modules}
+
+        if not source_to_modno:
+            raise ValueError("No detector sources found in this data")
+
+        return source_to_modno
+
     @property
     def train_ids(self):
         return self.data.train_ids
 
     def __repr__(self):
-        return "<DetectorData for detector {!r} with {} modules>".format(
-            self.det_name, len(self.source_to_modno),
+        return "<{}: Data interface for detector {!r} with {} modules>".format(
+            type(self).__name__, self.detector_name, len(self.source_to_modno),
         )
 
     @staticmethod
@@ -240,10 +284,10 @@ class DetectorData:
         """Iterate over trains for detector data
         """
         pulses = _check_pulse_selection(pulses)
-        return DetectorTrainIterator(self, pulses)
+        return MPxDetectorTrainIterator(self, pulses)
 
 
-class DetectorTrainIterator:
+class MPxDetectorTrainIterator:
     """Iterate over trains in detector data, assembling arrays.
 
     Created by :meth:`DetectorData.trains`.
@@ -395,3 +439,38 @@ class DetectorTrainIterator:
             if self.require_all and self.data.data._check_data_missing(tid):
                 continue
             yield tid, self._assemble_data(tid)
+
+
+class AGIPD1M(MPxDetectorBase):
+    """An interface to AGIPD-1M data.
+
+    Parameters
+    ----------
+
+    data: DataCollection
+      A data collection, e.g. from RunDirectory.
+    modules: set of ints, optional
+      Detector module numbers to use. By default, all available modules
+      are used.
+    detector_name: str, optional
+      Name of a detector, e.g. 'SPB_DET_AGIPD1M-1'. This is only needed
+      if the dataset includes more than one AGIPD detector.
+    """
+    _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
+
+class LPD1M(MPxDetectorBase):
+    """An interface to AGIPD-1M data.
+
+    Parameters
+    ----------
+
+    data: DataCollection
+      A data collection, e.g. from RunDirectory.
+    modules: set of ints, optional
+      Detector module numbers to use. By default, all available modules
+      are used.
+    detector_name: str, optional
+      Name of a detector, e.g. 'FXE_DET_LPD1M-1'. This is only needed
+      if the dataset includes more than one LPD detector.
+    """
+    _source_re = re.compile(r'(?P<detname>(.+)_LPD1M(.*))/DET/(\d+)CH')

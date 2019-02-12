@@ -1,17 +1,20 @@
 import pytest
 
 from karabo_data.reader import RunDirectory, by_id, by_index
+from karabo_data.instruments import LPD1M
 
 def test_get_array(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:3]).detector()
+    det = LPD1M(run.select_trains(by_index[:3]))
+    assert det.detector_name == 'FXE_DET_LPD1M-1'
+
     arr = det.get_array('image.data')
     assert arr.shape == (16, 3, 128, 256, 256)
     assert arr.dims == ('module', 'train', 'pulse', 'slow_scan', 'fast_scan')
 
 def test_get_array_pulse_id(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:3]).detector()
+    det = LPD1M(run.select_trains(by_index[:3]))
     arr = det.get_array('image.data', pulses=by_id[0])
     assert arr.shape == (16, 3, 1, 256, 256)
     assert (arr.coords['pulse'] == 0).all()
@@ -33,7 +36,7 @@ def test_get_array_pulse_id(mock_fxe_run):
 
 def test_get_array_pulse_indexes(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:3]).detector()
+    det = LPD1M(run.select_trains(by_index[:3]))
     arr = det.get_array('image.data', pulses=by_index[0])
     assert arr.shape == (16, 3, 1, 256, 256)
     assert (arr.coords['pulse'] == 0).all()
@@ -53,7 +56,7 @@ def test_get_array_pulse_indexes(mock_fxe_run):
 
 def test_iterate(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:2]).detector()
+    det = LPD1M(run.select_trains(by_index[:2]))
     it = iter(det.trains())
     tid, d = next(it)
     assert d['image.data'].shape == (16, 1, 128, 256, 256)
@@ -67,7 +70,7 @@ def test_iterate(mock_fxe_run):
 
 def test_iterate_pulse_id(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:3]).detector()
+    det = LPD1M(run.select_trains(by_index[:3]))
     tid, d = next(iter(det.trains(pulses=by_id[0])))
     assert d['image.data'].shape == (16, 1, 1, 256, 256)
 
@@ -83,7 +86,7 @@ def test_iterate_pulse_id(mock_fxe_run):
 
 def test_iterate_pulse_index(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
-    det = run.select_trains(by_index[:3]).detector()
+    det = LPD1M(run.select_trains(by_index[:3]))
     tid, d = next(iter(det.trains(pulses=by_index[0])))
     assert d['image.data'].shape == (16, 1, 1, 256, 256)
 
