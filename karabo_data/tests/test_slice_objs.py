@@ -7,6 +7,7 @@ def test_slicing_reprs():
         'by_id[:]',
         'by_id[:2]',
         'by_id[0:10:2]',
+        'by_id[4::2, 7]',
         'by_index[:5, 3:12]',
         'by_index[-4:, ...]',
         'by_index[...]',
