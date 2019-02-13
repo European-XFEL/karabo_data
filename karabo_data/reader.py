@@ -201,6 +201,9 @@ class FileAccess:
     def __eq__(self, other):
         return isinstance(other, FileAccess) and (other.filename == self.filename)
 
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__, repr(self.file))
+
     def get_index(self, source, group):
         """Get first index & count for a source and for a specific train ID.
 
