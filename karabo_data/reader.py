@@ -70,13 +70,37 @@ class _SliceConstructor(type):
     def __getitem__(self, item):
         return self(item)
 
-class by_id(metaclass=_SliceConstructor):
+class _SliceConstructable(metaclass=_SliceConstructor):
     def __init__(self, value):
         self.value = value
 
-class by_index(metaclass=_SliceConstructor):
-    def __init__(self, value):
-        self.value = value
+    def __repr__(self):
+        indices = self.value
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+
+        return "{}[{}]".format(type(self).__name__,
+            ', '.join(self._indexing_repr(v) for v in indices)
+        )
+
+    @staticmethod
+    def _indexing_repr(value):
+        """Represent values as used in canonical slicing syntax"""
+        if value is Ellipsis:
+            return '...'
+        elif isinstance(value, slice):
+            start = value.start if (value.start is not None) else ''
+            stop = value.stop if (value.stop is not None) else ''
+            step = ':{}'.format(value.step) if (value.step is not None) else ''
+            return '{}:{}{}'.format(start, stop, step)
+
+        return repr(value)
+
+class by_id(_SliceConstructable):
+    pass
+
+class by_index(_SliceConstructable):
+    pass
 
 def _tid_to_slice_ix(tid, train_ids, stop=False):
     """Convert a train ID to an integer index for slicing the dataset
@@ -176,6 +200,9 @@ class FileAccess:
 
     def __eq__(self, other):
         return isinstance(other, FileAccess) and (other.filename == self.filename)
+
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__, repr(self.file))
 
     def get_index(self, source, group):
         """Get first index & count for a source and for a specific train ID.
