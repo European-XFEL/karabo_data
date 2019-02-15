@@ -754,6 +754,66 @@ class LPD_1MGeometry(DetectorGeometryBase):
                 ))
         return cls(modules)
 
+    @classmethod
+    def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
+        """Load an LPD-1M geometry from an XFEL HDF5 format geometry file
+
+        The quadrant positions are not stored in the file, and must be provided
+        separately. By default, both the quadrant positions and the positions
+        in the file are measured in millimetres; the unit parameter controls
+        this.
+
+        This version of the code only handles x and y translation,
+        as this is all that is recorded in the initial LPD geometry file.
+
+        Parameters
+        ----------
+
+        path : str
+          Path of an XFEL format (HDF5) geometry file for LPD.
+        positions : list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit : float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        """
+        assert len(positions) == 4
+        modules = []
+        with h5py.File(path, 'r') as f:
+            for Q, M in product(range(1, 5), range(1, 5)):
+                quad_pos = np.array(positions[Q - 1])
+                mod_grp = f['Q{}/M{}'.format(Q, M)]
+                mod_offset = mod_grp['Position'][:2]
+
+                tiles = []
+                for T in range(1, 17):
+                    corner_pos = np.zeros(3)
+                    tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
+                    corner_pos[:2] = quad_pos + mod_offset + tile_offset
+
+                    # Convert units (mm) to pixels
+                    corner_pos *= (unit / cls.pixel_size)
+
+                    # LPD geometry is measured to the last pixel of each tile.
+                    # Subtract tile dimensions for the position of 1st pixel.
+                    ss_vec, fs_vec = np.array([0, 1, 0]), np.array([1, 0, 0])
+                    first_px_pos = (corner_pos
+                                    - (ss_vec * cls.frag_ss_pixels)
+                                    - (fs_vec * cls.frag_fs_pixels))
+
+                    tiles.append(GeometryFragment(
+                        corner_pos=first_px_pos,
+                        ss_vec=ss_vec,
+                        fs_vec=fs_vec,
+                        ss_pixels=cls.frag_ss_pixels,
+                        fs_pixels=cls.frag_fs_pixels,
+                    ))
+                modules.append(tiles)
+
+        return cls(modules, filename=path)
+
+
     def inspect(self):
         """Plot the 2D layout of this detector geometry.
 
