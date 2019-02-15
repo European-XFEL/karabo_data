@@ -837,12 +837,13 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
                 if a in {7, 8, 15}:
                     cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, str(a),
+                    ax.text(cx, cy, 'T{}'.format(a + 1),
                             verticalalignment='center',
                             horizontalalignment='center')
                 elif a == 0:
+                    s = 'Q{Q}M{M}'.format(Q=(p // 4) + 1, M=(p % 4) + 1)
                     cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, 'p{}'.format(p),
+                    ax.text(cx, cy, s, fontweight='bold',
                             verticalalignment='center',
                             horizontalalignment='center')
 
