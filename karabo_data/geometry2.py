@@ -1,5 +1,7 @@
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
+import h5py
+from itertools import product
 import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
@@ -799,6 +801,31 @@ class LPD_1MGeometry(DetectorGeometryBase):
         # Tiles 1-8 (lhs here) are numbered top to bottom, whereas the array
         # starts at the bottom. So we reverse their order after splitting.
         return np.split(lhs, 8, axis=-2)[::-1] + np.split(rhs, 8, axis=-2)
+
+
+def invert_xfel_lpd_geom(path_in, path_out):
+    """Invert the coordinates in an XFEL geometry file (HDF5)
+
+    The initial geometry file for LPD was recorded with the coordinates
+    increasing down and to the right (looking in the beam direction), but the
+    standard XFEL coordinate scheme is the opposite, increasing upwards and to
+    the left (looking in beam direction).
+
+    This utility function reads one file, and writes a second with the
+    coordinates inverted.
+    """
+    with h5py.File(path_in, 'r') as fin, h5py.File(path_out, 'x') as fout:
+        src_ds = fin['DetectorDescribtion']
+        dst_ds = fout.create_dataset('DetectorDescription', data=src_ds)
+        for k, v in src_ds.attrs.items():
+            dst_ds.attrs[k] = v
+
+        for Q, M in product(range(1, 5), range(1, 5)):
+            path = 'Q{}/M{}/Position'.format(Q, M)
+            fout[path] = -fin[path][:]
+            for T in range(1, 17):
+                path = 'Q{}/M{}/T{:02}/Position'.format(Q, M, T)
+                fout[path] = -fin[path][:]
 
 
 if __name__ == '__main__':
