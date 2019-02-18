@@ -740,7 +740,7 @@ class DataCollection:
         else:
             # The translated pattern ends with "\Z" - insert before this
             p = key_re.pattern
-            end_ix = p.rindex('\Z')
+            end_ix = p.rindex(r'\Z')
             ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
 
         matched = {}
