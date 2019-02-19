@@ -197,7 +197,8 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
     expected_data_shape = (16, 512, 128)
 
     @classmethod
-    def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29):
+    def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29,
+                            unit=pixel_size):
         """Generate an AGIPD-1M geometry from quadrant positions.
 
         This produces an idealised geometry, assuming all modules are perfectly
@@ -207,6 +208,10 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         pixel of the first module in each quadrant, corresponding to data
         channels 0, 4, 8 and 12.
         """
+        px_conversion = unit / cls.pixel_size
+        asic_gap *= px_conversion
+        panel_gap *= px_conversion
+
         quads_x_orientation = [1, 1, -1, -1]
         quads_y_orientation = [-1, -1, 1, 1]
         modules = []
@@ -216,13 +221,15 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
             x_orient = quads_x_orientation[quad]
             y_orient = quads_y_orientation[quad]
             p_in_quad = p % 4
-            corner_y = quad_corner[1] - (p_in_quad * (128 + panel_gap))
+            corner_y = (quad_corner[1] * px_conversion)\
+                       - (p_in_quad * (128 + panel_gap))
 
             tiles = []
             modules.append(tiles)
 
             for a in range(8):
-                corner_x = quad_corner[0] + x_orient * (64 + asic_gap) * a
+                corner_x = (quad_corner[0] * px_conversion)\
+                           + x_orient * (64 + asic_gap) * a
                 tiles.append(GeometryFragment(
                     corner_pos=np.array([corner_x, corner_y, 0.]),
                     ss_vec=np.array([x_orient, 0, 0]),
