@@ -700,31 +700,54 @@ class LPD_1MGeometry(DetectorGeometryBase):
     expected_data_shape = (16, 256, 256)
 
     @classmethod
-    def from_quad_positions(cls, quad_pos, asic_gap=4, panel_gap=4):
+    def from_quad_positions(cls, quad_pos, *, unit=1e-3, asic_gap=None,
+                            panel_gap=None):
         """Generate an LPD-1M geometry from quadrant positions.
 
         This produces an idealised geometry, assuming all modules are perfectly
         flat, aligned and equally spaced within their quadrant.
 
-        The quadrant positions are given in pixel units, referring to the
-        corner of each quadrant where module 1, tile 1 is positioned.
-        This is not the corner of the first pixel as the data is stored
-        (the data starts in tile 8). In the initial detector layout, the corner
-        positions are for the top-left corner of the quadrant, looking into
-        the beam.
+        The quadrant positions refer to the corner of each quadrant
+        where module 4, tile 16 is positioned.
+        This is the corner of the last pixel as the data is stored.
+        In the initial detector layout, the corner positions are for the top
+        right corner of the quadrant, looking into the beam.
+
+        Parameters
+        ----------
+        quad_pos: list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit: float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        asic_gap: float, optional
+          The gap between adjacent tiles/ASICs. The default is 4 pixels.
+        panel_gap: float, optional
+          The gap between adjacent modules/panels. The default is 4 pixels.
         """
-        panels_across = [0, 0, 1, 1]
+        px_conversion = unit / cls.pixel_size
+        asic_gap_px = 4 if (asic_gap is None) else asic_gap * px_conversion
+        panel_gap_px = 4 if (panel_gap is None) else panel_gap * px_conversion
+
+        tile_size = np.array([cls.frag_fs_pixels, cls.frag_ss_pixels, 0])
+
+        panels_across = [-1, -1, 0, 0]
         panels_up = [0, -1, -1, 0]
         modules = []
         for p in range(16):
             quad = p // 4
-            quad_corner_x, quad_corner_y = quad_pos[quad]
+            quad_corner_x = quad_pos[quad][0] * px_conversion
+            quad_corner_y = quad_pos[quad][1] * px_conversion
 
             p_in_quad = p % 4
+            # Top beam-left corner of panel
             panel_corner_x = (quad_corner_x +
-                  (panels_across[p_in_quad] * (256 + asic_gap + panel_gap)))
+                              (panels_across[p_in_quad] * (
+                                          256 + asic_gap_px + panel_gap_px)))
             panel_corner_y = (quad_corner_y +
-                  (panels_up[p_in_quad] * (256 + (7 * asic_gap) + panel_gap)))
+                              (panels_up[p_in_quad] * (256 + (
+                                          7 * asic_gap_px) + panel_gap_px)))
 
             tiles = []
             modules.append(tiles)
@@ -732,21 +755,20 @@ class LPD_1MGeometry(DetectorGeometryBase):
             for a in range(16):
                 if a < 8:
                     up = -a
-                    across = 0
+                    across = -1
                 else:
                     up = -(15 - a)
-                    across = 1
+                    across = 0
 
-                corner_x = (panel_corner_x +
-                            (cls.frag_fs_pixels + asic_gap) * across)
-                # The first pixel read is the bottom left of the tile, whereas
-                # our quad & panel corner coordinates are for the top left.
-                # So there's an extra -32 pixel shift to correct it:
-                corner_y = (panel_corner_y - cls.frag_ss_pixels +
-                            ((cls.frag_ss_pixels + asic_gap) * up))
+                tile_last_corner = (
+                    np.array([panel_corner_x, panel_corner_y, 0.])
+                    + np.array([across, 0, 0]) * (cls.frag_fs_pixels + asic_gap_px)
+                    + np.array([0, up, 0]) * (cls.frag_ss_pixels + asic_gap_px)
+                )
+                tile_first_corner = tile_last_corner - tile_size
 
                 tiles.append(GeometryFragment(
-                    corner_pos=np.array([corner_x, corner_y, 0.]),
+                    corner_pos=tile_first_corner,
                     ss_vec=np.array([0, 1, 0]),
                     fs_vec=np.array([1, 0, 0]),
                     ss_pixels=cls.frag_ss_pixels,
