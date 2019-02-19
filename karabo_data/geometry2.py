@@ -222,14 +222,14 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
             y_orient = quads_y_orientation[quad]
             p_in_quad = p % 4
             corner_y = (quad_corner[1] * px_conversion)\
-                       - (p_in_quad * (128 + panel_gap))
+                       - (p_in_quad * (cls.frag_fs_pixels + panel_gap))
 
             tiles = []
             modules.append(tiles)
 
             for a in range(8):
                 corner_x = (quad_corner[0] * px_conversion)\
-                           + x_orient * (64 + asic_gap) * a
+                           + x_orient * (cls.frag_ss_pixels + asic_gap) * a
                 tiles.append(GeometryFragment(
                     corner_pos=np.array([corner_x, corner_y, 0.]),
                     ss_vec=np.array([x_orient, 0, 0]),
