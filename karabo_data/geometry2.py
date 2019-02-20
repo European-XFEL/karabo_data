@@ -438,8 +438,8 @@ class AGIPD_1MGeometry:
         pixel_ss_index, pixel_fs_index = np.meshgrid(
             np.arange(0, 64), np.arange(0, 128), indexing='ij'
         )
-        corner_ss_offsets = np.array([-.5, .5, .5, -.5])
-        corner_fs_offsets = np.array([-.5, -.5, .5, .5])
+        corner_ss_offsets = np.array([0, 1, 1, 0])
+        corner_fs_offsets = np.array([0, 0, 1, 1])
 
         for m, mod in enumerate(self.modules, start=0):
             # module offset along first dimension of distortion array
@@ -450,19 +450,19 @@ class AGIPD_1MGeometry:
                 ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
                 fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
-                # Calculate coordinates of each pixel centre
+                # Calculate coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
-                pixel_centres_x = (
+                pixel_corner1_x = (
                     corner_x +
                     pixel_ss_index * ss_unit_x +
                     pixel_fs_index * fs_unit_x
                 )
-                pixel_centres_y = (
+                pixel_corner1_y = (
                     corner_y +
                     pixel_ss_index * ss_unit_y +
                     pixel_fs_index * fs_unit_y
                 )
-                pixel_centres_z = (
+                pixel_corner1_z = (
                     corner_z +
                     pixel_ss_index * ss_unit_z +
                     pixel_fs_index * fs_unit_z
@@ -471,17 +471,17 @@ class AGIPD_1MGeometry:
                 # Calculate corner coordinates for each pixel
                 # 3D arrays, shape: (64, 128, 4)
                 corners_x = (
-                    pixel_centres_x[:, :, np.newaxis] +
+                    pixel_corner1_x[:, :, np.newaxis] +
                     corner_ss_offsets * ss_unit_x +
                     corner_fs_offsets * fs_unit_x
                 )
                 corners_y = (
-                    pixel_centres_y[:, :, np.newaxis] +
+                    pixel_corner1_y[:, :, np.newaxis] +
                     corner_ss_offsets * ss_unit_y +
                     corner_fs_offsets * fs_unit_y
                 )
                 corners_z = (
-                    pixel_centres_z[:, :, np.newaxis] +
+                    pixel_corner1_z[:, :, np.newaxis] +
                     corner_ss_offsets * ss_unit_z +
                     corner_fs_offsets * fs_unit_z
                 )
