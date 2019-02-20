@@ -207,6 +207,13 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         The quadrant positions are given in pixel units, referring to the first
         pixel of the first module in each quadrant, corresponding to data
         channels 0, 4, 8 and 12.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        To give positions in different units, pass the *unit* parameter as the
+        length of the unit in metres. E.g. ``unit=1e-3`` means the coordinates
+        are in millimetres.
         """
         px_conversion = unit / cls.pixel_size
         asic_gap *= px_conversion
@@ -720,6 +727,9 @@ class LPD_1MGeometry(DetectorGeometryBase):
         In the initial detector layout, the corner positions are for the top
         right corner of the quadrant, looking into the beam.
 
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
         Parameters
         ----------
         quad_pos: list of 2-tuples
@@ -792,6 +802,9 @@ class LPD_1MGeometry(DetectorGeometryBase):
         in the file are measured in millimetres; the unit parameter controls
         this.
 
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
         This version of the code only handles x and y translation,
         as this is all that is recorded in the initial LPD geometry file.
 
@@ -799,7 +812,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
         ----------
 
         path : str
-          Path of an XFEL format (HDF5) geometry file for LPD.
+          Path of an EuXFEL format (HDF5) geometry file for LPD.
         positions : list of 2-tuples
           (x, y) coordinates of the last corner (the one by module 4) of each
           quadrant.
