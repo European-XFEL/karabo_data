@@ -258,6 +258,34 @@ class FileAccess:
         self._keys_cache[source] = res
         return res
 
+
+class DataChunk:
+    """Reference to a contiguous chunk of data for one or more trains."""
+    def __init__(self, file: FileAccess, source, key, first, train_ids, counts):
+        self.file = file
+        self.source = source
+        self.key = key
+        self.first = first
+        self.train_ids = train_ids
+        self.counts = counts
+
+    @property
+    def slice(self):
+        return slice(self.first, self.first + np.sum(self.counts))
+
+    @property
+    def dataset(self):
+        if self.source in self.file.instrument_sources:
+            group = 'INSTRUMENT'
+        elif self.source in self.file.control_sources:
+            group = 'CONTROL'
+        else:
+            raise SourceNameError(self.source)
+
+        return self.file.file['/{}/{}/{}'.format(
+            group, self.source, self.key.replace('.', '/'))]
+
+
 class DataCollection:
     """An assemblage of data generated at European XFEL
 
@@ -634,39 +662,19 @@ class DataCollection:
 
         seq_arrays = []
 
-        if source in self.control_sources:
-            data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for f in self._source_index[source]:
-                slices = (slice(None, len(f.train_ids)),) + roi
-                data = f.file[data_path][slices]
-                if extra_dims is None:
-                    extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-                dims = ['trainId'] + extra_dims
+        for chunk in self._find_data_chunks(source, key):
+            print("Got chunk in", chunk.file)
+            trainids = self._expand_trainids(chunk.counts, chunk.train_ids)
 
-                seq_arrays.append(xarray.DataArray(data, dims=dims,
-                                                   coords={'trainId': f.train_ids}))
+            slices = (chunk.slice,) + roi
+            data = chunk.dataset[slices]
 
-        elif source in self.instrument_sources:
-            data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for f in self._source_index[source]:
-                group = key.partition('.')[0]
-                firsts, counts = f.get_index(source, group)
-                if (counts > 1).any():
-                    raise ValueError("{}/{} data has more than one data point per train"
-                                     .format(source, group))
-                trainids = self._expand_trainids(counts, f.train_ids)
+            if extra_dims is None:
+                extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
+            dims = ['trainId'] + extra_dims
 
-                slices = (slice(None, len(trainids)),) + roi
-                data = f.file[data_path][slices]
-
-                if extra_dims is None:
-                    extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-                dims = ['trainId'] + extra_dims
-
-                seq_arrays.append(
-                    xarray.DataArray(data, dims=dims, coords={'trainId': trainids}))
-        else:
-            raise SourceNameError(source)
+            seq_arrays.append(
+                xarray.DataArray(data, dims=dims, coords={'trainId': trainids}))
 
         non_empty = [a for a in seq_arrays if (a.size > 0)]
         if not non_empty:
@@ -678,11 +686,9 @@ class DataCollection:
                              "Please report an issue so we can investigate")
                             .format(source, key))
 
-        arr = xarray.concat(sorted(non_empty,
-                                   key=lambda a: a.coords['trainId'][0]),
-                            dim='trainId')
-        train_ids = np.intersect1d(arr.coords['trainId'], self.train_ids)
-        return arr.sel(trainId=train_ids)
+        return xarray.concat(sorted(non_empty,
+                                    key=lambda a: a.coords['trainId'][0]),
+                             dim='trainId')
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
@@ -734,7 +740,7 @@ class DataCollection:
         else:
             # The translated pattern ends with "\Z" - insert before this
             p = key_re.pattern
-            end_ix = p.rindex('\Z')
+            end_ix = p.rindex(r'\Z')
             ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
 
         matched = {}
@@ -884,6 +890,38 @@ class DataCollection:
     def _expand_trainids(self, counts, trainIds):
         n = min(len(counts), len(trainIds))
         return np.repeat(trainIds[:n], counts.astype(np.intp)[:n])
+
+    def _find_data_chunks(self, source, key):
+        """Find contiguous chunks of data for the given source & key
+
+        Yields DataChunk objects.
+        """
+        if source in self.instrument_sources:
+            key_group = key.partition('.')[0]
+        else:
+            key_group = ''
+
+        for file in self._source_index[source]:
+            trains_of_interest, train_ixs, _ = \
+                np.intersect1d(file.train_ids, self.train_ids,
+                               return_indices=True)
+            if trains_of_interest.size == 0:
+                continue
+
+            firsts, counts = file.get_index(source, key_group)
+            firsts = firsts[train_ixs]
+            counts = counts[train_ixs]
+
+            stops = firsts + counts
+            discontig = firsts[1:] != stops[:-1]
+            breaks = [0] + list(discontig.nonzero()[0] + 1) + [len(firsts)]
+
+            for _from, _to in zip(breaks[:-1], breaks[1:]):
+                yield DataChunk(file, source, key,
+                                first=firsts[_from],
+                                train_ids=trains_of_interest[_from:_to],
+                                counts=counts[_from:_to],
+                                )
 
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:
