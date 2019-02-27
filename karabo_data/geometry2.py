@@ -137,8 +137,6 @@ class DetectorGeometryBase:
         pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
         ax.add_collection(pc)
 
-        self._add_inspect_labels(ax)
-
         # Draw cross in the centre.
         ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
         ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
