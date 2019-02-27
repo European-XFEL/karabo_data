@@ -35,7 +35,7 @@ def test_snap_assemble_data():
 
 def test_invert_xfel_lpd_geom(tmpdir):
     src_file = pjoin(tests_dir, 'lpd_mar_18.h5')
-    dst_file = pjoin(tmpdir, 'lpd_inverted.h5')
+    dst_file = pjoin(str(tmpdir), 'lpd_inverted.h5')
     invert_xfel_lpd_geom(src_file, dst_file)
     with h5py.File(src_file, 'r') as fsrc, h5py.File(dst_file, 'r') as fdst:
         np.testing.assert_array_equal(
