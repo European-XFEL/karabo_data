@@ -79,11 +79,11 @@ class FileWriter:
         self.file.create_dataset('INDEX/trainId', data=d.train_ids, dtype='u8')
 
         for source in d.control_sources:
-            for key in d._keys_for_source(source):
+            for key in d.keys_for_source(source):
                 self.add_control_dataset(source, key)
 
         for source in d.instrument_sources:
-            for key in d._keys_for_source(source):
+            for key in d.keys_for_source(source):
                 self.add_instrument_dataset(source, key)
 
         self.write_indexes()

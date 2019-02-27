@@ -374,10 +374,10 @@ class DataCollection:
     def _check_field(self, source, key):
         if source not in self.all_sources:
             raise SourceNameError(source)
-        if key not in self._keys_for_source(source):
+        if key not in self.keys_for_source(source):
             raise PropertyNameError(key, source)
 
-    def _keys_for_source(self, source):
+    def keys_for_source(self, source):
         selected_keys = self.selection[source]
         if selected_keys is not None:
             return selected_keys
@@ -386,6 +386,9 @@ class DataCollection:
         # the same keys in all files that it appears in.
         for f in self._source_index[source]:
             return f.get_keys(source)
+
+    # Leave old name in case anything external was using it:
+    _keys_for_source = keys_for_source
 
     def _check_data_missing(self, tid) -> bool:
         """Return True if a train does not have data for all sources"""
@@ -399,7 +402,7 @@ class DataCollection:
             if file is None:
                 return True
 
-            groups = {k.partition('.')[0] for k in self._keys_for_source(source)}
+            groups = {k.partition('.')[0] for k in self.keys_for_source(source)}
             for group in groups:
                 _, counts = file.get_index(source, group)
                 if counts[pos] == 0:
@@ -488,7 +491,7 @@ class DataCollection:
             if file is None:
                 continue
 
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 path = '/CONTROL/{}/{}'.format(source, key.replace('.', '/'))
                 source_data[key] = file.file[path][pos]
 
@@ -500,7 +503,7 @@ class DataCollection:
             if file is None:
                 continue
 
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 group = key.partition('.')[0]
                 firsts, counts = file.get_index(source, group)
                 first, count = firsts[pos], counts[pos]
@@ -618,7 +621,7 @@ class DataCollection:
 
         series = []
         for source in self.all_sources:
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 if (not timestamps) and key.endswith('.timestamp'):
                     continue
                 series.append(self.get_series(source, key))
@@ -751,7 +754,7 @@ class DataCollection:
                 matched[source] = None
             else:
                 r = ctrl_key_re if source in self.control_sources else key_re
-                keys = set(filter(r.match, self._keys_for_source(source)))
+                keys = set(filter(r.match, self.keys_for_source(source)))
                 if keys:
                     matched[source] = keys
 
@@ -812,7 +815,7 @@ class DataCollection:
                 continue  # Drop the entire source
 
             if keys is None:
-                keys = self._keys_for_source(source)
+                keys = self.keys_for_source(source)
 
             selection[source] = keys - desel_keys
 
@@ -1081,7 +1084,7 @@ class TrainIterator:
             source_data = res[source] = {
                 'metadata': {'source': source, 'timestamp.tid': tid}
             }
-            for key in self.data._keys_for_source(source):
+            for key in self.data.keys_for_source(source):
                 _, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
                     continue
@@ -1091,7 +1094,7 @@ class TrainIterator:
             source_data = res[source] = {
                 'metadata': {'source': source, 'timestamp.tid': tid}
             }
-            for key in self.data._keys_for_source(source):
+            for key in self.data.keys_for_source(source):
                 file, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
                     continue
