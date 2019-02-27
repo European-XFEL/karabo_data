@@ -114,6 +114,40 @@ class DetectorGeometryBase:
         self.filename = filename
         self._snapped_cache = None
 
+    def inspect(self, frontview=True):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Figure object.
+        """
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.collections import PatchCollection
+        from matplotlib.figure import Figure
+        from matplotlib.patches import Polygon
+
+        fig = Figure((10, 10))
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+
+        rects = []
+        for module in self.modules:
+            for fragment in module:
+                corners = fragment.corners()[:, :2]  # Drop the Z dimension
+                rects.append(Polygon(corners))
+
+        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
+        ax.add_collection(pc)
+
+        self._add_inspect_labels(ax)
+
+        # Draw cross in the centre.
+        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
+        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+
+        if frontview:
+            ax.invert_xaxis()
+
+        return fig
+
     def _snapped(self):
         """Snap geometry to a 2D pixel grid
 
@@ -282,43 +316,34 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         if self.filename == 'No file':
             self.filename = filename
 
-    def inspect(self):
+    def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Figure object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
-        from matplotlib.patches import Polygon
+        fig = super().inspect(frontview=frontview)
+        ax = fig.axes[0]
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
-        ax = fig.add_subplot(1, 1, 1)
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[4].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
 
-        rects = []
-        for p, module in enumerate(self.modules):
-            for a, fragment in enumerate(module):
-                corners = fragment.corners()[:, :2]  # Drop the Z dimension
-
-                rects.append(Polygon(corners))
-
-                if a in {0, 7}:
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, str(a),
-                            verticalalignment='center',
-                            horizontalalignment='center')
-                elif a == 4:
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, 'p{}'.format(p),
-                            verticalalignment='center',
-                            horizontalalignment='center')
-
-        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
-        ax.add_collection(pc)
-
-        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
-        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+            for t in [0, 7]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
 
         ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
         return fig
@@ -870,44 +895,34 @@ class LPD_1MGeometry(DetectorGeometryBase):
         return cls(modules, filename=path)
 
 
-    def inspect(self):
+    def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Figure object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
-        from matplotlib.patches import Polygon
+        fig = super().inspect(frontview=frontview)
+        ax = fig.axes[0]
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
-        ax = fig.add_subplot(1, 1, 1)
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[0].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
 
-        rects = []
-        for p, module in enumerate(self.modules):
-            for a, fragment in enumerate(module):
-                corners = fragment.corners()[:, :2]  # Drop the Z dimension
-
-                rects.append(Polygon(corners))
-
-                if a in {7, 8, 15}:
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, 'T{}'.format(a + 1),
-                            verticalalignment='center',
-                            horizontalalignment='center')
-                elif a == 0:
-                    s = 'Q{Q}M{M}'.format(Q=(p // 4) + 1, M=(p % 4) + 1)
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, s, fontweight='bold',
-                            verticalalignment='center',
-                            horizontalalignment='center')
-
-        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
-        ax.add_collection(pc)
-
-        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
-        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+            for t in [7, 8, 15]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
 
         ax.set_title('LPD-1M detector geometry ({})'.format(self.filename))
         return fig
