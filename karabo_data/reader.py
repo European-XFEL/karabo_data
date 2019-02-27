@@ -663,7 +663,6 @@ class DataCollection:
         seq_arrays = []
 
         for chunk in self._find_data_chunks(source, key):
-            print("Got chunk in", chunk.file)
             trainids = self._expand_trainids(chunk.counts, chunk.train_ids)
 
             slices = (chunk.slice,) + roi
