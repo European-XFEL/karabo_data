@@ -1,3 +1,4 @@
+"""AGIPD & LPD geometry handling."""
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
 import h5py

@@ -1,3 +1,5 @@
+"""DEPRECATED: LPD geometry. Use karabo_data.geometry2 instead.
+"""
 from copy import copy
 import h5py
 from itertools import product

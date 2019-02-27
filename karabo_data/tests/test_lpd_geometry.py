@@ -1,7 +1,11 @@
+import h5py
 from matplotlib.figure import Figure
 import numpy as np
+from os.path import abspath, dirname, join as pjoin
 
-from karabo_data.geometry2 import LPD_1MGeometry
+from karabo_data.geometry2 import LPD_1MGeometry, invert_xfel_lpd_geom
+
+tests_dir = dirname(abspath(__file__))
 
 def test_inspect():
     geom = LPD_1MGeometry.from_quad_positions([
@@ -28,3 +32,15 @@ def test_snap_assemble_data():
     assert tuple(centre) == (604, 547)
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
+
+def test_invert_xfel_lpd_geom(tmpdir):
+    src_file = pjoin(tests_dir, 'lpd_mar_18.h5')
+    dst_file = pjoin(tmpdir, 'lpd_inverted.h5')
+    invert_xfel_lpd_geom(src_file, dst_file)
+    with h5py.File(src_file, 'r') as fsrc, h5py.File(dst_file, 'r') as fdst:
+        np.testing.assert_array_equal(
+            fsrc['Q1/M1/Position'][:], -1 * fdst['Q1/M1/Position'][:]
+        )
+        np.testing.assert_array_equal(
+            fsrc['Q1/M1/T07/Position'][:], -1 * fdst['Q1/M1/T07/Position'][:]
+        )
