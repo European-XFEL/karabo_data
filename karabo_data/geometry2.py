@@ -197,7 +197,7 @@ class DetectorGeometryBase:
         """Deprecated alias for :meth:`position_modules_fast`"""
         return self.position_modules_fast(data)
 
-    def plot_data_fast(self, data, axis_units='px', frontview=False):
+    def plot_data_fast(self, data, axis_units='px', frontview=True):
         """Plot data from the detector using this geometry.
 
         This approximates the geometry to align all pixels to a 2D grid.
@@ -213,8 +213,8 @@ class DetectorGeometryBase:
         axis_units : str
           Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
-          If True, reverse the x-axis to show view from the beam direction.
-          The default (False) gives a 'looking into the beam' view.
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
         """
         return self._snapped().plot_data(data, axis_units=axis_units,
                                          frontview=frontview)
@@ -640,7 +640,7 @@ class SnappedGeometry:
         centre = -min_yx
         return tuple(size), centre
 
-    def plot_data(self, modules_data, axis_units='px', frontview=False):
+    def plot_data(self, modules_data, axis_units='px', frontview=True):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
