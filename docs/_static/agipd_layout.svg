@@ -17,8 +17,8 @@
    inkscape:version="0.92.4 (unknown)"
    sodipodi:docname="agipd_layout.svg"
    inkscape:export-filename="/home/takluyver/Code/karabo_data/docs/_static/agipd_layout.png"
-   inkscape:export-xdpi="80"
-   inkscape:export-ydpi="80">
+   inkscape:export-xdpi="100"
+   inkscape:export-ydpi="100">
   <defs
      id="defs2">
     <marker
@@ -593,11 +593,11 @@
      pagecolor="#ffffff"
      bordercolor="#666666"
      borderopacity="1.0"
-     inkscape:pageopacity="0.0"
+     inkscape:pageopacity="1"
      inkscape:pageshadow="2"
      inkscape:zoom="1.4"
-     inkscape:cx="362.37905"
-     inkscape:cy="315.87449"
+     inkscape:cx="388.09334"
+     inkscape:cy="344.44592"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1051,7 +1051,7 @@
            y="27.720579"
            x="22.447693"
            id="tspan2943"
-           sodipodi:role="line">T0</tspan></text>
+           sodipodi:role="line">T1</tspan></text>
       <text
          id="text2945-4"
          y="27.721956"
@@ -1062,7 +1062,7 @@
            y="27.721956"
            x="76.313072"
            id="tspan2943-9"
-           sodipodi:role="line">T7</tspan></text>
+           sodipodi:role="line">T8</tspan></text>
     </g>
     <g
        id="g3270"
@@ -1425,7 +1425,7 @@
            y="148.19382"
            x="19.125751"
            id="tspan2943-94"
-           sodipodi:role="line">T0</tspan></text>
+           sodipodi:role="line">T1</tspan></text>
       <text
          id="text2945-4-3"
          y="148.19518"
@@ -1436,7 +1436,7 @@
            y="148.19518"
            x="72.991135"
            id="tspan2943-9-5"
-           sodipodi:role="line">T7</tspan></text>
+           sodipodi:role="line">T8</tspan></text>
     </g>
     <g
        transform="translate(67.897207,-0.96470888)"
@@ -1799,7 +1799,7 @@
            y="148.19382"
            x="19.125751"
            id="tspan2943-94-3"
-           sodipodi:role="line">T7</tspan></text>
+           sodipodi:role="line">T8</tspan></text>
       <text
          id="text2945-4-3-2"
          y="148.19518"
@@ -1810,7 +1810,7 @@
            y="148.19518"
            x="72.991135"
            id="tspan2943-9-5-6"
-           sodipodi:role="line">T0</tspan></text>
+           sodipodi:role="line">T1</tspan></text>
     </g>
     <g
        transform="translate(59.641875,-0.92283848)"
@@ -2172,7 +2172,7 @@
            y="27.720579"
            x="22.447693"
            id="tspan2943-3"
-           sodipodi:role="line">T7</tspan></text>
+           sodipodi:role="line">T8</tspan></text>
       <text
          id="text2945-4-4"
          y="27.721956"
@@ -2183,7 +2183,7 @@
            y="27.721956"
            x="76.313072"
            id="tspan2943-9-9"
-           sodipodi:role="line">T0</tspan></text>
+           sodipodi:role="line">T1</tspan></text>
     </g>
     <text
        xml:space="preserve"

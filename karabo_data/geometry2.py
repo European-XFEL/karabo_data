@@ -107,7 +107,8 @@ class DetectorGeometryBase:
     expected_data_shape = ()
 
     def __init__(self, modules, filename='No file'):
-        self.modules = modules  # List of 16 lists of 8 fragments
+        # List of lists (1 per module) of fragments (1 per tile)
+        self.modules = modules
         # self.filename is metadata for plots, we don't read/write the file.
         # There are separate methods for reading and writing.
         self.filename = filename
@@ -139,15 +140,14 @@ class DetectorGeometryBase:
     def position_modules_fast(self, data):
         """Assemble data from this detector according to where the pixels are.
 
-        This approximates the geometry to align all pixels to a 2D grid. It's
-        less accurate than :meth:`position_modules_interpolate`, but much faster.
+        This approximates the geometry to align all pixels to a 2D grid.
 
         Parameters
         ----------
 
         data : ndarray
-          The last three dimensions should be channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+          The last three dimensions should match the modules, then the
+          slow scan and fast scan pixel dimensions.
 
         Returns
         -------
@@ -174,8 +174,8 @@ class DetectorGeometryBase:
         ----------
 
         data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
+          Should have exactly 3 dimensions, for the modules, then the
+          slow scan and fast scan pixel dimensions.
         axis_units : str
           Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
@@ -190,6 +190,9 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
 
     The coordinates used in this class are 3D (x, y, z), and represent multiples
     of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
     """
     pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
     frag_ss_pixels = 64
@@ -248,6 +251,10 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
 
     @classmethod
     def from_crystfel_geom(cls, filename):
+        """Read a CrystFEL format (.geom) geometry file.
+
+        Returns a new geometry object.
+        """
         geom_dict = load_crystfel_geometry(filename)
         modules = []
         for p in range(16):
@@ -259,6 +266,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return cls(modules, filename=filename)
 
     def write_crystfel_geom(self, filename):
+        """Write this geometry to a CrystFEL format (.geom) geometry file."""
         from . import __version__
 
         panel_chunks = []
@@ -475,15 +483,18 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return np.split(module_data, 8, axis=-2)
 
     def to_distortion_array(self):
-        """Return distortion matrix for AGIPD detector, suitable for pyFAI
+        """Return distortion matrix for AGIPD detector, suitable for pyFAI.
 
         Returns
         -------
         out: ndarray
-            Dimension (8192=16(modules)*512(ss_dim), 128(fs_dim), 4, 3)
-            type: float32
-            4 is the number of corners of a pixel
-            last dimension is for Z, Y, X location of each corner
+            Array of float 32 with shape (8192, 128, 4, 3).
+            The dimensions mean:
+
+            - 8192 = 16 modules * 512 pixels (slow scan axis)
+            - 128 pixels (fast scan axis)
+            - 4 corners of each pixel
+            - 3 numbers for z, y, x
         """
         distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
 
@@ -707,6 +718,9 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
     The coordinates used in this class are 3D (x, y, z), and represent multiples
     of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
     """
     pixel_size = 5e-4  # 5e-4 metres == 0.5 mm
     frag_ss_pixels = 32
@@ -725,7 +739,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
         where module 4, tile 16 is positioned.
         This is the corner of the last pixel as the data is stored.
         In the initial detector layout, the corner positions are for the top
-        right corner of the quadrant, looking into the beam.
+        left corner of the quadrant, looking along the beam.
 
         The origin of the coordinates is in the centre of the detector.
         Coordinates increase upwards and to the left (looking along the beam).
