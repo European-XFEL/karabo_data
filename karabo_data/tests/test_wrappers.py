@@ -1,7 +1,7 @@
 import pytest
 
 from karabo_data.reader import RunDirectory, by_id, by_index
-from karabo_data.instruments import LPD1M
+from karabo_data.wrappers import LPD1M
 
 def test_get_array(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
