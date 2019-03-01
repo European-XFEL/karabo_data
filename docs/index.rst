@@ -29,6 +29,7 @@ Contents:
    :caption: Examples
 
    Demo
+   lpd_data
    apply_geometry
    examine_geometry
    agipd_geometry
