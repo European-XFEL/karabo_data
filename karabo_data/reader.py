@@ -22,7 +22,6 @@ import re
 import sys
 import xarray
 
-
 __all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
            'stack_data', 'stack_detector_data', 'by_id', 'by_index',
            'SourceNameError', 'PropertyNameError',
