@@ -20,6 +20,7 @@ Contents:
    :maxdepth: 2
 
    reading_files
+   agipd_lpd_data
    streaming
    validation
    data_format

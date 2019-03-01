@@ -459,7 +459,7 @@ class AGIPD1M(MPxDetectorBase):
     _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
 
 class LPD1M(MPxDetectorBase):
-    """An interface to AGIPD-1M data.
+    """An interface to LPD-1M data.
 
     Parameters
     ----------
