@@ -120,13 +120,11 @@ class DetectorGeometryBase:
 
         Returns a matplotlib Figure object.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        import matplotlib.pyplot as plt
         from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
         from matplotlib.patches import Polygon
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
+        fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
 
         rects = []
@@ -145,7 +143,7 @@ class DetectorGeometryBase:
         if frontview:
             ax.invert_xaxis()
 
-        return fig
+        return ax
 
     def _snapped(self):
         """Snap geometry to a 2D pixel grid
@@ -201,7 +199,7 @@ class DetectorGeometryBase:
 
         This approximates the geometry to align all pixels to a 2D grid.
 
-        Returns a matplotlib figure.
+        Returns a matplotlib axes object.
 
         Parameters
         ----------
@@ -318,7 +316,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
     def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
-        Returns a matplotlib Figure object.
+        Returns a matplotlib Axes object.
 
         Parameters
         ----------
@@ -327,8 +325,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        fig = super().inspect(frontview=frontview)
-        ax = fig.axes[0]
+        ax = super().inspect(frontview=frontview)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
@@ -345,7 +342,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                         horizontalalignment='center')
 
         ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
-        return fig
+        return ax
 
     def compare(self, other, scale=1.):
         """Show a comparison of this geometry with another in a 2D plot.
@@ -362,13 +359,11 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
           Scale the arrows showing the difference in positions.
           This is useful to show small differences clearly.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        import matplotlib.pyplot as plt
         from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
         from matplotlib.patches import Polygon, FancyArrow
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
+        fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
 
         rects = []
@@ -424,7 +419,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         ax.text(1, 0, 'Arrows scaled: {}×'.format(scale),
                 horizontalalignment="right", verticalalignment="bottom",
                 transform=ax.transAxes)
-        return fig
+        return ax
 
     def position_modules_interpolate(self, data):
         """Assemble data from this detector according to where the pixels are.
@@ -643,15 +638,13 @@ class SnappedGeometry:
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.figure import Figure
+        import matplotlib.pyplot as plt
 
         if axis_units not in {'px', 'm'}:
             raise ValueError("axis_units must be 'px' or 'm', not {!r}"
                              .format(axis_units))
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
+        fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
         my_viridis = copy(viridis)
         # Use a dark grey for missing data
@@ -897,7 +890,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
     def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
-        Returns a matplotlib Figure object.
+        Returns a matplotlib Axes object.
 
         Parameters
         ----------
@@ -906,8 +899,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        fig = super().inspect(frontview=frontview)
-        ax = fig.axes[0]
+        ax = super().inspect(frontview=frontview)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
@@ -924,7 +916,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
                         horizontalalignment='center')
 
         ax.set_title('LPD-1M detector geometry ({})'.format(self.filename))
-        return fig
+        return ax
 
     @staticmethod
     def split_tiles(module_data):

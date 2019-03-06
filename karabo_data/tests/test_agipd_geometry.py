@@ -1,4 +1,4 @@
-from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import numpy as np
 
 from karabo_data.geometry2 import AGIPD_1MGeometry
@@ -51,8 +51,8 @@ def test_inspect():
         (542.5, 475),
     ])
     # Smoketest
-    fig = geom.inspect()
-    assert isinstance(fig, Figure)
+    ax = geom.inspect()
+    assert isinstance(ax, Axes)
 
 def test_compare():
     geom1 = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
@@ -68,8 +68,8 @@ def test_compare():
         (542.5, 473),
     ])
     # Smoketest
-    fig = geom1.compare(geom2)
-    assert isinstance(fig, Figure)
+    ax = geom1.compare(geom2)
+    assert isinstance(ax, Axes)
 
 def test_to_distortion_array():
     geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[

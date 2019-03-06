@@ -1,5 +1,5 @@
 import h5py
-from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import numpy as np
 from os.path import abspath, dirname, join as pjoin
 
@@ -15,8 +15,8 @@ def test_inspect():
         (278.5, 275)
     ])
     # Smoketest
-    fig = geom.inspect()
-    assert isinstance(fig, Figure)
+    ax = geom.inspect()
+    assert isinstance(ax, Axes)
 
 def test_snap_assemble_data():
     geom = LPD_1MGeometry.from_quad_positions([
