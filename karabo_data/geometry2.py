@@ -245,9 +245,9 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         The origin of the coordinates is in the centre of the detector.
         Coordinates increase upwards and to the left (looking along the beam).
 
-        To give positions in different units, pass the *unit* parameter as the
-        length of the unit in metres. E.g. ``unit=1e-3`` means the coordinates
-        are in millimetres.
+        To give positions in units other than pixels, pass the *unit* parameter
+        as the length of the unit in metres.
+        E.g. ``unit=1e-3`` means the coordinates are in millimetres.
         """
         px_conversion = unit / cls.pixel_size
         asic_gap *= px_conversion
