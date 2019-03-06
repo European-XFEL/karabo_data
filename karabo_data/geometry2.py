@@ -778,6 +778,13 @@ class LPD_1MGeometry(DetectorGeometryBase):
         asic_gap_px = 4 if (asic_gap is None) else asic_gap * px_conversion
         panel_gap_px = 4 if (panel_gap is None) else panel_gap * px_conversion
 
+        # How much space one panel/module takes up, including the 'panel gap'
+        # separating it from its neighbour.
+        # In the x dimension, we have only one asic gap (down the centre)
+        panel_width = 256 + asic_gap_px + panel_gap_px
+        # In y, we have 7 gaps between the 8 ASICs in each column.
+        panel_height = 256 + (7 * asic_gap_px) + panel_gap_px
+
         tile_size = np.array([cls.frag_fs_pixels, cls.frag_ss_pixels, 0])
 
         panels_across = [-1, -1, 0, 0]
@@ -791,11 +798,9 @@ class LPD_1MGeometry(DetectorGeometryBase):
             p_in_quad = p % 4
             # Top beam-left corner of panel
             panel_corner_x = (quad_corner_x +
-                              (panels_across[p_in_quad] * (
-                                          256 + asic_gap_px + panel_gap_px)))
+                              (panels_across[p_in_quad] * panel_width))
             panel_corner_y = (quad_corner_y +
-                              (panels_up[p_in_quad] * (256 + (
-                                          7 * asic_gap_px) + panel_gap_px)))
+                              (panels_up[p_in_quad] * panel_height))
 
             tiles = []
             modules.append(tiles)
