@@ -920,10 +920,10 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
     @staticmethod
     def split_tiles(module_data):
-        lhs, rhs = np.split(module_data, 2, axis=-1)
-        # Tiles 1-8 (lhs here) are numbered top to bottom, whereas the array
+        half1, half2 = np.split(module_data, 2, axis=-1)
+        # Tiles 1-8 (half1) are numbered top to bottom, whereas the array
         # starts at the bottom. So we reverse their order after splitting.
-        return np.split(lhs, 8, axis=-2)[::-1] + np.split(rhs, 8, axis=-2)
+        return np.split(half1, 8, axis=-2)[::-1] + np.split(half2, 8, axis=-2)
 
 
 def invert_xfel_lpd_geom(path_in, path_out):
