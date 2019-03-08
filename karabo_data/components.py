@@ -292,7 +292,21 @@ class MPxDetectorBase:
         return xarray.concat(arrays, pd.Index(modnos, name='module'))
 
     def trains(self, pulses=by_index[:]):
-        """Iterate over trains for detector data
+        """Iterate over trains for detector data.
+
+        Parameters
+        ----------
+
+        pulses: by_index or by_id
+          Select which pulses to include for each train.
+          The default is to include all pulses.
+
+        Yields
+        ------
+
+        train_data: dict
+          A dictionary mapping key names (e.g. ``image.data``) to labelled
+          arrays.
         """
         pulses = _check_pulse_selection(pulses)
         return MPxDetectorTrainIterator(self, pulses)
@@ -472,7 +486,7 @@ class AGIPD1M(MPxDetectorBase):
 
 
 class LPD1M(MPxDetectorBase):
-    """An interface to AGIPD-1M data.
+    """An interface to LPD-1M data.
 
     Parameters
     ----------

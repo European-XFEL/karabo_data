@@ -20,6 +20,7 @@ Contents:
    :maxdepth: 2
 
    reading_files
+   agipd_lpd_data
    streaming
    validation
    geometry
@@ -29,6 +30,7 @@ Contents:
    :caption: Examples
 
    Demo
+   lpd_data
    apply_geometry
    examine_geometry
    agipd_geometry
