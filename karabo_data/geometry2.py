@@ -1,8 +1,13 @@
+"""AGIPD & LPD geometry handling."""
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from copy import copy
+import h5py
+from itertools import product
 import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
+
+__all__ = ['AGIPD_1MGeometry', 'LPD_1MGeometry']
 
 def _crystfel_format_vec(vec):
     """Convert an array of 3 numbers to CrystFEL format like "+1.0x -0.1y"
@@ -12,22 +17,32 @@ def _crystfel_format_vec(vec):
         s += ' {:+}z'.format(vec[2])
     return s
 
-class AGIPDGeometryFragment:
-    ss_pixels = 64
-    fs_pixels = 128
+class GeometryFragment:
+    """Holds the 3D position & orientation of one detector tile
 
-    # The coordinates in this class are (x, y, z), in pixel units
-    def __init__(self, corner_pos, ss_vec, fs_vec):
+    corner_pos refers to the corner of the detector tile where the first pixel
+    stored is located. The tile is assumed to be a rectangle of ss_pixels in
+    the slow scan dimension and fs_pixels in the fast scan dimension.
+    ss_vec and fs_vec are vectors for a step of one pixel in each dimension.
+
+    The coordinates in this class are (x, y, z), in pixel units, so the
+    magnitude of fs_vec and ss_vec should be 1.
+    """
+    def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
+        self.ss_pixels = ss_pixels
+        self.fs_pixels = fs_pixels
 
     @classmethod
     def from_panel_dict(cls, d):
         corner_pos = np.array([d['cnx'], d['cny'], d['coffset']])
         ss_vec = np.array([d['ssx'], d['ssy'], d['ssz']])
         fs_vec = np.array([d['fsx'], d['fsy'], d['fsz']])
-        return cls(corner_pos, ss_vec, fs_vec)
+        ss_pixels = d['max_ss'] - d['min_ss'] + 1
+        fs_pixels = d['max_fs'] - d['min_fs'] + 1
+        return cls(corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels)
 
     def corners(self):
         return np.stack([
@@ -53,23 +68,44 @@ class AGIPDGeometryFragment:
         )
 
     def snap(self):
+        # Round positions and vectors to integers, drop z dimension
         corner_pos = np.around(self.corner_pos[:2]).astype(np.int32)
         ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
         fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
+
+        # We should have one vector in the x direction and one in y, but
+        # we don't know which is which.
         assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
+
         # Convert xy coordinates to yx indexes
-        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1])
+        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1],
+                                    self.ss_pixels, self.fs_pixels)
+
 
 class GridGeometryFragment:
-    ss_pixels = 64
-    fs_pixels = 128
+    """Holds the 2D axis-aligned position and orientation of one detector tile.
 
-    # These coordinates are all (y, x), suitable for indexing a numpy array.
-    def __init__(self, corner_pos, ss_vec, fs_vec):
+    This is used in 'snapped' geometry which efficiently assembles a detector
+    image into a 2D array.
+
+    These coordinates are all (y, x), suitable for indexing a numpy array.
+
+    ss_vec and fs_vec must be length 1 vectors in either positive or negative
+    x or y direction. In the output array, the fast scan dimension is always x.
+    So if the input data is oriented with fast-scan vertical, we need to
+    transpose it first.
+
+    Regardless of transposition, we may also need to flip the data on one or
+    both axes; the fs_order and ss_order variables handle this.
+    """
+    def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
+        self.ss_pixels = ss_pixels
+        self.fs_pixels = fs_pixels
+
         if fs_vec[0] == 0:
-            # Flip without transposing
+            # Fast scan is x dimension: Flip without transposing
             fs_order = fs_vec[1]
             ss_order = ss_vec[0]
             self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
@@ -79,7 +115,7 @@ class GridGeometryFragment:
             ])
             self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
         else:
-            # Transpose and then flip
+            # Fast scan is y : Transpose so fast scan -> x and then flip
             fs_order = fs_vec[0]
             ss_order = ss_vec[1]
             self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
@@ -92,22 +128,140 @@ class GridGeometryFragment:
         self.opp_corner_idx = self.corner_idx + self.pixel_dims
 
 
-class AGIPD_1MGeometry:
-    """Detector layout for AGIPD-1M
+class DetectorGeometryBase:
+    """Base class for detector geometry. Subclassed for specific detectors."""
+    # Define in subclasses:
+    pixel_size = 0.
+    frag_ss_pixels = 0
+    frag_fs_pixels = 0
+    expected_data_shape = ()
 
-    The coordinates used in this class are 3D (x, y, z), and represent multiples
-    of the pixel size.
-    """
-    pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
     def __init__(self, modules, filename='No file'):
-        self.modules = modules  # List of 16 lists of 8 fragments
+        # List of lists (1 per module) of fragments (1 per tile)
+        self.modules = modules
         # self.filename is metadata for plots, we don't read/write the file.
         # There are separate methods for reading and writing.
         self.filename = filename
         self._snapped_cache = None
 
+    def inspect(self, frontview=True):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Figure object.
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import PatchCollection
+        from matplotlib.patches import Polygon
+
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(1, 1, 1)
+
+        rects = []
+        for module in self.modules:
+            for fragment in module:
+                corners = fragment.corners()[:, :2]  # Drop the Z dimension
+                rects.append(Polygon(corners))
+
+        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
+        ax.add_collection(pc)
+
+        # Draw cross in the centre.
+        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
+        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+
+        if frontview:
+            ax.invert_xaxis()
+
+        return ax
+
+    def _snapped(self):
+        """Snap geometry to a 2D pixel grid
+
+        This returns a new geometry object. The 'snapped' geometry is
+        less accurate, but can assemble data into a 2D array more efficiently,
+        because it doesn't do any interpolation.
+        """
+        if self._snapped_cache is None:
+            new_modules = []
+            for module in self.modules:
+                new_tiles = [t.snap() for t in module]
+                new_modules.append(new_tiles)
+            self._snapped_cache = SnappedGeometry(new_modules, self)
+        return self._snapped_cache
+
+    @staticmethod
+    def split_tiles(module_data):
+        """Split data from a detector module into tiles.
+
+        Must be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    def position_modules_fast(self, data):
+        """Assemble data from this detector according to where the pixels are.
+
+        This approximates the geometry to align all pixels to a 2D grid.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          The last three dimensions should match the modules, then the
+          slow scan and fast scan pixel dimensions.
+
+        Returns
+        -------
+        out : ndarray
+          Array with one dimension fewer than the input.
+          The last two dimensions represent pixel y and x in the detector space.
+        centre : ndarray
+          (y, x) pixel location of the detector centre in this geometry.
+        """
+        return self._snapped().position_modules(data)
+
+    def position_all_modules(self, data):
+        """Deprecated alias for :meth:`position_modules_fast`"""
+        return self.position_modules_fast(data)
+
+    def plot_data_fast(self, data, axis_units='px', frontview=True):
+        """Plot data from the detector using this geometry.
+
+        This approximates the geometry to align all pixels to a 2D grid.
+
+        Returns a matplotlib axes object.
+
+        Parameters
+        ----------
+
+        data : ndarray
+          Should have exactly 3 dimensions, for the modules, then the
+          slow scan and fast scan pixel dimensions.
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
+        """
+        return self._snapped().plot_data(data, axis_units=axis_units,
+                                         frontview=frontview)
+
+class AGIPD_1MGeometry(DetectorGeometryBase):
+    """Detector layout for AGIPD-1M
+
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
+    """
+    pixel_size = 2e-4  # 2e-4 metres == 0.2 mm
+    frag_ss_pixels = 64
+    frag_fs_pixels = 128
+    expected_data_shape = (16, 512, 128)
+
     @classmethod
-    def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29):
+    def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29,
+                            unit=pixel_size):
         """Generate an AGIPD-1M geometry from quadrant positions.
 
         This produces an idealised geometry, assuming all modules are perfectly
@@ -116,7 +270,18 @@ class AGIPD_1MGeometry:
         The quadrant positions are given in pixel units, referring to the first
         pixel of the first module in each quadrant, corresponding to data
         channels 0, 4, 8 and 12.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        To give positions in units other than pixels, pass the *unit* parameter
+        as the length of the unit in metres.
+        E.g. ``unit=1e-3`` means the coordinates are in millimetres.
         """
+        px_conversion = unit / cls.pixel_size
+        asic_gap *= px_conversion
+        panel_gap *= px_conversion
+
         quads_x_orientation = [1, 1, -1, -1]
         quads_y_orientation = [-1, -1, 1, 1]
         modules = []
@@ -126,22 +291,30 @@ class AGIPD_1MGeometry:
             x_orient = quads_x_orientation[quad]
             y_orient = quads_y_orientation[quad]
             p_in_quad = p % 4
-            corner_y = quad_corner[1] - (p_in_quad * (128 + panel_gap))
+            corner_y = (quad_corner[1] * px_conversion)\
+                       - (p_in_quad * (cls.frag_fs_pixels + panel_gap))
 
             tiles = []
             modules.append(tiles)
 
             for a in range(8):
-                corner_x = quad_corner[0] + x_orient * (64 + asic_gap) * a
-                tiles.append(AGIPDGeometryFragment(
+                corner_x = (quad_corner[0] * px_conversion)\
+                           + x_orient * (cls.frag_ss_pixels + asic_gap) * a
+                tiles.append(GeometryFragment(
                     corner_pos=np.array([corner_x, corner_y, 0.]),
                     ss_vec=np.array([x_orient, 0, 0]),
                     fs_vec=np.array([0, y_orient, 0]),
+                    ss_pixels=cls.frag_ss_pixels,
+                    fs_pixels=cls.frag_fs_pixels,
                 ))
         return cls(modules)
 
     @classmethod
     def from_crystfel_geom(cls, filename):
+        """Read a CrystFEL format (.geom) geometry file.
+
+        Returns a new geometry object.
+        """
         geom_dict = load_crystfel_geometry(filename)
         modules = []
         for p in range(16):
@@ -149,10 +322,11 @@ class AGIPD_1MGeometry:
             modules.append(tiles)
             for a in range(8):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
-                tiles.append(AGIPDGeometryFragment.from_panel_dict(d))
+                tiles.append(GeometryFragment.from_panel_dict(d))
         return cls(modules, filename=filename)
 
     def write_crystfel_geom(self, filename):
+        """Write this geometry to a CrystFEL format (.geom) geometry file."""
         from . import __version__
 
         panel_chunks = []
@@ -168,46 +342,36 @@ class AGIPD_1MGeometry:
         if self.filename == 'No file':
             self.filename = filename
 
-    def inspect(self):
+    def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
-        Returns a matplotlib Figure object.
+        Returns a matplotlib Axes object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
-        from matplotlib.patches import Polygon
+        ax = super().inspect(frontview=frontview)
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
-        ax = fig.add_subplot(1, 1, 1)
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[4].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
 
-        rects = []
-        for p, module in enumerate(self.modules):
-            for a, fragment in enumerate(module):
-                corners = fragment.corners()[:, :2]  # Drop the Z dimension
-
-                rects.append(Polygon(corners))
-
-                if a in {0, 7}:
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, str(a),
-                            verticalalignment='center',
-                            horizontalalignment='center')
-                elif a == 4:
-                    cx, cy, _ = fragment.centre()
-                    ax.text(cx, cy, 'p{}'.format(p),
-                            verticalalignment='center',
-                            horizontalalignment='center')
-
-        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
-        ax.add_collection(pc)
-
-        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
-        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+            for t in [0, 7]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
 
         ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
-        return fig
+        return ax
 
     def compare(self, other, scale=1.):
         """Show a comparison of this geometry with another in a 2D plot.
@@ -224,13 +388,11 @@ class AGIPD_1MGeometry:
           Scale the arrows showing the difference in positions.
           This is useful to show small differences clearly.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        import matplotlib.pyplot as plt
         from matplotlib.collections import PatchCollection
-        from matplotlib.figure import Figure
         from matplotlib.patches import Polygon, FancyArrow
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
+        fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
 
         rects = []
@@ -286,7 +448,7 @@ class AGIPD_1MGeometry:
         ax.text(1, 0, 'Arrows scaled: {}×'.format(scale),
                 horizontalalignment="right", verticalalignment="bottom",
                 transform=ax.transAxes)
-        return fig
+        return ax
 
     def position_modules_interpolate(self, data):
         """Assemble data from this detector according to where the pixels are.
@@ -363,74 +525,24 @@ class AGIPD_1MGeometry:
         # Switch xy -> yx
         return tuple(size[::-1]), centre[::-1]
 
-    def _snapped(self):
-        """Snap geometry to a 2D pixel grid
-
-        This returns a new geometry object. The 'snapped' geometry is
-        less accurate, but can assemble data into a 2D array more efficiently,
-        because it doesn't do any interpolation.
-        """
-        if self._snapped_cache is None:
-            new_modules = []
-            for module in self.modules:
-                new_tiles = [t.snap() for t in module]
-                new_modules.append(new_tiles)
-            return AGIPD_1M_SnappedGeometry(new_modules)
-        return self._snapped_cache
-
-    def position_modules_fast(self, data):
-        """Assemble data from this detector according to where the pixels are.
-
-        This approximates the geometry to align all pixels to a 2D grid. It's
-        less accurate than :meth:`position_modules_interpolate`, but much faster.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          The last three dimensions should be channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-
-        Returns
-        -------
-        out : ndarray
-          Array with one dimension fewer than the input.
-          The last two dimensions represent pixel y and x in the detector space.
-        centre : ndarray
-          (y, x) pixel location of the detector centre in this geometry.
-        """
-        return self._snapped().position_modules(data)
-
-    def position_all_modules(self, data):
-        """Deprecated alias for :meth:`position_modules_fast`"""
-        return self.position_modules_fast(data)
-
-    def plot_data_fast(self, data):
-        """Plot data from the detector using this geometry.
-
-        This approximates the geometry to align all pixels to a 2D grid.
-
-        Returns a matplotlib figure.
-
-        Parameters
-        ----------
-
-        data : ndarray
-          Should have exactly 3 dimensions: channelno, pixel_ss, pixel_fs
-          (lengths 16, 512, 128). ss/fs are slow-scan and fast-scan.
-        """
-        return self._snapped().plot_data(data)
+    @staticmethod
+    def split_tiles(module_data):
+        # Split into 8 tiles along the slow-scan axis
+        return np.split(module_data, 8, axis=-2)
 
     def to_distortion_array(self):
-        """Return distortion matrix for AGIPD detector, suitable for pyFAI
+        """Return distortion matrix for AGIPD detector, suitable for pyFAI.
 
         Returns
         -------
         out: ndarray
-            Dimension (8192=16(modules)*512(ss_dim), 128(fs_dim), 4, 3)
-            type: float32
-            4 is the number of corners of a pixel
-            last dimension is for Z, Y, X location of each corner
+            Array of float 32 with shape (8192, 128, 4, 3).
+            The dimensions mean:
+
+            - 8192 = 16 modules * 512 pixels (slow scan axis)
+            - 128 pixels (fast scan axis)
+            - 4 corners of each pixel
+            - 3 numbers for z, y, x
         """
         distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
 
@@ -502,26 +614,26 @@ class AGIPD_1MGeometry:
         return distortion
 
 
-class AGIPD_1M_SnappedGeometry:
-    """AGIPD geometry approximated to align modules to a 2D grid
+class SnappedGeometry:
+    """Detector geometry approximated to align modules to a 2D grid
 
     The coordinates used in this class are (y, x) suitable for indexing a
     Numpy array; this does not match the (x, y, z) coordinates in the more
     precise geometry above.
     """
-    pixel_size = 2e-4
-    def __init__(self, modules):
+    def __init__(self, modules, geom: DetectorGeometryBase):
         self.modules = modules
+        self.geom = geom
 
     def position_modules(self, data):
         """Implementation for position_modules_fast
         """
-        assert data.shape[-3:] == (16, 512, 128)
+        assert data.shape[-3:] == self.geom.expected_data_shape
         size_yx, centre = self._get_dimensions()
         out = np.full(data.shape[:-3] + size_yx, np.nan, dtype=data.dtype)
         for i, module in enumerate(self.modules):
             mod_data = data[..., i, :, :]
-            tiles_data = np.split(mod_data, 8, axis=-2)
+            tiles_data = self.geom.split_tiles(mod_data)
             for j, tile in enumerate(module):
                 tile_data = tiles_data[j]
                 # Offset by centre to make all coordinates positive
@@ -551,26 +663,42 @@ class AGIPD_1M_SnappedGeometry:
         centre = -min_yx
         return tuple(size), centre
 
-    def plot_data(self, modules_data):
+    def plot_data(self, modules_data, axis_units='px', frontview=True):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.figure import Figure
+        import matplotlib.pyplot as plt
 
-        fig = Figure((10, 10))
-        FigureCanvasAgg(fig)
+        if axis_units not in {'px', 'm'}:
+            raise ValueError("axis_units must be 'px' or 'm', not {!r}"
+                             .format(axis_units))
+
+        fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
         my_viridis = copy(viridis)
         # Use a dark grey for missing data
         my_viridis.set_bad('0.25', 1.)
 
         res, centre = self.position_modules(modules_data)
-        ax.imshow(res, origin='lower', cmap=my_viridis)
+        min_y, min_x = -centre
+        max_y, max_x = np.array(res.shape) - centre
 
-        cy, cx = centre
-        ax.hlines(cy, cx - 20, cx + 20, colors='w', linewidths=1)
-        ax.vlines(cx, cy - 20, cy + 20, colors='w', linewidths=1)
+        extent = np.array((min_x - 0.5, max_x + 0.5, min_y - 0.5, max_y + 0.5))
+        cross_size = 20
+        if axis_units == 'm':
+            extent *= self.geom.pixel_size
+            cross_size *= self.geom.pixel_size
+
+        ax.imshow(res, origin='lower', cmap=my_viridis, extent=extent)
+        ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
+        ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
+
+        if frontview:
+            ax.invert_xaxis()
+
+        # Draw a cross at the centre
+        ax.hlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
+        ax.vlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         return fig
 
 
@@ -630,6 +758,232 @@ CRYSTFEL_PANEL_TEMPLATE = """
 {name}/corner_y = {corner_y}
 {name}/coffset = {coffset}
 """
+
+class LPD_1MGeometry(DetectorGeometryBase):
+    """Detector layout for LPD-1M
+
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
+    """
+    pixel_size = 5e-4  # 5e-4 metres == 0.5 mm
+    frag_ss_pixels = 32
+    frag_fs_pixels = 128
+    expected_data_shape = (16, 256, 256)
+
+    @classmethod
+    def from_quad_positions(cls, quad_pos, *, unit=1e-3, asic_gap=None,
+                            panel_gap=None):
+        """Generate an LPD-1M geometry from quadrant positions.
+
+        This produces an idealised geometry, assuming all modules are perfectly
+        flat, aligned and equally spaced within their quadrant.
+
+        The quadrant positions refer to the corner of each quadrant
+        where module 4, tile 16 is positioned.
+        This is the corner of the last pixel as the data is stored.
+        In the initial detector layout, the corner positions are for the top
+        left corner of the quadrant, looking along the beam.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        Parameters
+        ----------
+        quad_pos: list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit: float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        asic_gap: float, optional
+          The gap between adjacent tiles/ASICs. The default is 4 pixels.
+        panel_gap: float, optional
+          The gap between adjacent modules/panels. The default is 4 pixels.
+        """
+        px_conversion = unit / cls.pixel_size
+        asic_gap_px = 4 if (asic_gap is None) else asic_gap * px_conversion
+        panel_gap_px = 4 if (panel_gap is None) else panel_gap * px_conversion
+
+        # How much space one panel/module takes up, including the 'panel gap'
+        # separating it from its neighbour.
+        # In the x dimension, we have only one asic gap (down the centre)
+        panel_width = 256 + asic_gap_px + panel_gap_px
+        # In y, we have 7 gaps between the 8 ASICs in each column.
+        panel_height = 256 + (7 * asic_gap_px) + panel_gap_px
+
+        tile_size = np.array([cls.frag_fs_pixels, cls.frag_ss_pixels, 0])
+
+        panels_across = [-1, -1, 0, 0]
+        panels_up = [0, -1, -1, 0]
+        modules = []
+        for p in range(16):
+            quad = p // 4
+            quad_corner_x = quad_pos[quad][0] * px_conversion
+            quad_corner_y = quad_pos[quad][1] * px_conversion
+
+            p_in_quad = p % 4
+            # Top beam-left corner of panel
+            panel_corner_x = (quad_corner_x +
+                              (panels_across[p_in_quad] * panel_width))
+            panel_corner_y = (quad_corner_y +
+                              (panels_up[p_in_quad] * panel_height))
+
+            tiles = []
+            modules.append(tiles)
+
+            for a in range(16):
+                if a < 8:
+                    up = -a
+                    across = -1
+                else:
+                    up = -(15 - a)
+                    across = 0
+
+                tile_last_corner = (
+                    np.array([panel_corner_x, panel_corner_y, 0.])
+                    + np.array([across, 0, 0]) * (cls.frag_fs_pixels + asic_gap_px)
+                    + np.array([0, up, 0]) * (cls.frag_ss_pixels + asic_gap_px)
+                )
+                tile_first_corner = tile_last_corner - tile_size
+
+                tiles.append(GeometryFragment(
+                    corner_pos=tile_first_corner,
+                    ss_vec=np.array([0, 1, 0]),
+                    fs_vec=np.array([1, 0, 0]),
+                    ss_pixels=cls.frag_ss_pixels,
+                    fs_pixels=cls.frag_fs_pixels,
+                ))
+        return cls(modules)
+
+    @classmethod
+    def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
+        """Load an LPD-1M geometry from an XFEL HDF5 format geometry file
+
+        The quadrant positions are not stored in the file, and must be provided
+        separately. By default, both the quadrant positions and the positions
+        in the file are measured in millimetres; the unit parameter controls
+        this.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        This version of the code only handles x and y translation,
+        as this is all that is recorded in the initial LPD geometry file.
+
+        Parameters
+        ----------
+
+        path : str
+          Path of an EuXFEL format (HDF5) geometry file for LPD.
+        positions : list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit : float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        """
+        assert len(positions) == 4
+        modules = []
+        with h5py.File(path, 'r') as f:
+            for Q, M in product(range(1, 5), range(1, 5)):
+                quad_pos = np.array(positions[Q - 1])
+                mod_grp = f['Q{}/M{}'.format(Q, M)]
+                mod_offset = mod_grp['Position'][:2]
+
+                tiles = []
+                for T in range(1, 17):
+                    corner_pos = np.zeros(3)
+                    tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
+                    corner_pos[:2] = quad_pos + mod_offset + tile_offset
+
+                    # Convert units (mm) to pixels
+                    corner_pos *= (unit / cls.pixel_size)
+
+                    # LPD geometry is measured to the last pixel of each tile.
+                    # Subtract tile dimensions for the position of 1st pixel.
+                    ss_vec, fs_vec = np.array([0, 1, 0]), np.array([1, 0, 0])
+                    first_px_pos = (corner_pos
+                                    - (ss_vec * cls.frag_ss_pixels)
+                                    - (fs_vec * cls.frag_fs_pixels))
+
+                    tiles.append(GeometryFragment(
+                        corner_pos=first_px_pos,
+                        ss_vec=ss_vec,
+                        fs_vec=fs_vec,
+                        ss_pixels=cls.frag_ss_pixels,
+                        fs_pixels=cls.frag_fs_pixels,
+                    ))
+                modules.append(tiles)
+
+        return cls(modules, filename=path)
+
+
+    def inspect(self, frontview=True):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Axes object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
+        """
+        ax = super().inspect(frontview=frontview)
+
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[0].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
+
+            for t in [7, 8, 15]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
+
+        ax.set_title('LPD-1M detector geometry ({})'.format(self.filename))
+        return ax
+
+    @staticmethod
+    def split_tiles(module_data):
+        half1, half2 = np.split(module_data, 2, axis=-1)
+        # Tiles 1-8 (half1) are numbered top to bottom, whereas the array
+        # starts at the bottom. So we reverse their order after splitting.
+        return np.split(half1, 8, axis=-2)[::-1] + np.split(half2, 8, axis=-2)
+
+
+def invert_xfel_lpd_geom(path_in, path_out):
+    """Invert the coordinates in an XFEL geometry file (HDF5)
+
+    The initial geometry file for LPD was recorded with the coordinates
+    increasing down and to the right (looking in the beam direction), but the
+    standard XFEL coordinate scheme is the opposite, increasing upwards and to
+    the left (looking in beam direction).
+
+    This utility function reads one file, and writes a second with the
+    coordinates inverted.
+    """
+    with h5py.File(path_in, 'r') as fin, h5py.File(path_out, 'x') as fout:
+        src_ds = fin['DetectorDescribtion']
+        dst_ds = fout.create_dataset('DetectorDescription', data=src_ds)
+        for k, v in src_ds.attrs.items():
+            dst_ds.attrs[k] = v
+
+        for Q, M in product(range(1, 5), range(1, 5)):
+            path = 'Q{}/M{}/Position'.format(Q, M)
+            fout[path] = -fin[path][:]
+            for T in range(1, 17):
+                path = 'Q{}/M{}/T{:02}/Position'.format(Q, M, T)
+                fout[path] = -fin[path][:]
+
 
 if __name__ == '__main__':
     geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
