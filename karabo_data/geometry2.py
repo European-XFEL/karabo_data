@@ -7,6 +7,8 @@ import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
 
+__all__ = ['AGIPD_1MGeometry', 'LPD_1MGeometry']
+
 def _crystfel_format_vec(vec):
     """Convert an array of 3 numbers to CrystFEL format like "+1.0x -0.1y"
     """
