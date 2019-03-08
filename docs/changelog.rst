@@ -1,6 +1,30 @@
 Release Notes
 =============
 
+0.3
+---
+
+New features:
+
+- New interfaces for working with :doc:`geometry`.
+- New interfaces for accessing :doc:`agipd_lpd_data`.
+- :meth:`~.DataCollection.select_trains` can now select arbitrary specified
+  trains, not just a slice.
+- :meth:`~.DataCollection.get_array` can take a region of interest (``roi``)
+  parameter to select a slice of data from each train.
+- A newly public :meth:`~.DataCollection.keys_for_source` method to list keys
+  for a given source.
+
+Fixes:
+
+- :func:`~.stack_detector_data` can handle missing detector modules.
+- Source sets have been changed to frozen sets. Use
+  :meth:`~.DataCollection.select` to choose a subset of sources.
+- :meth:`~.DataCollection.get_array` now only loads the data for selected
+  trains.
+- :meth:`~.DataCollection.get_array` works with data recorded more than once per
+  train.
+
 0.2
 ---
 

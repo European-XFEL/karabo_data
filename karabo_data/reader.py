@@ -513,7 +513,6 @@ class DataCollection:
         """Return a labelled array for a particular data field.
 
         The first axis of the returned data will be the train IDs.
-        Datasets which are per-pulse in the first dimension are not supported.
 
         Parameters
         ----------

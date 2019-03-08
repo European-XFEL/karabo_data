@@ -29,6 +29,8 @@ including the main detectors, record data more frequently.
       A set of the instrument source names in this data,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
+   .. automethod:: keys_for_source
+
    .. automethod:: trains
 
    .. automethod:: train_from_id
