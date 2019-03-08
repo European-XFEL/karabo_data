@@ -46,8 +46,8 @@ def _check_pulse_selection(pulses):
     if isinstance(pulses.value, slice):
         # Ensure start/stop/step are all real numbers
         start = val.start if (val.start is not None) else 0
-        stop  = val.stop  if (val.stop  is not None) else MAX_PULSES
-        step  = val.step  if (val.step  is not None) else 1
+        stop = val.stop if (val.stop is not None) else MAX_PULSES
+        step = val.step if (val.step is not None) else 1
 
         if not all(isinstance(s, int) for s in (start, stop, step)):
             raise TypeError("Pulse selection slice must use integers or None")
@@ -72,9 +72,11 @@ def _check_pulse_selection(pulses):
 
     return type(pulses)(val)
 
+
 class MPxDetectorBase:
     """Base class for megapixel detectors (AGIPD, LPD)
     """
+
     _source_re = re.compile(r'(?P<detname>.+)/DET/(\d+)CH')
 
     def __init__(self, data: DataCollection, detector_name=None, modules=None):
@@ -88,11 +90,11 @@ class MPxDetectorBase:
         self.source_to_modno = source_to_modno
 
         # This should be a reversible 1-to-1 mapping
-        self.modno_to_source = {m:s for (s, m) in source_to_modno.items()}
+        self.modno_to_source = {m: s for (s, m) in source_to_modno.items()}
         assert len(self.modno_to_source) == len(self.source_to_modno)
 
         train_id_arr = np.asarray(self.data.train_ids)
-        split_indices = np.where(np.diff(train_id_arr) != 1)[0]+1
+        split_indices = np.where(np.diff(train_id_arr) != 1)[0] + 1
         self.train_id_chunks = np.split(train_id_arr, split_indices)
 
     @classmethod
@@ -107,8 +109,10 @@ class MPxDetectorBase:
         elif len(detector_names) > 1:
             raise ValueError(
                 "Multiple detectors found in the data: {}. "
-                "Pass a name to data.detector() to pick one."
-                    .format(', '.join(repr(n) for n in detector_names)))
+                "Pass a name to data.detector() to pick one.".format(
+                    ', '.join(repr(n) for n in detector_names)
+                )
+            )
         return detector_names.pop()
 
     @staticmethod
@@ -194,15 +198,18 @@ class MPxDetectorBase:
                 first_train_idx = np.nonzero(f.train_ids == first_tid)[0][0]
                 last_tid = min(chunk_tids[-1], f.train_ids[-1])
                 last_train_idx = np.nonzero(f.train_ids == last_tid)[0][0]
-                chunk_firsts = firsts[first_train_idx:last_train_idx+1]
-                chunk_counts = counts[first_train_idx:last_train_idx+1]
+                chunk_firsts = firsts[first_train_idx : last_train_idx + 1]
+                chunk_counts = counts[first_train_idx : last_train_idx + 1]
                 data_slice = slice(
-                    chunk_firsts[0],
-                    int(chunk_firsts[-1] + chunk_counts[-1]),
+                    chunk_firsts[0], int(chunk_firsts[-1] + chunk_counts[-1])
                 )
-                trainids = np.repeat(np.arange(first_tid, last_tid+1, dtype=np.uint64),
-                                     chunk_counts.astype(np.intp))
-                pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)][data_slice]
+                trainids = np.repeat(
+                    np.arange(first_tid, last_tid + 1, dtype=np.uint64),
+                    chunk_counts.astype(np.intp),
+                )
+                pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)][
+                    data_slice
+                ]
                 # Raw files have a spurious extra dimension
                 if pulse_id.ndim >= 2 and pulse_id.shape[1] == 1:
                     pulse_id = pulse_id[:, 0]
@@ -211,12 +218,14 @@ class MPxDetectorBase:
                     positions = self._select_pulse_ids(pulses, pulse_id)
                 else:  # by_index
                     positions = self._select_pulse_indices(
-                        pulses, chunk_firsts - data_slice.start, chunk_counts)
+                        pulses, chunk_firsts - data_slice.start, chunk_counts
+                    )
 
                 trainids = trainids[positions]
                 pulse_id = pulse_id[positions]
-                index = pd.MultiIndex.from_arrays([trainids, pulse_id],
-                                                  names=['train', 'pulse'])
+                index = pd.MultiIndex.from_arrays(
+                    [trainids, pulse_id], names=['train', 'pulse']
+                )
 
                 if isinstance(positions, slice):
                     data_positions = slice(
@@ -244,13 +253,15 @@ class MPxDetectorBase:
                 # All per-file arrays are empty, so just return the first one.
                 return seq_arrays[0]
 
-            raise Exception(("Unable to get data for source {!r}, key {!r}. "
-                             "Please report an issue so we can investigate")
-                            .format(source, key))
+            raise Exception(
+                "Unable to get data for source {!r}, key {!r}. "
+                "Please report an issue so we can investigate"
+                    .format(source, key)
+            )
 
-        return xarray.concat(sorted(non_empty,
-                                    key=lambda a: a.coords['train'][0]),
-                            dim='train')
+        return xarray.concat(
+            sorted(non_empty, key=lambda a: a.coords['train'][0]), dim='train'
+        )
 
     def get_array(self, key, pulses=by_index[:]):
         """Get a labelled array of detector data
@@ -330,7 +341,7 @@ class MPxDetectorTrainIterator:
         if count == 1:
             return xarray.DataArray(ds[first])
         else:
-            return xarray.DataArray(ds[first:first + count])
+            return xarray.DataArray(ds[first : first + count])
 
     def _get_pulse_data(self, source, key, tid):
         file, pos, ds = self._find_data(source, key, tid)
@@ -341,8 +352,9 @@ class MPxDetectorTrainIterator:
         firsts, counts = file.get_index(source, group)
         first, count = firsts[pos], counts[pos]
 
-        pulse_ids = (file.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)]
-                              [first:first + count])
+        pulse_ids = file.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)][
+            first : first + count
+        ]
         # Raw files have a spurious extra dimension
         if pulse_ids.ndim >= 2 and pulse_ids.shape[1] == 1:
             pulse_ids = pulse_ids[:, 0]
@@ -353,8 +365,9 @@ class MPxDetectorTrainIterator:
             positions = self._select_pulse_indices(count)
         pulse_ids = pulse_ids[positions]
         train_ids = np.array([tid] * len(pulse_ids), dtype=np.uint64)
-        train_pulse_ids = pd.MultiIndex.from_arrays([train_ids, pulse_ids],
-                                                    names=['train', 'pulse'])
+        train_pulse_ids = pd.MultiIndex.from_arrays(
+            [train_ids, pulse_ids], names=['train', 'pulse']
+        )
 
         if isinstance(positions, slice):
             data_positions = slice(
@@ -384,8 +397,7 @@ class MPxDetectorTrainIterator:
                 return slice(start_ix, stop_ix)
 
             # step != 1
-            desired = np.arange(val.start, val.stop, step=val.step,
-                                dtype=np.uint64)
+            desired = np.arange(val.start, val.stop, step=val.step, dtype=np.uint64)
 
         else:
             desired = val
@@ -457,6 +469,7 @@ class AGIPD1M(MPxDetectorBase):
       if the dataset includes more than one AGIPD detector.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
+
 
 class LPD1M(MPxDetectorBase):
     """An interface to AGIPD-1M data.

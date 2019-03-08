@@ -3,6 +3,7 @@ import pytest
 from karabo_data.reader import RunDirectory, by_id, by_index
 from karabo_data.components import LPD1M
 
+
 def test_get_array(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     det = LPD1M(run.select_trains(by_index[:3]))
@@ -11,6 +12,7 @@ def test_get_array(mock_fxe_run):
     arr = det.get_array('image.data')
     assert arr.shape == (16, 3, 128, 256, 256)
     assert arr.dims == ('module', 'train', 'pulse', 'slow_scan', 'fast_scan')
+
 
 def test_get_array_pulse_id(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
@@ -54,6 +56,7 @@ def test_get_array_pulse_indexes(mock_fxe_run):
     arr = det.get_array('image.data', pulses=by_index[[1, 7, 22, 23]])
     assert arr.shape == (16, 3, 4, 256, 256)
 
+
 def test_iterate(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
     det = LPD1M(run.select_trains(by_index[:2]))
@@ -67,6 +70,7 @@ def test_iterate(mock_fxe_run):
 
     with pytest.raises(StopIteration):
         next(it)
+
 
 def test_iterate_pulse_id(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)
@@ -83,6 +87,7 @@ def test_iterate_pulse_id(mock_fxe_run):
     tid, d = next(iter(det.trains(pulses=by_id[[1, 7, 22, 23]])))
     assert d['image.data'].shape == (16, 1, 4, 256, 256)
     assert list(d['image.data'].coords['pulse']) == [1, 7, 22, 23]
+
 
 def test_iterate_pulse_index(mock_fxe_run):
     run = RunDirectory(mock_fxe_run)

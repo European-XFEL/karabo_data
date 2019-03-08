@@ -4,6 +4,7 @@ from testpath import assert_isfile
 
 from karabo_data import RunDirectory, H5File
 
+
 def test_write_selected(mock_fxe_run):
     with TemporaryDirectory() as td:
         new_file = osp.join(td, 'test.h5')
