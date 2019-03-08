@@ -84,6 +84,14 @@ class GridGeometryFragment:
     image into a 2D array.
 
     These coordinates are all (y, x), suitable for indexing a numpy array.
+
+    ss_vec and fs_vec must be length 1 vectors in either positive or negative
+    x or y direction. In the output array, the fast scan dimension is always x.
+    So if the input data is oriented with fast-scan vertical, we need to
+    transpose it first.
+
+    Regardless of transposition, we may also need to flip the data on one or
+    both axes; the fs_order and ss_order variables handle this.
     """
     def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.ss_vec = ss_vec
@@ -92,7 +100,7 @@ class GridGeometryFragment:
         self.fs_pixels = fs_pixels
 
         if fs_vec[0] == 0:
-            # Flip without transposing
+            # Fast scan is x dimension: Flip without transposing
             fs_order = fs_vec[1]
             ss_order = ss_vec[0]
             self.transform = lambda arr: arr[..., ::ss_order, ::fs_order]
@@ -102,7 +110,7 @@ class GridGeometryFragment:
             ])
             self.pixel_dims = np.array([self.ss_pixels, self.fs_pixels])
         else:
-            # Transpose and then flip
+            # Fast scan is y : Transpose so fast scan -> x and then flip
             fs_order = fs_vec[0]
             ss_order = ss_vec[1]
             self.transform = lambda arr: arr.swapaxes(-1, -2)[..., ::fs_order, ::ss_order]
