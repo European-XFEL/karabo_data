@@ -390,7 +390,7 @@ class DataCollection:
 
         Parameters
         ----------
-        index: int
+        train_index: int
             Index of the train in the file.
         devices: dict or list, optional
             Filter data by sources and keys.
