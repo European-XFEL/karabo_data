@@ -22,6 +22,13 @@ import re
 import sys
 import xarray
 
+from .exceptions import SourceNameError, PropertyNameError
+from .read_machinery import (
+    DETECTOR_SOURCE_RE,
+    DataChunk, FilenameInfo, _SliceConstructable, _tid_to_slice_ix,
+    union_selections,
+)
+
 __all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
            'stack_data', 'stack_detector_data', 'by_id', 'by_index',
            'SourceNameError', 'PropertyNameError',
@@ -32,125 +39,12 @@ RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
 METADATA = 'METADATA'
 
-DETECTOR_NAMES = {'AGIPD', 'LPD'}
-DETECTOR_SOURCE_RE = re.compile(r'(.+)/DET/(\d+)CH')
-
-
-class FilenameInfo:
-    is_detector = False
-    detector_name = None
-    detector_moduleno = -1
-
-    _rawcorr_descr = {'RAW': 'Raw', 'CORR': 'Corrected'}
-
-    def __init__(self, path):
-        self.basename = osp.basename(path)
-        nameparts = self.basename[:-3].split('-')
-        assert len(nameparts) == 4, self.basename
-        rawcorr, runno, datasrc, segment = nameparts
-        m = re.match(r'([A-Z]+)(\d+)', datasrc)
-
-        if m and m.group(1) == 'DA':
-            self.description = "Aggregated data"
-        elif m and m.group(1) in DETECTOR_NAMES:
-            self.is_detector = True
-            name, moduleno = m.groups()
-            self.detector_name = name
-            self.detector_moduleno = moduleno
-            self.description = "{} detector data from {} module {}".format(
-                self._rawcorr_descr.get(rawcorr, '?'), name, moduleno
-            )
-        else:
-            self.description = "Unknown data source ({})", datasrc
-
-class _SliceConstructor(type):
-    """Allows instantiation like subclass[1:5]
-    """
-    def __getitem__(self, item):
-        return self(item)
-
-class _SliceConstructable(metaclass=_SliceConstructor):
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        indices = self.value
-        if not isinstance(indices, tuple):
-            indices = (indices,)
-
-        return "{}[{}]".format(type(self).__name__,
-            ', '.join(self._indexing_repr(v) for v in indices)
-        )
-
-    @staticmethod
-    def _indexing_repr(value):
-        """Represent values as used in canonical slicing syntax"""
-        if value is Ellipsis:
-            return '...'
-        elif isinstance(value, slice):
-            start = value.start if (value.start is not None) else ''
-            stop = value.stop if (value.stop is not None) else ''
-            step = ':{}'.format(value.step) if (value.step is not None) else ''
-            return '{}:{}{}'.format(start, stop, step)
-
-        return repr(value)
-
 class by_id(_SliceConstructable):
     pass
 
 class by_index(_SliceConstructable):
     pass
 
-def _tid_to_slice_ix(tid, train_ids, stop=False):
-    """Convert a train ID to an integer index for slicing the dataset
-
-    Throws ValueError if the slice won't overlap the trains in the data.
-    The *stop* parameter tells it which end of the slice it is making.
-    """
-    if tid is None:
-        return None
-
-    try:
-        return train_ids.index(tid)
-    except ValueError:
-        pass
-
-    if tid < train_ids[0]:
-        if stop:
-            raise ValueError("Train ID {} is before this run (starts at {})"
-                             .format(tid, train_ids[0]))
-        else:
-            return None
-    elif tid > train_ids[-1]:
-        if stop:
-            return None
-        else:
-            raise ValueError("Train ID {} is after this run (ends at {})"
-                             .format(tid, train_ids[-1]))
-    else:
-        # This train ID is within the run, but doesn't have an entry.
-        # Find the first ID in the run greater than the one given.
-        return (train_ids > tid).nonzero()[0][0]
-
-class SourceNameError(KeyError):
-    def __init__(self, source, run=True):
-        self.source = source
-        self.run = run
-
-    def __str__(self):
-        run_file = 'run' if self.run else 'file'
-        return "This {0} has no source named {1!r}.\n" \
-               "See {0}.all_sources for available sources.".format(
-            run_file, self.source
-        )
-
-class PropertyNameError(KeyError):
-    def __init__(self, prop, source):
-        self.prop = prop
-        self.source = source
-
-    def __str__(self):
-        return "No property {!r} for source {!r}".format(self.prop, self.source)
 
 class FileAccess:
     """Accesses a single Karabo HDF5 file
@@ -257,32 +151,6 @@ class FileAccess:
         self._keys_cache[source] = res
         return res
 
-
-class DataChunk:
-    """Reference to a contiguous chunk of data for one or more trains."""
-    def __init__(self, file: FileAccess, source, key, first, train_ids, counts):
-        self.file = file
-        self.source = source
-        self.key = key
-        self.first = first
-        self.train_ids = train_ids
-        self.counts = counts
-
-    @property
-    def slice(self):
-        return slice(self.first, self.first + np.sum(self.counts))
-
-    @property
-    def dataset(self):
-        if self.source in self.file.instrument_sources:
-            group = 'INSTRUMENT'
-        elif self.source in self.file.control_sources:
-            group = 'CONTROL'
-        else:
-            raise SourceNameError(self.source)
-
-        return self.file.file['/{}/{}/{}'.format(
-            group, self.source, self.key.replace('.', '/'))]
 
 
 class DataCollection:
@@ -1149,22 +1017,6 @@ def RunDirectory(path):
 RunHandler = RunDirectory
 
 
-def union_selections(selections):
-    """Merge together different selections
-
-    A selection is a dict of {source: set(keys)}, or {source: None}
-    to include all keys for a given source.
-    """
-    selection_multi = defaultdict(list)
-
-    for seln in selections:
-        for source, keys in seln.items():
-            selection_multi[source].append(keys)
-
-    # Merge selected keys; None -> all keys selected
-    return {source: None if (None in keygroups) else set().union(*keygroups)
-            for (source, keygroups) in selection_multi.items()}
-
 def stack_data(train, data, axis=-3, xcept=()):
     """Stack data from devices in a train.
 
@@ -1271,9 +1123,3 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
         combined[modno] = array
 
     return np.moveaxis(combined, 0, axis)
-
-
-if __name__ == '__main__':
-    r = RunDirectory('./data/r0185')
-    for tid, d in r.trains():
-        print(tid)

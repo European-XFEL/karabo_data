@@ -7,7 +7,8 @@ import os.path as osp
 import re
 import sys
 
-from .reader import H5File, RunDirectory, FilenameInfo
+from .read_machinery import FilenameInfo
+from .reader import H5File, RunDirectory
 
 def describe_file(path):
     """Describe a single HDF5 data file"""
