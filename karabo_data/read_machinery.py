@@ -12,11 +12,14 @@ from .exceptions import SourceNameError
 DETECTOR_NAMES = {'AGIPD', 'LPD'}
 DETECTOR_SOURCE_RE = re.compile(r'(.+)/DET/(\d+)CH')
 
+
 class _SliceConstructor(type):
     """Allows instantiation like subclass[1:5]
     """
+
     def __getitem__(self, item):
         return self(item)
+
 
 class _SliceConstructable(metaclass=_SliceConstructor):
     def __init__(self, value):
@@ -27,8 +30,8 @@ class _SliceConstructable(metaclass=_SliceConstructor):
         if not isinstance(indices, tuple):
             indices = (indices,)
 
-        return "{}[{}]".format(type(self).__name__,
-            ', '.join(self._indexing_repr(v) for v in indices)
+        return "{}[{}]".format(
+            type(self).__name__, ', '.join(self._indexing_repr(v) for v in indices)
         )
 
     @staticmethod
@@ -43,6 +46,7 @@ class _SliceConstructable(metaclass=_SliceConstructor):
             return '{}:{}{}'.format(start, stop, step)
 
         return repr(value)
+
 
 def _tid_to_slice_ix(tid, train_ids, stop=False):
     """Convert a train ID to an integer index for slicing the dataset
@@ -75,8 +79,10 @@ def _tid_to_slice_ix(tid, train_ids, stop=False):
         # Find the first ID in the run greater than the one given.
         return (train_ids > tid).nonzero()[0][0]
 
+
 class DataChunk:
     """Reference to a contiguous chunk of data for one or more trains."""
+
     def __init__(self, file, source, key, first, train_ids, counts):
         self.file = file
         self.source = source
@@ -98,8 +104,10 @@ class DataChunk:
         else:
             raise SourceNameError(self.source)
 
-        return self.file.file['/{}/{}/{}'.format(
-            group, self.source, self.key.replace('.', '/'))]
+        return self.file.file[
+            '/{}/{}/{}'.format(group, self.source, self.key.replace('.', '/'))
+        ]
+
 
 def union_selections(selections):
     """Merge together different selections
@@ -114,8 +122,11 @@ def union_selections(selections):
             selection_multi[source].append(keys)
 
     # Merge selected keys; None -> all keys selected
-    return {source: None if (None in keygroups) else set().union(*keygroups)
-            for (source, keygroups) in selection_multi.items()}
+    return {
+        source: None if (None in keygroups) else set().union(*keygroups)
+        for (source, keygroups) in selection_multi.items()
+    }
+
 
 class FilenameInfo:
     is_detector = False

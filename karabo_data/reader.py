@@ -25,22 +25,35 @@ import xarray
 from .exceptions import SourceNameError, PropertyNameError
 from .read_machinery import (
     DETECTOR_SOURCE_RE,
-    DataChunk, FilenameInfo, _SliceConstructable, _tid_to_slice_ix,
+    DataChunk,
+    FilenameInfo,
+    _SliceConstructable,
+    _tid_to_slice_ix,
     union_selections,
 )
 
-__all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
-           'stack_data', 'stack_detector_data', 'by_id', 'by_index',
-           'SourceNameError', 'PropertyNameError',
-          ]
+__all__ = [
+    'H5File',
+    'RunDirectory',
+    'FileAccess',
+    'DataCollection',
+    'stack_data',
+    'stack_detector_data',
+    'by_id',
+    'by_index',
+    'SourceNameError',
+    'PropertyNameError',
+]
 
 
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
 METADATA = 'METADATA'
 
+
 class by_id(_SliceConstructable):
     pass
+
 
 class by_index(_SliceConstructable):
     pass
@@ -152,7 +165,6 @@ class FileAccess:
         return res
 
 
-
 class DataCollection:
     """An assemblage of data generated at European XFEL
 
@@ -218,10 +230,12 @@ class DataCollection:
 
     def __enter__(self):
         if not self.ctx_closes:
-            raise Exception("Only DataCollection objects created by opening "
-                            "files directly can be used in a 'with' statement, "
-                            "not those created by selecting from or merging "
-                            "others.")
+            raise Exception(
+                "Only DataCollection objects created by opening "
+                "files directly can be used in a 'with' statement, "
+                "not those created by selecting from or merging "
+                "others."
+            )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -381,7 +395,7 @@ class DataCollection:
                 if count == 1:
                     source_data[key] = file.file[path][first]
                 else:
-                    source_data[key] = file.file[path][first:first + count]
+                    source_data[key] = file.file[path][first : first + count]
 
         return train_id, res
 
@@ -430,7 +444,7 @@ class DataCollection:
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
             for f in self._source_index[source]:
-                data = f.file[data_path][:len(f.train_ids), ...]
+                data = f.file[data_path][: len(f.train_ids), ...]
                 index = pd.Index(f.train_ids, name='trainId')
 
                 seq_series.append(pd.Series(data, name=name, index=index))
@@ -445,15 +459,15 @@ class DataCollection:
                 index = pd.Index(trainids, name='trainId')
                 data = f.file[data_path][:]
                 if not index.is_unique:
-                    pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'
-                        .format(source, group)]
-                    pulse_id = pulse_id[:len(index), 0]
-                    index = pd.MultiIndex.from_arrays([trainids, pulse_id],
-                                                      names=['trainId', 'pulseId'])
+                    pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)]
+                    pulse_id = pulse_id[: len(index), 0]
+                    index = pd.MultiIndex.from_arrays(
+                        [trainids, pulse_id], names=['trainId', 'pulseId']
+                    )
                     # Does pulse-oriented data always have an extra dimension?
                     assert data.shape[1] == 1
                     data = data[:, 0]
-                data = data[:len(index)]
+                data = data[: len(index)]
 
                 seq_series.append(pd.Series(data, name=name, index=index))
         else:
@@ -543,7 +557,8 @@ class DataCollection:
             dims = ['trainId'] + extra_dims
 
             seq_arrays.append(
-                xarray.DataArray(data, dims=dims, coords={'trainId': trainids}))
+                xarray.DataArray(data, dims=dims, coords={'trainId': trainids})
+            )
 
         non_empty = [a for a in seq_arrays if (a.size > 0)]
         if not non_empty:
@@ -555,9 +570,9 @@ class DataCollection:
                              "Please report an issue so we can investigate")
                             .format(source, key))
 
-        return xarray.concat(sorted(non_empty,
-                                    key=lambda a: a.coords['trainId'][0]),
-                             dim='trainId')
+        return xarray.concat(
+            sorted(non_empty, key=lambda a: a.coords['trainId'][0]), dim='trainId'
+        )
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
@@ -594,8 +609,10 @@ class DataCollection:
 
         elif isinstance(selection, list):
             # selection = [('src_glob', 'key_glob'), ...]
-            res = union_selections(self._select_glob(src_glob, key_glob)
-                                   for (src_glob, key_glob) in selection)
+            res = union_selections(
+                self._select_glob(src_glob, key_glob)
+                for (src_glob, key_glob) in selection
+            )
         else:
             TypeError("Unknown selection type: {}".format(type(selection)))
 
@@ -717,7 +734,7 @@ class DataCollection:
             # Slice by train IDs
             start_ix = _tid_to_slice_ix(tr.value.start, self.train_ids, stop=False)
             stop_ix = _tid_to_slice_ix(tr.value.stop, self.train_ids, stop=True)
-            new_train_ids = self.train_ids[start_ix:stop_ix:tr.value.step]
+            new_train_ids = self.train_ids[start_ix : stop_ix : tr.value.step]
         elif isinstance(tr, by_index) and isinstance(tr.value, slice):
             # Slice by indexes in this collection
             new_train_ids = self.train_ids[tr.value]
@@ -725,8 +742,10 @@ class DataCollection:
             # Select a list of trains by train ID
             new_train_ids = sorted(set(self.train_ids).intersection(tr.value))
             if not new_train_ids:
-                raise ValueError("Given train IDs not found among {} trains in "
-                                 "collection".format(len(self.train_ids)))
+                raise ValueError(
+                    "Given train IDs not found among {} trains in "
+                    "collection".format(len(self.train_ids))
+                )
         elif isinstance(tr, by_index) and isinstance(tr.value, (list, np.ndarray)):
             # Select a list of trains by index in this collection
             new_train_ids = sorted([self.train_ids[i] for i in tr.value])
@@ -771,9 +790,9 @@ class DataCollection:
             key_group = ''
 
         for file in self._source_index[source]:
-            trains_of_interest, train_ixs, _ = \
-                np.intersect1d(file.train_ids, self.train_ids,
-                               return_indices=True)
+            trains_of_interest, train_ixs, _ = np.intersect1d(
+                file.train_ids, self.train_ids, return_indices=True
+            )
             if trains_of_interest.size == 0:
                 continue
 
@@ -913,6 +932,7 @@ class DataCollection:
         from .writer import FileWriter
         FileWriter(filename, self).write()
 
+
 class TrainIterator:
     """Iterate over trains in a collection of data
 
@@ -971,7 +991,7 @@ class TrainIterator:
                 if count == 1:
                     source_data[key] = ds[first]
                 else:
-                    source_data[key] = ds[first:first + count]
+                    source_data[key] = ds[first : first + count]
 
         return res
 
@@ -981,6 +1001,7 @@ class TrainIterator:
             if self.require_all and self.data._check_data_missing(tid):
                 continue
             yield tid, self._assemble_data(tid)
+
 
 def H5File(path):
     """Open a single HDF5 file generated at European XFEL.
@@ -993,6 +1014,7 @@ def H5File(path):
         Path to the HDF5 file
     """
     return DataCollection.from_path(path)
+
 
 def RunDirectory(path):
     """Open data files from a 'run' at European XFEL.
@@ -1011,6 +1033,7 @@ def RunDirectory(path):
     if not files:
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
+
 
 # RunDirectory was previously RunHandler; we'll leave it accessible in case
 # any code was already using it.
@@ -1116,7 +1139,7 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
 
     dtype = dtypes.pop()
     shape = shapes.pop()
-    combined = np.full((modules, ) + shape, np.nan, dtype=dtype)
+    combined = np.full((modules,) + shape, np.nan, dtype=dtype)
     for modno, array in modno_arrays.items():
         if modno in skip:
             continue

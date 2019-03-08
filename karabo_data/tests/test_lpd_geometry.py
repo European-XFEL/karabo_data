@@ -7,24 +7,20 @@ from karabo_data.geometry2 import LPD_1MGeometry, invert_xfel_lpd_geom
 
 tests_dir = dirname(abspath(__file__))
 
+
 def test_inspect():
-    geom = LPD_1MGeometry.from_quad_positions([
-        (11.4, 299),
-        (-11.5, 8),
-        (254.5, -16),
-        (278.5, 275)
-    ])
+    geom = LPD_1MGeometry.from_quad_positions(
+        [(11.4, 299), (-11.5, 8), (254.5, -16), (278.5, 275)]
+    )
     # Smoketest
     ax = geom.inspect()
     assert isinstance(ax, Axes)
 
+
 def test_snap_assemble_data():
-    geom = LPD_1MGeometry.from_quad_positions([
-        (11.4, 299),
-        (-11.5, 8),
-        (254.5, -16),
-        (278.5, 275)
-    ])
+    geom = LPD_1MGeometry.from_quad_positions(
+        [(11.4, 299), (-11.5, 8), (254.5, -16), (278.5, 275)]
+    )
 
     stacked_data = np.zeros((16, 256, 256))
     img, centre = geom.position_modules_fast(stacked_data)
@@ -32,6 +28,7 @@ def test_snap_assemble_data():
     assert tuple(centre) == (604, 547)
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
+
 
 def test_invert_xfel_lpd_geom(tmpdir):
     src_file = pjoin(tests_dir, 'lpd_mar_18.h5')

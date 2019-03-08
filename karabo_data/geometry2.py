@@ -9,6 +9,7 @@ import warnings
 
 __all__ = ['AGIPD_1MGeometry', 'LPD_1MGeometry']
 
+
 def _crystfel_format_vec(vec):
     """Convert an array of 3 numbers to CrystFEL format like "+1.0x -0.1y"
     """
@@ -16,6 +17,7 @@ def _crystfel_format_vec(vec):
     if vec[2] != 0:
         s += ' {:+}z'.format(vec[2])
     return s
+
 
 class GeometryFragment:
     """Holds the 3D position & orientation of one detector tile
@@ -28,6 +30,7 @@ class GeometryFragment:
     The coordinates in this class are (x, y, z), in pixel units, so the
     magnitude of fs_vec and ss_vec should be 1.
     """
+
     def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
@@ -53,18 +56,25 @@ class GeometryFragment:
         ])
 
     def centre(self):
-        return self.corner_pos + (.5 * self.ss_vec * self.ss_pixels) \
-                               + (.5 * self.fs_vec * self.fs_pixels)
+        return (
+            self.corner_pos
+            + (0.5 * self.ss_vec * self.ss_pixels)
+            + (0.5 * self.fs_vec * self.fs_pixels)
+        )
 
     def to_crystfel_geom(self, p, a):
         name = 'p{}a{}'.format(p, a)
         c = self.corner_pos
         return CRYSTFEL_PANEL_TEMPLATE.format(
-            name=name, p=p,
-            min_ss=(a * self.ss_pixels), max_ss=(((a + 1) * self.ss_pixels) - 1),
+            name=name,
+            p=p,
+            min_ss=(a * self.ss_pixels),
+            max_ss=(((a + 1) * self.ss_pixels) - 1),
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
-            corner_x=c[0], corner_y=c[1], coffset=c[2],
+            corner_x=c[0],
+            corner_y=c[1],
+            coffset=c[2],
         )
 
     def snap(self):
@@ -78,8 +88,9 @@ class GeometryFragment:
         assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
 
         # Convert xy coordinates to yx indexes
-        return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1],
-                                    self.ss_pixels, self.fs_pixels)
+        return GridGeometryFragment(
+            corner_pos[::-1], ss_vec[::-1], fs_vec[::-1], self.ss_pixels, self.fs_pixels
+        )
 
 
 class GridGeometryFragment:
@@ -131,7 +142,7 @@ class GridGeometryFragment:
 class DetectorGeometryBase:
     """Base class for detector geometry. Subclassed for specific detectors."""
     # Define in subclasses:
-    pixel_size = 0.
+    pixel_size = 0.0
     frag_ss_pixels = 0
     frag_fs_pixels = 0
     expected_data_shape = ()
@@ -162,7 +173,7 @@ class DetectorGeometryBase:
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
                 rects.append(Polygon(corners))
 
-        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75), edgecolor=None)
+        pc = PatchCollection(rects, facecolor=(0.75, 1.0, 0.75), edgecolor=None)
         ax.add_collection(pc)
 
         # Draw cross in the centre.
@@ -242,8 +253,10 @@ class DetectorGeometryBase:
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        return self._snapped().plot_data(data, axis_units=axis_units,
-                                         frontview=frontview)
+        return self._snapped().plot_data(
+            data, axis_units=axis_units, frontview=frontview
+        )
+
 
 class AGIPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for AGIPD-1M
@@ -373,7 +386,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         ax.set_title('AGIPD-1M detector geometry ({})'.format(self.filename))
         return ax
 
-    def compare(self, other, scale=1.):
+    def compare(self, other, scale=1.0):
         """Show a comparison of this geometry with another in a 2D plot.
 
         This shows the current geometry like :meth:`inspect`, with the addition
@@ -420,19 +433,18 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 dx, dy = corner2 - corner1
                 if not (dx == dy == 0):
                     sx, sy = corner1
-                    arrows.append(
-                        FancyArrow(sx, sy, scale * dx, scale * dy, width=5,
-                                   head_length=4))
+                    arrows.append(FancyArrow(
+                        sx, sy, scale * dx, scale * dy, width=5, head_length=4
+                    ))
 
                 dx, dy = corner2_opp - corner1_opp
                 if not (dx == dy == 0):
                     sx, sy = corner1_opp
-                    arrows.append(
-                        FancyArrow(sx, sy, scale * dx, scale * dy,
-                                   width=5, head_length=5))
+                    arrows.append(FancyArrow(
+                        sx, sy, scale * dx, scale * dy, width=5, head_length=5
+                    ))
 
-        pc = PatchCollection(rects, facecolor=(0.75, 1., 0.75),
-                             edgecolor=None)
+        pc = PatchCollection(rects, facecolor=(0.75, 1.0, 0.75), edgecolor=None)
         ax.add_collection(pc)
         ac = PatchCollection(arrows)
         ax.add_collection(ac)
@@ -495,8 +507,14 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 transform = np.linalg.inv(rotn)
                 offset = np.dot(rotn, corner_pos_yx)  # this seems to work, but is it right?
 
-                affine_transform(tile_data, transform, offset=offset, cval=np.nan,
-                                 output_shape=size_yx, output=tmp[i * 8 + j])
+                affine_transform(
+                    tile_data,
+                    transform,
+                    offset=offset,
+                    cval=np.nan,
+                    output_shape=size_yx,
+                    output=tmp[i * 8 + j],
+                )
 
         # Silence warnings about nans - we expect gaps in the result
         with warnings.catch_warnings():
@@ -565,37 +583,37 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 # Calculate coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
                 pixel_corner1_x = (
-                    corner_x +
-                    pixel_ss_index * ss_unit_x +
-                    pixel_fs_index * fs_unit_x
+                    corner_x
+                    + pixel_ss_index * ss_unit_x
+                    + pixel_fs_index * fs_unit_x
                 )
                 pixel_corner1_y = (
-                    corner_y +
-                    pixel_ss_index * ss_unit_y +
-                    pixel_fs_index * fs_unit_y
+                    corner_y
+                    + pixel_ss_index * ss_unit_y
+                    + pixel_fs_index * fs_unit_y
                 )
                 pixel_corner1_z = (
-                    corner_z +
-                    pixel_ss_index * ss_unit_z +
-                    pixel_fs_index * fs_unit_z
+                    corner_z
+                    + pixel_ss_index * ss_unit_z +
+                    + pixel_fs_index * fs_unit_z
                 )
 
                 # Calculate corner coordinates for each pixel
                 # 3D arrays, shape: (64, 128, 4)
                 corners_x = (
-                    pixel_corner1_x[:, :, np.newaxis] +
-                    corner_ss_offsets * ss_unit_x +
-                    corner_fs_offsets * fs_unit_x
+                    pixel_corner1_x[:, :, np.newaxis]
+                    + corner_ss_offsets * ss_unit_x
+                    + corner_fs_offsets * fs_unit_x
                 )
                 corners_y = (
-                    pixel_corner1_y[:, :, np.newaxis] +
-                    corner_ss_offsets * ss_unit_y +
-                    corner_fs_offsets * fs_unit_y
+                    pixel_corner1_y[:, :, np.newaxis]
+                    + corner_ss_offsets * ss_unit_y
+                    + corner_fs_offsets * fs_unit_y
                 )
                 corners_z = (
-                    pixel_corner1_z[:, :, np.newaxis] +
-                    corner_ss_offsets * ss_unit_z +
-                    corner_fs_offsets * fs_unit_z
+                    pixel_corner1_z[:, :, np.newaxis]
+                    + corner_ss_offsets * ss_unit_z
+                    + corner_fs_offsets * fs_unit_z
                 )
 
                 # Which part of the array is this tile?
@@ -639,7 +657,7 @@ class SnappedGeometry:
                 # Offset by centre to make all coordinates positive
                 y, x = tile.corner_idx + centre
                 h, w = tile.pixel_dims
-                out[..., y:y+h, x:x+w] = tile.transform(tile_data)
+                out[..., y : y + h, x : x + w] = tile.transform(tile_data)
 
         return out, centre
 
@@ -677,7 +695,7 @@ class SnappedGeometry:
         ax = fig.add_subplot(1, 1, 1)
         my_viridis = copy(viridis)
         # Use a dark grey for missing data
-        my_viridis.set_bad('0.25', 1.)
+        my_viridis.set_bad('0.25', 1.0)
 
         res, centre = self.position_modules(modules_data)
         min_y, min_x = -centre
@@ -743,7 +761,6 @@ rigid_group_collection_asics = p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14
 """
 
 
-
 CRYSTFEL_PANEL_TEMPLATE = """
 {name}/dim1 = {p}
 {name}/dim2 = ss
@@ -758,6 +775,7 @@ CRYSTFEL_PANEL_TEMPLATE = """
 {name}/corner_y = {corner_y}
 {name}/coffset = {coffset}
 """
+
 
 class LPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for LPD-1M
@@ -843,7 +861,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
                     across = 0
 
                 tile_last_corner = (
-                    np.array([panel_corner_x, panel_corner_y, 0.])
+                    np.array([panel_corner_x, panel_corner_y, 0.0])
                     + np.array([across, 0, 0]) * (cls.frag_fs_pixels + asic_gap_px)
                     + np.array([0, up, 0]) * (cls.frag_ss_pixels + asic_gap_px)
                 )
@@ -900,7 +918,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
                     corner_pos[:2] = quad_pos + mod_offset + tile_offset
 
                     # Convert units (mm) to pixels
-                    corner_pos *= (unit / cls.pixel_size)
+                    corner_pos *= unit / cls.pixel_size
 
                     # LPD geometry is measured to the last pixel of each tile.
                     # Subtract tile dimensions for the position of 1st pixel.
@@ -919,7 +937,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
                 modules.append(tiles)
 
         return cls(modules, filename=path)
-
 
     def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
@@ -986,10 +1003,7 @@ def invert_xfel_lpd_geom(path_in, path_out):
 
 
 if __name__ == '__main__':
-    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
     geom.write_crystfel_geom('sample.geom')

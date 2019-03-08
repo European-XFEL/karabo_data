@@ -14,6 +14,7 @@ tests_dir = dirname(abspath(__file__))
 # in the standard axis directions.
 quadpos = [(-11.4, -299), (11.5, -8), (-254.5, 16), (-278.5, -275)]
 
+
 def test_inspect():
     with h5py.File(pjoin(tests_dir, 'lpd_mar_18.h5')) as f:
         geom = LPDGeometry.from_h5_file_and_quad_positions(f, quadpos)
@@ -21,6 +22,7 @@ def test_inspect():
     # Smoketest
     fig = geom.inspect()
     assert isinstance(fig, Figure)
+
 
 def test_position_all_modules():
     with h5py.File(pjoin(tests_dir, 'lpd_mar_18.h5')) as f:

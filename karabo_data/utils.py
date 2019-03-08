@@ -13,8 +13,7 @@ import h5py
 import numpy as np
 
 
-__all__ = ['hdf5_paths', 'hdf5_to_cbf', 'numpy_to_cbf',
-           'QuickView']
+__all__ = ['hdf5_paths', 'hdf5_to_cbf', 'numpy_to_cbf', 'QuickView']
 
 
 class QuickView:
@@ -47,6 +46,7 @@ class QuickView:
             quick_v.display(int)
 
     """
+
     _image = None
     _data = None
     _current_index = 0
@@ -66,8 +66,7 @@ class QuickView:
                 self._current_index = pos
                 self.show()
             else:
-                err = ("value should be 0 < value < "
-                       "{}".format(self._data.shape[0]))
+                err = "value should be 0 < value < " "{}".format(self._data.shape[0])
                 raise ValueError(err)
 
     @property
@@ -95,6 +94,7 @@ class QuickView:
 
     def display(self, index=None):
         import matplotlib.pyplot as plot
+
         if index is None:
             index = self._current_index
 
@@ -140,7 +140,4 @@ def hdf5_to_cbf(in_h5file, cbf_filename, index, header=None):
     images = tmpf[image_path + b"/data"]
     cbf_out = numpy_to_cbf(images, index=index)
     cbf_out.write(cbf_filename)
-    print("Convert {} index {} to {}".format(in_h5file,
-                                             index,
-                                             cbf_filename))
-
+    print("Convert {} index {} to {}".format(in_h5file, index, cbf_filename))

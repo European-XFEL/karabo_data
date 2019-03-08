@@ -1,5 +1,6 @@
 from karabo_data import by_id, by_index
 
+
 def test_slicing_reprs():
     ns = {'by_id': by_id, 'by_index': by_index}
 
