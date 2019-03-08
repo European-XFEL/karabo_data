@@ -16,8 +16,16 @@ def _crystfel_format_vec(vec):
     return s
 
 class GeometryFragment:
+    """Holds the 3D position & orientation of one detector tile
 
-    # The coordinates in this class are (x, y, z), in pixel units
+    corner_pos refers to the corner of the detector tile where the first pixel
+    stored is located. The tile is assumed to be a rectangle of ss_pixels in
+    the slow scan dimension and fs_pixels in the fast scan dimension.
+    ss_vec and fs_vec are vectors for a step of one pixel in each dimension.
+
+    The coordinates in this class are (x, y, z), in pixel units, so the
+    magnitude of fs_vec and ss_vec should be 1.
+    """
     def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.corner_pos = corner_pos
         self.ss_vec = ss_vec
@@ -68,7 +76,13 @@ class GeometryFragment:
 
 
 class GridGeometryFragment:
-    # These coordinates are all (y, x), suitable for indexing a numpy array.
+    """Holds the 2D axis-aligned position and orientation of one detector tile.
+
+    This is used in 'snapped' geometry which efficiently assembles a detector
+    image into a 2D array.
+
+    These coordinates are all (y, x), suitable for indexing a numpy array.
+    """
     def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
         self.ss_vec = ss_vec
         self.fs_vec = fs_vec
