@@ -57,8 +57,8 @@ but this geometry code works with a position for each tile.
 LPD-1M
 ------
 
-LPD-1M consists of 16 modules of 256×256 pixels each.
-Each module is further subdivided into 16 tiles,
+LPD-1M consists of 16 supermodules of 256×256 pixels each.
+Each supermodule is further subdivided into 16 sensor tiles,
 which this geometry code can position independently.
 
 .. figure:: _static/lpd_layout.png
