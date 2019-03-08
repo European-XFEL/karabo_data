@@ -68,10 +68,15 @@ class GeometryFragment:
         )
 
     def snap(self):
+        # Round positions and vectors to integers, drop z dimension
         corner_pos = np.around(self.corner_pos[:2]).astype(np.int32)
         ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
         fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
+
+        # We should have one vector in the x direction and one in y, but
+        # we don't know which is which.
         assert {tuple(np.abs(ss_vec)), tuple(np.abs(fs_vec))} == {(0, 1), (1, 0)}
+
         # Convert xy coordinates to yx indexes
         return GridGeometryFragment(corner_pos[::-1], ss_vec[::-1], fs_vec[::-1],
                                     self.ss_pixels, self.fs_pixels)
