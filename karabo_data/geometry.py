@@ -1,9 +1,12 @@
+"""DEPRECATED: LPD geometry. Use karabo_data.geometry2 instead.
+"""
 from copy import copy
 import h5py
 from itertools import product
 import numpy as np
 import sys
 from textwrap import indent
+
 
 def splitChannelDataIntoTiles(channelData, clockwiseOrder=False):
     """Splits the raw channel data into indiviual tiles
@@ -71,11 +74,13 @@ class GeometryFragment:
 
     @classmethod
     def from_h5_group(cls, group, unit=1e-3):
-        children = {key: GeometryFragment.from_h5_group(val)
-                    for (key, val) in group.items()
-                    if isinstance(val, h5py.Group)
-                   }
+        children = {
+            key: GeometryFragment.from_h5_group(val)
+            for (key, val) in group.items()
+            if isinstance(val, h5py.Group)
+        }
         return cls(group['Position'][:] * unit, children)
+
 
 class LPDGeometry(GeometryFragment):
     pixel_size = 0.5e-3  # Meter: 0.5 Millimeter
@@ -85,8 +90,10 @@ class LPDGeometry(GeometryFragment):
         children = {}
         for n, position in enumerate(positions, start=1):
             quad = 'Q%d' % n
-            modules = {name: GeometryFragment.from_h5_group(group, unit=unit)
-                       for (name, group) in file[quad].items()}
+            modules = {
+                name: GeometryFragment.from_h5_group(group, unit=unit)
+                for (name, group) in file[quad].items()
+            }
             children[quad] = GeometryFragment(np.asarray(position) * unit, modules)
 
         return cls(np.asarray((0, 0)), children)
@@ -113,8 +120,7 @@ class LPDGeometry(GeometryFragment):
         assert data.shape[-3:] == (16, 256, 256)
         size_xy, centre = self._plotting_dimensions()
         size_yx = size_xy[::-1]
-        out = np.empty(data.shape[:-3] + size_yx,
-                       dtype=data.dtype)
+        out = np.empty(data.shape[:-3] + size_yx, dtype=data.dtype)
         out[:] = np.nan
 
         for channelno in range(16):
@@ -122,7 +128,9 @@ class LPDGeometry(GeometryFragment):
 
             Q = 'Q{:d}'.format(channelno // 4 + 1)
             M = 'M{:d}'.format(channelno % 4 + 1)
-            module_tiles_data = splitChannelDataIntoTiles(module_data, clockwiseOrder=True)
+            module_tiles_data = splitChannelDataIntoTiles(
+                module_data, clockwiseOrder=True
+            )
             for tileno, tile_data in enumerate(module_tiles_data, start=1):
                 T = "T{:02d}".format(tileno)
                 position = self.find_offset((Q, M, T))
@@ -180,7 +188,7 @@ class LPDGeometry(GeometryFragment):
         ax = fig.add_subplot(1, 1, 1)
         my_viridis = copy(viridis)
         # Use a dark grey for missing data
-        my_viridis.set_bad('0.25', 1.)
+        my_viridis.set_bad('0.25', 1.0)
 
         res, centre = self.position_all_modules(modules_data)
         ax.imshow(res, cmap=my_viridis)
@@ -222,7 +230,7 @@ class LPDGeometry(GeometryFragment):
                 xt, yt = (position // self.pixel_size) + centre
                 xt, yt = int(xt), int(yt)
                 # Draw a light green block for each tile
-                bg[yt:yt + 32, xt:xt + 128] = (0.75, 1.0, 0.75)
+                bg[yt : yt + 32, xt : xt + 128] = (0.75, 1.0, 0.75)
                 # Label specific tiles to show the ordering
                 if T in [1, 8, 9]:
                     ax.text(xt, yt, str(T), va='top', ha='left')

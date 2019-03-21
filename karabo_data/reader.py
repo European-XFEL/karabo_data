@@ -22,112 +22,42 @@ import re
 import sys
 import xarray
 
+from .exceptions import SourceNameError, PropertyNameError
+from .read_machinery import (
+    DETECTOR_SOURCE_RE,
+    DataChunk,
+    FilenameInfo,
+    _SliceConstructable,
+    _tid_to_slice_ix,
+    union_selections,
+)
 
-__all__ = ['H5File', 'RunDirectory', 'FileAccess', 'DataCollection',
-           'stack_data', 'stack_detector_data', 'by_id', 'by_index',
-           'SourceNameError', 'PropertyNameError',
-          ]
+__all__ = [
+    'H5File',
+    'RunDirectory',
+    'FileAccess',
+    'DataCollection',
+    'stack_data',
+    'stack_detector_data',
+    'by_id',
+    'by_index',
+    'SourceNameError',
+    'PropertyNameError',
+]
 
 
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
 METADATA = 'METADATA'
 
-DETECTOR_NAMES = {'AGIPD', 'LPD'}
-DETECTOR_SOURCE_RE = re.compile(r'(.+)/DET/(\d+)CH')
+
+class by_id(_SliceConstructable):
+    pass
 
 
-class FilenameInfo:
-    is_detector = False
-    detector_name = None
-    detector_moduleno = -1
+class by_index(_SliceConstructable):
+    pass
 
-    _rawcorr_descr = {'RAW': 'Raw', 'CORR': 'Corrected'}
-
-    def __init__(self, path):
-        self.basename = osp.basename(path)
-        nameparts = self.basename[:-3].split('-')
-        assert len(nameparts) == 4, self.basename
-        rawcorr, runno, datasrc, segment = nameparts
-        m = re.match(r'([A-Z]+)(\d+)', datasrc)
-
-        if m and m.group(1) == 'DA':
-            self.description = "Aggregated data"
-        elif m and m.group(1) in DETECTOR_NAMES:
-            self.is_detector = True
-            name, moduleno = m.groups()
-            self.detector_name = name
-            self.detector_moduleno = moduleno
-            self.description = "{} detector data from {} module {}".format(
-                self._rawcorr_descr.get(rawcorr, '?'), name, moduleno
-            )
-        else:
-            self.description = "Unknown data source ({})", datasrc
-
-class _SliceConstructor(type):
-    """Allows instantiation like subclass[1:5]
-    """
-    def __getitem__(self, item):
-        return self(item)
-
-class by_id(metaclass=_SliceConstructor):
-    def __init__(self, value):
-        self.value = value
-
-class by_index(metaclass=_SliceConstructor):
-    def __init__(self, value):
-        self.value = value
-
-def _tid_to_slice_ix(tid, train_ids, stop=False):
-    """Convert a train ID to an integer index for slicing the dataset
-
-    Throws ValueError if the slice won't overlap the trains in the data.
-    The *stop* parameter tells it which end of the slice it is making.
-    """
-    if tid is None:
-        return None
-
-    try:
-        return train_ids.index(tid)
-    except ValueError:
-        pass
-
-    if tid < train_ids[0]:
-        if stop:
-            raise ValueError("Train ID {} is before this run (starts at {})"
-                             .format(tid, train_ids[0]))
-        else:
-            return None
-    elif tid > train_ids[-1]:
-        if stop:
-            return None
-        else:
-            raise ValueError("Train ID {} is after this run (ends at {})"
-                             .format(tid, train_ids[-1]))
-    else:
-        # This train ID is within the run, but doesn't have an entry.
-        # Find the first ID in the run greater than the one given.
-        return (train_ids > tid).nonzero()[0][0]
-
-class SourceNameError(KeyError):
-    def __init__(self, source, run=True):
-        self.source = source
-        self.run = run
-
-    def __str__(self):
-        run_file = 'run' if self.run else 'file'
-        return "This {0} has no source named {1!r}.\n" \
-               "See {0}.all_sources for available sources.".format(
-            run_file, self.source
-        )
-
-class PropertyNameError(KeyError):
-    def __init__(self, prop, source):
-        self.prop = prop
-        self.source = source
-
-    def __str__(self):
-        return "No property {!r} for source {!r}".format(self.prop, self.source)
 
 class FileAccess:
     """Accesses a single Karabo HDF5 file
@@ -176,6 +106,9 @@ class FileAccess:
 
     def __eq__(self, other):
         return isinstance(other, FileAccess) and (other.filename == self.filename)
+
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__, repr(self.file))
 
     def get_index(self, source, group):
         """Get first index & count for a source and for a specific train ID.
@@ -230,6 +163,7 @@ class FileAccess:
         self.file[group].visititems(add_key)
         self._keys_cache[source] = res
         return res
+
 
 class DataCollection:
     """An assemblage of data generated at European XFEL
@@ -296,10 +230,12 @@ class DataCollection:
 
     def __enter__(self):
         if not self.ctx_closes:
-            raise Exception("Only DataCollection objects created by opening "
-                            "files directly can be used in a 'with' statement, "
-                            "not those created by selecting from or merging "
-                            "others.")
+            raise Exception(
+                "Only DataCollection objects created by opening "
+                "files directly can be used in a 'with' statement, "
+                "not those created by selecting from or merging "
+                "others."
+            )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -319,10 +255,10 @@ class DataCollection:
     def _check_field(self, source, key):
         if source not in self.all_sources:
             raise SourceNameError(source)
-        if key not in self._keys_for_source(source):
+        if key not in self.keys_for_source(source):
             raise PropertyNameError(key, source)
 
-    def _keys_for_source(self, source):
+    def keys_for_source(self, source):
         selected_keys = self.selection[source]
         if selected_keys is not None:
             return selected_keys
@@ -331,6 +267,9 @@ class DataCollection:
         # the same keys in all files that it appears in.
         for f in self._source_index[source]:
             return f.get_keys(source)
+
+    # Leave old name in case anything external was using it:
+    _keys_for_source = keys_for_source
 
     def _check_data_missing(self, tid) -> bool:
         """Return True if a train does not have data for all sources"""
@@ -344,7 +283,7 @@ class DataCollection:
             if file is None:
                 return True
 
-            groups = {k.partition('.')[0] for k in self._keys_for_source(source)}
+            groups = {k.partition('.')[0] for k in self.keys_for_source(source)}
             for group in groups:
                 _, counts = file.get_index(source, group)
                 if counts[pos] == 0:
@@ -433,7 +372,7 @@ class DataCollection:
             if file is None:
                 continue
 
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 path = '/CONTROL/{}/{}'.format(source, key.replace('.', '/'))
                 source_data[key] = file.file[path][pos]
 
@@ -445,7 +384,7 @@ class DataCollection:
             if file is None:
                 continue
 
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 group = key.partition('.')[0]
                 firsts, counts = file.get_index(source, group)
                 first, count = firsts[pos], counts[pos]
@@ -456,7 +395,7 @@ class DataCollection:
                 if count == 1:
                     source_data[key] = file.file[path][first]
                 else:
-                    source_data[key] = file.file[path][first:first + count]
+                    source_data[key] = file.file[path][first : first + count]
 
         return train_id, res
 
@@ -465,7 +404,7 @@ class DataCollection:
 
         Parameters
         ----------
-        index: int
+        train_index: int
             Index of the train in the file.
         devices: dict or list, optional
             Filter data by sources and keys.
@@ -505,7 +444,7 @@ class DataCollection:
         if source in self.control_sources:
             data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
             for f in self._source_index[source]:
-                data = f.file[data_path][:len(f.train_ids), ...]
+                data = f.file[data_path][: len(f.train_ids), ...]
                 index = pd.Index(f.train_ids, name='trainId')
 
                 seq_series.append(pd.Series(data, name=name, index=index))
@@ -520,15 +459,15 @@ class DataCollection:
                 index = pd.Index(trainids, name='trainId')
                 data = f.file[data_path][:]
                 if not index.is_unique:
-                    pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'
-                        .format(source, group)]
-                    pulse_id = pulse_id[:len(index), 0]
-                    index = pd.MultiIndex.from_arrays([trainids, pulse_id],
-                                                      names=['trainId', 'pulseId'])
+                    pulse_id = f.file['/INSTRUMENT/{}/{}/pulseId'.format(source, group)]
+                    pulse_id = pulse_id[: len(index), 0]
+                    index = pd.MultiIndex.from_arrays(
+                        [trainids, pulse_id], names=['trainId', 'pulseId']
+                    )
                     # Does pulse-oriented data always have an extra dimension?
                     assert data.shape[1] == 1
                     data = data[:, 0]
-                data = data[:len(index)]
+                data = data[: len(index)]
 
                 seq_series.append(pd.Series(data, name=name, index=index))
         else:
@@ -563,7 +502,7 @@ class DataCollection:
 
         series = []
         for source in self.all_sources:
-            for key in self._keys_for_source(source):
+            for key in self.keys_for_source(source):
                 if (not timestamps) and key.endswith('.timestamp'):
                     continue
                 series.append(self.get_series(source, key))
@@ -574,7 +513,6 @@ class DataCollection:
         """Return a labelled array for a particular data field.
 
         The first axis of the returned data will be the train IDs.
-        Datasets which are per-pulse in the first dimension are not supported.
 
         Parameters
         ----------
@@ -607,39 +545,19 @@ class DataCollection:
 
         seq_arrays = []
 
-        if source in self.control_sources:
-            data_path = "/CONTROL/{}/{}".format(source, key.replace('.', '/'))
-            for f in self._source_index[source]:
-                slices = (slice(None, len(f.train_ids)),) + roi
-                data = f.file[data_path][slices]
-                if extra_dims is None:
-                    extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-                dims = ['trainId'] + extra_dims
+        for chunk in self._find_data_chunks(source, key):
+            trainids = self._expand_trainids(chunk.counts, chunk.train_ids)
 
-                seq_arrays.append(xarray.DataArray(data, dims=dims,
-                                                   coords={'trainId': f.train_ids}))
+            slices = (chunk.slice,) + roi
+            data = chunk.dataset[slices]
 
-        elif source in self.instrument_sources:
-            data_path = "/INSTRUMENT/{}/{}".format(source, key.replace('.', '/'))
-            for f in self._source_index[source]:
-                group = key.partition('.')[0]
-                firsts, counts = f.get_index(source, group)
-                if (counts > 1).any():
-                    raise ValueError("{}/{} data has more than one data point per train"
-                                     .format(source, group))
-                trainids = self._expand_trainids(counts, f.train_ids)
+            if extra_dims is None:
+                extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
+            dims = ['trainId'] + extra_dims
 
-                slices = (slice(None, len(trainids)),) + roi
-                data = f.file[data_path][slices]
-
-                if extra_dims is None:
-                    extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-                dims = ['trainId'] + extra_dims
-
-                seq_arrays.append(
-                    xarray.DataArray(data, dims=dims, coords={'trainId': trainids}))
-        else:
-            raise SourceNameError(source)
+            seq_arrays.append(
+                xarray.DataArray(data, dims=dims, coords={'trainId': trainids})
+            )
 
         non_empty = [a for a in seq_arrays if (a.size > 0)]
         if not non_empty:
@@ -651,11 +569,9 @@ class DataCollection:
                              "Please report an issue so we can investigate")
                             .format(source, key))
 
-        arr = xarray.concat(sorted(non_empty,
-                                   key=lambda a: a.coords['trainId'][0]),
-                            dim='trainId')
-        train_ids = np.intersect1d(arr.coords['trainId'], self.train_ids)
-        return arr.sel(trainId=train_ids)
+        return xarray.concat(
+            sorted(non_empty, key=lambda a: a.coords['trainId'][0]), dim='trainId'
+        )
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
@@ -692,8 +608,10 @@ class DataCollection:
 
         elif isinstance(selection, list):
             # selection = [('src_glob', 'key_glob'), ...]
-            res = union_selections(self._select_glob(src_glob, key_glob)
-                                   for (src_glob, key_glob) in selection)
+            res = union_selections(
+                self._select_glob(src_glob, key_glob)
+                for (src_glob, key_glob) in selection
+            )
         else:
             TypeError("Unknown selection type: {}".format(type(selection)))
 
@@ -707,7 +625,7 @@ class DataCollection:
         else:
             # The translated pattern ends with "\Z" - insert before this
             p = key_re.pattern
-            end_ix = p.rindex('\Z')
+            end_ix = p.rindex(r'\Z')
             ctrl_key_re = re.compile(p[:end_ix] + r'(\.value)?' + p[end_ix:])
 
         matched = {}
@@ -719,7 +637,7 @@ class DataCollection:
                 matched[source] = None
             else:
                 r = ctrl_key_re if source in self.control_sources else key_re
-                keys = set(filter(r.match, self._keys_for_source(source)))
+                keys = set(filter(r.match, self.keys_for_source(source)))
                 if keys:
                     matched[source] = keys
 
@@ -780,7 +698,7 @@ class DataCollection:
                 continue  # Drop the entire source
 
             if keys is None:
-                keys = self._keys_for_source(source)
+                keys = self.keys_for_source(source)
 
             selection[source] = keys - desel_keys
 
@@ -815,7 +733,7 @@ class DataCollection:
             # Slice by train IDs
             start_ix = _tid_to_slice_ix(tr.value.start, self.train_ids, stop=False)
             stop_ix = _tid_to_slice_ix(tr.value.stop, self.train_ids, stop=True)
-            new_train_ids = self.train_ids[start_ix:stop_ix:tr.value.step]
+            new_train_ids = self.train_ids[start_ix : stop_ix : tr.value.step]
         elif isinstance(tr, by_index) and isinstance(tr.value, slice):
             # Slice by indexes in this collection
             new_train_ids = self.train_ids[tr.value]
@@ -823,8 +741,10 @@ class DataCollection:
             # Select a list of trains by train ID
             new_train_ids = sorted(set(self.train_ids).intersection(tr.value))
             if not new_train_ids:
-                raise ValueError("Given train IDs not found among {} trains in "
-                                 "collection".format(len(self.train_ids)))
+                raise ValueError(
+                    "Given train IDs not found among {} trains in "
+                    "collection".format(len(self.train_ids))
+                )
         elif isinstance(tr, by_index) and isinstance(tr.value, (list, np.ndarray)):
             # Select a list of trains by index in this collection
             new_train_ids = sorted([self.train_ids[i] for i in tr.value])
@@ -857,6 +777,38 @@ class DataCollection:
     def _expand_trainids(self, counts, trainIds):
         n = min(len(counts), len(trainIds))
         return np.repeat(trainIds[:n], counts.astype(np.intp)[:n])
+
+    def _find_data_chunks(self, source, key):
+        """Find contiguous chunks of data for the given source & key
+
+        Yields DataChunk objects.
+        """
+        if source in self.instrument_sources:
+            key_group = key.partition('.')[0]
+        else:
+            key_group = ''
+
+        for file in self._source_index[source]:
+            trains_of_interest, train_ixs, _ = np.intersect1d(
+                file.train_ids, self.train_ids, return_indices=True
+            )
+            if trains_of_interest.size == 0:
+                continue
+
+            firsts, counts = file.get_index(source, key_group)
+            firsts = firsts[train_ixs]
+            counts = counts[train_ixs]
+
+            stops = firsts + counts
+            discontig = firsts[1:] != stops[:-1]
+            breaks = [0] + list(discontig.nonzero()[0] + 1) + [len(firsts)]
+
+            for _from, _to in zip(breaks[:-1], breaks[1:]):
+                yield DataChunk(file, source, key,
+                                first=firsts[_from],
+                                train_ids=trains_of_interest[_from:_to],
+                                counts=counts[_from:_to],
+                                )
 
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:
@@ -979,6 +931,7 @@ class DataCollection:
         from .writer import FileWriter
         FileWriter(filename, self).write()
 
+
 class TrainIterator:
     """Iterate over trains in a collection of data
 
@@ -1017,7 +970,7 @@ class TrainIterator:
             source_data = res[source] = {
                 'metadata': {'source': source, 'timestamp.tid': tid}
             }
-            for key in self.data._keys_for_source(source):
+            for key in self.data.keys_for_source(source):
                 _, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
                     continue
@@ -1027,7 +980,7 @@ class TrainIterator:
             source_data = res[source] = {
                 'metadata': {'source': source, 'timestamp.tid': tid}
             }
-            for key in self.data._keys_for_source(source):
+            for key in self.data.keys_for_source(source):
                 file, pos, ds = self._find_data(source, key, tid)
                 if ds is None:
                     continue
@@ -1037,7 +990,7 @@ class TrainIterator:
                 if count == 1:
                     source_data[key] = ds[first]
                 else:
-                    source_data[key] = ds[first:first + count]
+                    source_data[key] = ds[first : first + count]
 
         return res
 
@@ -1047,6 +1000,7 @@ class TrainIterator:
             if self.require_all and self.data._check_data_missing(tid):
                 continue
             yield tid, self._assemble_data(tid)
+
 
 def H5File(path):
     """Open a single HDF5 file generated at European XFEL.
@@ -1059,6 +1013,7 @@ def H5File(path):
         Path to the HDF5 file
     """
     return DataCollection.from_path(path)
+
 
 def RunDirectory(path):
     """Open data files from a 'run' at European XFEL.
@@ -1078,26 +1033,11 @@ def RunDirectory(path):
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
 
+
 # RunDirectory was previously RunHandler; we'll leave it accessible in case
 # any code was already using it.
 RunHandler = RunDirectory
 
-
-def union_selections(selections):
-    """Merge together different selections
-
-    A selection is a dict of {source: set(keys)}, or {source: None}
-    to include all keys for a given source.
-    """
-    selection_multi = defaultdict(list)
-
-    for seln in selections:
-        for source, keys in seln.items():
-            selection_multi[source].append(keys)
-
-    # Merge selected keys; None -> all keys selected
-    return {source: None if (None in keygroups) else set().union(*keygroups)
-            for (source, keygroups) in selection_multi.items()}
 
 def stack_data(train, data, axis=-3, xcept=()):
     """Stack data from devices in a train.
@@ -1178,7 +1118,11 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     dtypes, shapes, skip = set(), set(), set()
     modno_arrays = {}
     for device in devices:
-        modno = int(re.search(r'/DET/(\d+)CH', device).group(1))
+        det_mod_match = re.search(r'/DET/(\d+)CH', device)
+        if not det_mod_match:
+            raise ValueError("Non-detector source: {}".format(device))
+        modno = int(det_mod_match.group(1))
+
         array = train[device][data]
         dtypes.add(array.dtype)
         shapes.add(array.shape)
@@ -1198,16 +1142,10 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
 
     dtype = dtypes.pop()
     shape = shapes.pop()
-    combined = np.full((modules, ) + shape, np.nan, dtype=dtype)
+    combined = np.full((modules,) + shape, np.nan, dtype=dtype)
     for modno, array in modno_arrays.items():
         if modno in skip:
             continue
         combined[modno] = array
 
     return np.moveaxis(combined, 0, axis)
-
-
-if __name__ == '__main__':
-    r = RunDirectory('./data/r0185')
-    for tid, d in r.trains():
-        print(tid)

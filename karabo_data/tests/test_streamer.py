@@ -12,15 +12,19 @@ from karabo_bridge import Client
 
 from karabo_data import ZMQStreamer
 
-DATA = {'source1': {'parameter.1.value': 123,
-                    'list.of.int': [1, 2, 3],
-                    'string.param': 'True',
-                    'boolean': False,
-                    'metadata': {'timestamp.tid': 9876543210}},
-        'XMPL/DET/MOD0': {'image.data': np.random.randint(255, size=(2, 3, 4), 
-                                                          dtype=np.uint8),
-                          'something.else': ['a', 'bc', 'd']}
-        }
+DATA = {
+    'source1': {
+        'parameter.1.value': 123,
+        'list.of.int': [1, 2, 3],
+        'string.param': 'True',
+        'boolean': False,
+        'metadata': {'timestamp.tid': 9876543210},
+    },
+    'XMPL/DET/MOD0': {
+        'image.data': np.random.randint(255, size=(2, 3, 4), dtype=np.uint8),
+        'something.else': ['a', 'bc', 'd'],
+    },
+}
 
 
 def compare_nested_dict(d1, d2, path=''):
@@ -68,22 +72,24 @@ def client():
     client = Client('tcp://localhost:5555')
     yield client
 
+
 class DummyFrame:
     """Client._deserialize() now expects the message in ZMQ Frame objects.
 
     TODO: avoid using a private method from karabo_data for tests.
     """
+
     def __init__(self, data):
         self.bytes = data
         self.buffer = data
 
+
 def test_serialize_1(server_1, client):
     msg = server_1._serialize(DATA)
-    
+
     assert isinstance(msg, list)
     assert len(msg) == 1
-    assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True,
-                                    default=numpack.encode)
+    assert msg[-1] == msgpack.dumps(DATA, use_bin_type=True, default=numpack.encode)
 
     msg_framed = [DummyFrame(b) for b in msg]
     data, meta = client._deserialize(msg_framed)

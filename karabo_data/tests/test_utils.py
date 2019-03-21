@@ -18,11 +18,12 @@ def test_cbf_conversion(mock_agipd_data, capsys):
     captured = capsys.readouterr()
     assert re.match("Convert .* to .*/out.cbf", captured.out)
 
+
 def test_init_quick_view():
     qv = QuickView()
 
     assert qv.data is None
-    qv.data = np.empty((1,1,1), dtype=np.int8)
+    qv.data = np.empty((1, 1, 1), dtype=np.int8)
     assert len(qv) == 1
     assert qv.pos == 0
 
@@ -30,7 +31,7 @@ def test_init_quick_view():
         qv.data = 4
 
     with pytest.raises(TypeError) as info:
-        qv.data = np.empty((1,1,1,1), dtype=np.int8)
+        qv.data = np.empty((1, 1, 1, 1), dtype=np.int8)
 
 
 if __name__ == "__main__":

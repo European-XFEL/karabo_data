@@ -94,8 +94,10 @@ class ZMQStreamer:
             raise ValueError("Unknown protocol version %r" % protocol_version)
         elif protocol_version == '1.0':
             import msgpack_numpy
-            self.pack = msgpack.Packer(use_bin_type=True,
-                                       default=msgpack_numpy.encode).pack
+
+            self.pack = msgpack.Packer(
+                use_bin_type=True, default=msgpack_numpy.encode
+            ).pack
         else:
             self.pack = msgpack.Packer(use_bin_type=True).pack
         self.protocol_version = protocol_version
@@ -124,7 +126,11 @@ class ZMQStreamer:
             ts = time()
             sec, frac = str(ts).split('.')
             frac = frac.ljust(18, '0')
-            update_dummy = {'timestamp': ts, 'timestamp.sec': sec, 'timestamp.frac': frac}
+            update_dummy = {
+                'timestamp': ts,
+                'timestamp.sec': sec,
+                'timestamp.frac': frac,
+            }
             for src in data.keys():
                 if 'timestamp' not in metadata[src]:
                     metadata[src].update(update_dummy)

@@ -7,7 +7,9 @@ import os.path as osp
 import re
 import sys
 
-from .reader import H5File, RunDirectory, FilenameInfo
+from .read_machinery import FilenameInfo
+from .reader import H5File, RunDirectory
+
 
 def describe_file(path):
     """Describe a single HDF5 data file"""
@@ -37,6 +39,7 @@ def describe_file(path):
             print("  - ", dev)
         print()
 
+
 def summarise_file(path):
     basename = os.path.basename(path)
     info = FilenameInfo(basename)
@@ -52,9 +55,8 @@ def summarise_file(path):
             len(h5file.train_ids), dinfo['frames_per_train'], dinfo['total_frames']
         ))
     else:
-        print("  {} trains, {} sources".format(
-            ntrains, len(h5file.sources)
-        ))
+        print("  {} trains, {} sources".format(ntrains, len(h5file.sources)))
+
 
 def describe_run(path):
     basename = os.path.basename(path)
@@ -96,8 +98,9 @@ def summarise_run(path, indent=''):
     ))
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog='lsxfel',
-        description="Summarise XFEL data in files or folders")
+    ap = argparse.ArgumentParser(
+        prog='lsxfel', description="Summarise XFEL data in files or folders"
+    )
     ap.add_argument('paths', nargs='*', help="Files/folders to look at")
     args = ap.parse_args(argv)
     paths = args.paths or [os.path.abspath(os.getcwd())]
@@ -170,6 +173,7 @@ def main(argv=None):
                 exit_code = 2
 
         return exit_code
+
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -34,6 +34,8 @@ including the main detectors, record data more frequently.
       A set of names for both instrument and control sources.
       This is the union of the two sets above.
 
+   .. automethod:: keys_for_source
+
    .. automethod:: trains
 
    .. automethod:: train_from_id

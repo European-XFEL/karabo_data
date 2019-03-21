@@ -59,7 +59,8 @@ author = u'European XFEL'
 # built documents.
 #
 # The short X.Y version.
-version = u'0.2'
+import karabo_data
+version = karabo_data.__version__
 # The full version, including alpha/beta/rc tags.
 release = version
 

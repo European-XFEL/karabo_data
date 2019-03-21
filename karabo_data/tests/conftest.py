@@ -16,12 +16,14 @@ def mock_agipd_data():
         make_examples.make_agipd_example_file(path)
         yield path
 
+
 @pytest.fixture(scope='module')
 def mock_lpd_data():
     with TemporaryDirectory() as td:
         path = osp.join(td, 'RAW-R9999-LPD00-S00000.h5')
         make_examples.make_lpd_file(path)
         yield path
+
 
 @pytest.fixture(scope='module')
 def mock_fxe_control_data():
@@ -30,12 +32,14 @@ def mock_fxe_control_data():
         make_examples.make_fxe_da_file(path)
         yield path
 
+
 @pytest.fixture(scope='module')
 def mock_sa3_control_data():
     with TemporaryDirectory() as td:
         path = osp.join(td, 'RAW-R0450-DA01-S00001.h5')
         make_examples.make_sa3_da_file(path)
         yield path
+
 
 @pytest.fixture(scope='module')
 def mock_spb_control_data_badname():
@@ -44,11 +48,13 @@ def mock_spb_control_data_badname():
         make_examples.make_data_file_bad_device_name(path)
         yield path
 
+
 @pytest.fixture(scope='module')
 def mock_fxe_run():
     with TemporaryDirectory() as td:
         make_examples.make_fxe_run(td)
         yield td
+
 
 @pytest.fixture(scope='module')
 def empty_h5_file():

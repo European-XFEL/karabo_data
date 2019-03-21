@@ -8,6 +8,7 @@ import sys
 
 from .reader import DataCollection, RunDirectory, H5File, FileAccess
 
+
 class ValidationError(Exception):
     def __init__(self, problems):
         self.problems = problems
@@ -21,6 +22,7 @@ class ValidationError(Exception):
                     lines.append("  {}: {}".format(k, v))
 
         return '\n'.join(lines)
+
 
 class FileValidator:
     def __init__(self, file: FileAccess):
@@ -40,9 +42,7 @@ class FileValidator:
         return self.problems
 
     def record(self, msg, **kwargs):
-        self.problems.append(dict(
-            msg=msg, file=self.filename, **kwargs
-        ))
+        self.problems.append(dict(msg=msg, file=self.filename, **kwargs))
 
     def check_trainids(self):
         ds_path = 'INDEX/trainId'
@@ -52,8 +52,7 @@ class FileValidator:
             first0 = train_ids.tolist().index(0)
             if not (train_ids[first0:] == 0).all():
                 self.record(
-                    'Zeroes in trainId index before last train ID',
-                    dataset=ds_path,
+                    'Zeroes in trainId index before last train ID', dataset=ds_path
                 )
             nonzero_tids = train_ids[train_ids != 0]
         else:
@@ -64,8 +63,9 @@ class FileValidator:
             if non_incr.size > 0:
                 pos = non_incr[0]
                 self.record(
-                    'Train IDs are not strictly increasing, e.g. at {} ({} >= {})'
-                    .format(pos, nonzero_tids[pos], nonzero_tids[pos+1]),
+                    'Train IDs are not strictly increasing, e.g. at {} ({} >= {})'.format(
+                        pos, nonzero_tids[pos], nonzero_tids[pos + 1]
+                    ),
                     dataset=ds_path,
                 )
 
@@ -81,8 +81,9 @@ class FileValidator:
                 if np.any((first + count) > data_dim0):
                     max_end = (first + count).max()
                     self.record(
-                        'Index referring to data ({}) outside dataset ({})'
-                        .format(max_end, data_dim0),
+                        'Index referring to data ({}) outside dataset ({})'.format(
+                            max_end, data_dim0
+                        ),
                         dataset=ds_path,
                     )
 
@@ -90,6 +91,7 @@ class FileValidator:
                 record = partial(self.record, dataset='INDEX/{}/{}'.format(src, group))
                 first, count = self.file._read_index(src, group)
                 check_index_contiguous(first, count, record)
+
 
 def check_index_contiguous(firsts, counts, record):
     probs = []
@@ -114,6 +116,7 @@ def check_index_contiguous(firsts, counts, record):
         ))
 
     return probs
+
 
 class RunValidator:
     def __init__(self, run_dir: str):
@@ -145,22 +148,18 @@ class RunValidator:
 
     def check_files_openable(self):
         for path, err in self.files_excluded:
-            self.problems.append(dict(
-                msg="Could not open file",
-                file=path,
-                error=err,
-            ))
+            self.problems.append(dict(msg="Could not open file", file=path, error=err))
 
         if not self.run.files:
-            self.problems.append(dict(
-                msg="No usable files found",
-                directory=self.run_dir,
-            ))
+            self.problems.append(
+                dict(msg="No usable files found", directory=self.run_dir)
+            )
 
     def check_files(self):
         for f in self.run.files:
             fv = FileValidator(f)
             self.problems.extend(fv.run_checks())
+
 
 def main(argv=None):
     if argv is None:
@@ -185,6 +184,7 @@ def main(argv=None):
         print("Validation failed!")
         print(str(ve))
         return 1
+
 
 if __name__ == '__main__':
     sys.exit(main())

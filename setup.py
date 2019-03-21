@@ -32,6 +32,9 @@ setup(name="karabo_data",
       long_description_content_type='text/markdown',
       license="BSD-3-Clause",
       packages=find_packages(),
+      package_data={
+          'karabo_data.tests': ['lpd_mar_18.h5'],
+      },
       entry_points={
           "console_scripts": [
               "lsxfel = karabo_data.lsxfel:main",

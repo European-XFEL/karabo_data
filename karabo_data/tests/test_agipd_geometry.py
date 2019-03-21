@@ -1,15 +1,13 @@
-from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import numpy as np
 
 from karabo_data.geometry2 import AGIPD_1MGeometry
 
+
 def test_snap_assemble_data():
-    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
 
     stacked_data = np.zeros((16, 512, 128))
     img, centre = geom.position_modules_fast(stacked_data)
@@ -18,13 +16,11 @@ def test_snap_assemble_data():
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
 
+
 def test_write_read_crystfel_file(tmpdir):
-    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
     path = str(tmpdir / 'test.geom')
     geom.write_crystfel_geom(path)
 
@@ -38,53 +34,44 @@ def test_write_read_crystfel_file(tmpdir):
         f.write(contents)
 
     loaded = AGIPD_1MGeometry.from_crystfel_geom(path)
-    np.testing.assert_allclose(loaded.modules[0][0].corner_pos,
-                               geom.modules[0][0].corner_pos)
-    np.testing.assert_allclose(loaded.modules[0][0].fs_vec,
-                               geom.modules[0][0].fs_vec)
+    np.testing.assert_allclose(
+        loaded.modules[0][0].corner_pos, geom.modules[0][0].corner_pos
+    )
+    np.testing.assert_allclose(loaded.modules[0][0].fs_vec, geom.modules[0][0].fs_vec)
+
 
 def test_inspect():
-    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
     # Smoketest
-    fig = geom.inspect()
-    assert isinstance(fig, Figure)
+    ax = geom.inspect()
+    assert isinstance(ax, Axes)
+
 
 def test_compare():
-    geom1 = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
-    geom2 = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-527, 625),
-        (-548, -10),
-        (520, -162),
-        (542.5, 473),
-    ])
+    geom1 = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+    geom2 = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-527, 625), (-548, -10), (520, -162), (542.5, 473)]
+    )
     # Smoketest
-    fig = geom1.compare(geom2)
-    assert isinstance(fig, Figure)
+    ax = geom1.compare(geom2)
+    assert isinstance(ax, Axes)
+
 
 def test_to_distortion_array():
-    geom = AGIPD_1MGeometry.from_quad_positions(quad_pos=[
-        (-525, 625),
-        (-550, -10),
-        (520, -160),
-        (542.5, 475),
-    ])
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
     # Smoketest
     distortion = geom.to_distortion_array()
     assert isinstance(distortion, np.ndarray)
     assert distortion.shape == (8192, 128, 4, 3)
 
     # Coordinates in m, origin at corner; max x & y should be ~ 25cm
-    assert .20 < distortion[..., 1].max() < .30
-    assert .20 < distortion[..., 2].max() < .30
-    assert -.01 < distortion[..., 1].min() < .01
-    assert -.01 < distortion[..., 2].min() < .01
+    assert 0.20 < distortion[..., 1].max() < 0.30
+    assert 0.20 < distortion[..., 2].max() < 0.30
+    assert -0.01 < distortion[..., 1].min() < 0.01
+    assert -0.01 < distortion[..., 2].min() < 0.01
