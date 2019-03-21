@@ -17,9 +17,12 @@ class DetectorModule:
         'trailer',
     ]
 
-    def __init__(self, device_id, frames_per_train=64):
+    def __init__(self, device_id, frames_per_train=64, raw=True):
         self.device_id = device_id
         self.frames_per_train = frames_per_train
+        if not raw:
+            self.image_dims = self.image_dims[1:]
+        self.raw = raw
 
     def write_control(self, f):
         """Write the CONTROL and RUN data, and the relevant parts of INDEX"""
@@ -27,9 +30,13 @@ class DetectorModule:
 
     @property
     def image_keys(self):
+        if self.raw:
+            data_type = 'u2'
+        else:
+            data_type = 'f4'
         return [
             ('cellId', 'u2', (1,)),
-            ('data', 'u2', self.image_dims),
+            ('data', data_type, self.image_dims),
             ('length', 'u4', (1,)),
             ('status', 'u2', (1,)),
         ]

@@ -215,25 +215,53 @@ def make_lpd_file(path):
         LPDModule('FXE_DET_LPD1M-1/DET/0CH0', frames_per_train=128)
     ], ntrains=480, chunksize=32)
 
-def make_fxe_run(dir_path):
+def make_fxe_run(dir_path, raw=True):
+    prefix = 'RAW' if raw else 'CORR'
     for modno in range(16):
-        path = osp.join(dir_path, 'RAW-R0450-LPD{:0>2}-S00000.h5'.format(modno))
+        path = osp.join(dir_path,
+                        '{}-R0450-LPD{:0>2}-S00000.h5'.format(prefix, modno))
         write_file(path, [
             LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), frames_per_train=128)
         ], ntrains=480, chunksize=32)
-
+    if not raw:
+        return
     write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00000.h5'), [
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA_NODATA', nsamples=0),
     ], ntrains=400, chunksize=200)
-    write_file(osp.join(dir_path, 'RAW-R0450-DA01-S00001.h5'), [
+    write_file(osp.join(dir_path, '{}-R0450-DA01-S00001.h5'.format(prefix)), [
         XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
         XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
         GECCamera('FXE_XAD_GEC/CAM/CAMERA_NODATA', nsamples=0),
     ], ntrains=80, firsttrain=10400, chunksize=200)
+
+def make_spb_run(dir_path, raw=True):
+    prefix = 'RAW' if raw else 'CORR'
+    for modno in range(16):
+        path = osp.join(dir_path,
+                        '{}-R0238-AGIPD{:0>2}-S00000.h5'.format(prefix, modno))
+        write_file(path, [
+            AGIPDModule('SPB_DET_AGIPD1M-1/DET/{}CH0'.format(modno),
+                         frames_per_train=64)
+            ], ntrains=32, chunksize=32)
+    if not raw:
+        return
+    write_file(osp.join(dir_path, 
+                        '{}-R0238-DA01-S00000.h5'.format(prefix)),
+                [
+                    XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+                    XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                ], ntrains=32, chunksize=32)
+    write_file(osp.join(dir_path, 
+                        '{}-R0238-DA01-S00001.h5'.format(prefix)),
+                [
+                    XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+                    XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                ], ntrains=32, firsttrain=10032, chunksize=32)
+
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
@@ -243,4 +271,6 @@ if __name__ == '__main__':
     make_lpd_file('lpd_example.h5')
     os.makedirs('fxe_example_run', exist_ok=True)
     make_fxe_run('fxe_example_run')
+    os.mkdirs('spb_example_run', exist_ok=True)
+    make_spb_run('spb_example_run')
     print("Written examples.")
