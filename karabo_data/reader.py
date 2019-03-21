@@ -1118,7 +1118,11 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     dtypes, shapes, skip = set(), set(), set()
     modno_arrays = {}
     for device in devices:
-        modno = int(re.search(r'/DET/(\d+)CH', device).group(1))
+        det_mod_match = re.search(r'/DET/(\d+)CH', device)
+        if not det_mod_match:
+            raise ValueError("Non-detector source: {}".format(device))
+        modno = int(det_mod_match.group(1))
+
         array = train[device][data]
         dtypes.add(array.dtype)
         shapes.add(array.shape)
