@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+0.4
+---
+
+- Python 3.5 is now the minimum required version.
+- Fix compatibility with numpy 1.14 (the version installed in Anaconda on the
+  Maxwell cluster).
+- Better error message from :func:`~.stack_detector_data` when passed
+  non-detector data.
+
 0.3
 ---
 
