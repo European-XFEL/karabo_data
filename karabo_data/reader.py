@@ -30,6 +30,7 @@ from .read_machinery import (
     _SliceConstructable,
     _tid_to_slice_ix,
     union_selections,
+    contiguous_regions,
 )
 
 __all__ = [
@@ -789,26 +790,29 @@ class DataCollection:
             key_group = ''
 
         for file in self._source_index[source]:
-            trains_of_interest, train_ixs, _ = np.intersect1d(
-                file.train_ids, self.train_ids, return_indices=True
-            )
-            if trains_of_interest.size == 0:
-                continue
-
+            file_has_data = False
             firsts, counts = file.get_index(source, key_group)
-            firsts = firsts[train_ixs]
-            counts = counts[train_ixs]
 
-            stops = firsts + counts
-            discontig = firsts[1:] != stops[:-1]
-            breaks = [0] + list(discontig.nonzero()[0] + 1) + [len(firsts)]
+            # Of trains in this file, which are in selection
+            selected = np.isin(file.train_ids, self.train_ids)
 
-            for _from, _to in zip(breaks[:-1], breaks[1:]):
+            # Assemble contiguous chunks of data from this file
+            for _from, _to in contiguous_regions(selected):
+                file_has_data = True
                 yield DataChunk(file, source, key,
                                 first=firsts[_from],
-                                train_ids=trains_of_interest[_from:_to],
+                                train_ids=file.train_ids[_from:_to],
                                 counts=counts[_from:_to],
                                 )
+
+            if not file_has_data:
+                # Make an empty chunk to let e.g. get_array find the shape
+                yield DataChunk(file, source, key,
+                                first=np.uint64(0),
+                                train_ids=file.train_ids[:0],
+                                counts=counts[:0],
+                                )
+
 
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:
