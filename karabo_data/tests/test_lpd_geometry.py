@@ -29,6 +29,20 @@ def test_snap_assemble_data():
     assert np.isnan(img[0, 0])
     assert img[50, 50] == 0
 
+def test_to_distortion_array():
+    geom = LPD_1MGeometry.from_quad_positions(
+        [(11.4, 299), (-11.5, 8), (254.5, -16), (278.5, 275)]
+    )
+    # Smoketest
+    distortion = geom.to_distortion_array()
+    assert isinstance(distortion, np.ndarray)
+    assert distortion.shape == (4096, 256, 4, 3)
+
+    # Coordinates in m, origin at corner; max x & y should be ~ 50cm
+    assert 0.40 < distortion[..., 1].max() < 0.70
+    assert 0.40 < distortion[..., 2].max() < 0.70
+    assert -0.01 < distortion[..., 1].min() < 0.01
+    assert -0.01 < distortion[..., 2].min() < 0.01
 
 def test_invert_xfel_lpd_geom(tmpdir):
     src_file = pjoin(tests_dir, 'lpd_mar_18.h5')
