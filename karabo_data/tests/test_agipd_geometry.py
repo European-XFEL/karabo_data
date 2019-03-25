@@ -73,5 +73,5 @@ def test_to_distortion_array():
     # Coordinates in m, origin at corner; max x & y should be ~ 25cm
     assert 0.20 < distortion[..., 1].max() < 0.30
     assert 0.20 < distortion[..., 2].max() < 0.30
-    assert -0.01 < distortion[..., 1].min() < 0.01
-    assert -0.01 < distortion[..., 2].min() < 0.01
+    assert 0.0 <= distortion[..., 1].min() < 0.01
+    assert 0.0 <= distortion[..., 2].min() < 0.01

@@ -41,8 +41,8 @@ def test_to_distortion_array():
     # Coordinates in m, origin at corner; max x & y should be ~ 50cm
     assert 0.40 < distortion[..., 1].max() < 0.70
     assert 0.40 < distortion[..., 2].max() < 0.70
-    assert -0.01 < distortion[..., 1].min() < 0.01
-    assert -0.01 < distortion[..., 2].min() < 0.01
+    assert 0.0 <= distortion[..., 1].min() < 0.01
+    assert 0.0 <= distortion[..., 2].min() < 0.01
 
 def test_invert_xfel_lpd_geom(tmpdir):
     src_file = pjoin(tests_dir, 'lpd_mar_18.h5')
