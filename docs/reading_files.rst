@@ -29,6 +29,11 @@ including the main detectors, record data more frequently.
       A set of the instrument source names in this data,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
 
+   .. attribute:: all_sources
+
+      A set of names for both instrument and control sources.
+      This is the union of the two sets above.
+
    .. automethod:: keys_for_source
 
    .. automethod:: trains
@@ -52,3 +57,36 @@ including the main detectors, record data more frequently.
    .. automethod:: union
 
    .. automethod:: write
+
+Missing data
+------------
+
+What happens if some data was not recorded for a given train?
+
+Control data is duplicated for each train until it changes.
+If the device cannot send changes, the last values will be recorded for each
+subsequent train until it sends changes again.
+There is no general way to distinguish this scenario from values which
+genuinely aren't changing.
+
+Parts of instrument data may be missing from the file. These will also be
+missing from the data returned by ``karabo_data``:
+
+- The train-oriented methods :meth:`~.DataCollection.trains`,
+  :meth:`~.DataCollection.train_from_id`, and
+  :meth:`~.DataCollection.train_from_index` give you dictionaries keyed by
+  source and key name. Sources and keys are only included if they have
+  data for that train.
+- :meth:`~.DataCollection.get_array`, and
+  :meth:`~.DataCollection.get_series` skip over trains which are missing data.
+  The indexes on the returned DataArray or Series objects link the returned
+  data to train IDs. Further operations with xarray or pandas may drop
+  misaligned data or introduce fill values.
+- :meth:`~.DataCollection.get_dataframe` includes rows for which any column has
+  data. Where some but not all columns have data, the missing values are filled
+  with ``NaN`` by pandas' `missing data handling
+  <http://pandas.pydata.org/pandas-docs/stable/user_guide/missing_data.html>`__.
+
+Missing data does not necessarily mean that something has gone wrong:
+some devices send data at less than 10 Hz (the train rate), so they always
+have gaps between updates.
