@@ -86,3 +86,7 @@ missing from the data returned by ``karabo_data``:
   data. Where some but not all columns have data, the missing values are filled
   with ``NaN`` by pandas' `missing data handling
   <http://pandas.pydata.org/pandas-docs/stable/user_guide/missing_data.html>`__.
+
+Missing data does not necessarily mean that something has gone wrong:
+some devices send data at less than 10 Hz (the train rate), so they always
+have gaps between updates.
