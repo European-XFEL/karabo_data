@@ -21,6 +21,7 @@ class DetectorModule:
         self.device_id = device_id
         self.frames_per_train = frames_per_train
         if not raw:
+            # Drop the first dim (gain) if not raw (proc data)
             self.image_dims = self.image_dims[1:]
         self.raw = raw
 
@@ -31,15 +32,22 @@ class DetectorModule:
     @property
     def image_keys(self):
         if self.raw:
-            data_type = 'u2'
+            return [
+                ('cellId', 'u2', (1,)),
+                ('data', 'u2', self.image_dims),
+                ('length', 'u4', (1,)),
+                ('status', 'u2', (1,)),
+            ]
+
         else:
-            data_type = 'f4'
-        return [
-            ('cellId', 'u2', (1,)),
-            ('data', data_type, self.image_dims),
-            ('length', 'u4', (1,)),
-            ('status', 'u2', (1,)),
-        ]
+            return [
+                ('cellId', 'u2', (1,)),
+                ('data', 'f4', self.image_dims),
+                ('mask', 'u2', self.image_dims),
+                ('gain', 'u2', self.image_dims),
+                ('length', 'u4', (1,)),
+                ('status', 'u2', (1,)),
+            ]
 
     @property
     def other_keys(self):
