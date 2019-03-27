@@ -111,21 +111,22 @@ class VirtualFileWriter(FileWriter):
     but they provide more convenient access by reassembling data spread over
     several sequence files.
     """
-    def _get_chunks(self, source, key):
-        """Get a sorted list of non-empty data chunks"""
+    def _assemble_data(self, source, key):
+        """Assemble chunks of data into a virtual layout"""
+        # First, get a list of all non-empty data chunks
         chunks = [c for c in self.data._find_data_chunks(source, key)
                   if (c.counts > 0).any()]
+        chunks.sort(key = lambda c: c.train_ids[0])
+        if not chunks:
+            return None, None
 
-        return sorted(chunks, key=lambda c: c.train_ids[0])
-
-    @staticmethod
-    def _assemble_layout(chunks):
-        """Assemble chunks of data into a virtual layout"""
+        # Create the layout, which will describe what data is where
         n_total = np.sum([c.counts.sum() for c in chunks])
         ds0 = chunks[0].dataset
         layout = h5py.VirtualLayout(shape=(n_total,) + ds0.shape[1:],
                                     dtype=ds0.dtype)
 
+        # Map each chunk into the relevant part of the layout
         output_cursor = np.uint64(0)
         for chunk in chunks:
             n = chunk.counts.sum()
@@ -135,32 +136,29 @@ class VirtualFileWriter(FileWriter):
             output_cursor += n
 
         assert output_cursor == n_total
-        return layout
+
+        # Make an array of which train ID each data entry is for:
+        train_ids = np.concatenate([
+            np.repeat(c.train_ids, c.counts.astype(np.intp)) for c in chunks
+        ])
+        return layout, train_ids
 
     def add_control_dataset(self, source, key):
-        chunks = self._get_chunks(source, key)
-        if not chunks:
+        layout, train_ids = self._assemble_data(source, key)
+        if not layout:
             return  # No data
 
         path = 'CONTROL/{}/{}'.format(source, key.replace('.', '/'))
-        layout = self._assemble_layout(chunks)
         self.file.create_virtual_dataset(path, layout)
 
-        train_ids = np.concatenate(
-            [np.repeat(c.train_ids, c.counts.astype(np.intp))
-             for c in chunks])
         self._make_control_index(source, train_ids)
 
     def add_instrument_dataset(self, source, key):
-        chunks = self._get_chunks(source, key)
-        if not chunks:
+        layout, train_ids = self._assemble_data(source, key)
+        if not layout:
             return  # No data
 
         path = 'INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
-        layout = self._assemble_layout(chunks)
         self.file.create_virtual_dataset(path, layout)
 
-        train_ids = np.concatenate(
-            [np.repeat(c.train_ids, c.counts.astype(np.intp))
-             for c in chunks])
         self._make_instrument_index(source, key, train_ids)
