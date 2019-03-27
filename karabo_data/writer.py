@@ -50,16 +50,13 @@ class FileWriter:
 
     def _generate_index(self, data_tids):
         """Convert an array of train IDs to first/count for each train"""
-        first = np.zeros_like(self.data.train_ids, dtype='u8')
-        count = np.zeros_like(self.data.train_ids, dtype='u8')
+        assert (np.diff(data_tids) >= 0).all(), "Out-of-order train IDs"
+        counts = np.array([np.count_nonzero(t == data_tids)
+                          for t in self.data.train_ids], dtype=np.uint64)
+        ends = np.cumsum(counts)
+        firsts = ends - ends[0]
 
-        for ix, tid in enumerate(self.data.train_ids):
-            matches = (data_tids == tid)
-            if matches.any():
-                first[ix] = matches.nonzero()[0][0]
-                count[ix] = matches.sum()
-
-        return first, count
+        return firsts, counts
 
     def write_indexes(self):
         for groupname, (first, count) in self.indexes.items():
