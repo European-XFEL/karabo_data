@@ -112,7 +112,7 @@ def test_read_fxe_run(mock_fxe_run):
     run.info()  # Smoke test
 
 def test_read_spb_run(mock_spb_run):
-    run = RunDirectory(mock_spb_run, raw=True) #Test for calib data
+    run = RunDirectory(mock_spb_run) #Test for calib data
     assert len(run.files) == 16 # only 16 detector modules
     assert run.train_ids == list(range(10000, 10032)) #32 trains
     run.info() # Smoke test
