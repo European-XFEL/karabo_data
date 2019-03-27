@@ -55,10 +55,16 @@ def mock_fxe_run():
         make_examples.make_fxe_run(td)
         yield td
 
-@pytest.fixture(scop='module')
+@pytest.fixture(scope='module')
 def mock_spb_run():
     with TemporaryDirectory() as td:
         make_examples.make_spb_run(td)
+        yield td
+
+@pytest.fixture(scope='module')
+def mock_spb_run():
+    with TemporaryDirectory() as td:
+        make_examples.make_spb_run(td, raw=False)
         yield td
 
 @pytest.fixture(scope='module')
