@@ -221,7 +221,8 @@ def make_fxe_run(dir_path, raw=True):
         path = osp.join(dir_path,
                         '{}-R0450-LPD{:0>2}-S00000.h5'.format(prefix, modno))
         write_file(path, [
-            LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), frames_per_train=128)
+            LPDModule('FXE_DET_LPD1M-1/DET/{}CH0'.format(modno), raw=raw,
+                      frames_per_train=128)
         ], ntrains=480, chunksize=32)
     if not raw:
         return
@@ -244,18 +245,18 @@ def make_spb_run(dir_path, raw=True):
         path = osp.join(dir_path,
                         '{}-R0238-AGIPD{:0>2}-S00000.h5'.format(prefix, modno))
         write_file(path, [
-            AGIPDModule('SPB_DET_AGIPD1M-1/DET/{}CH0'.format(modno),
+            AGIPDModule('SPB_DET_AGIPD1M-1/DET/{}CH0'.format(modno), raw=raw,
                          frames_per_train=64)
             ], ntrains=32, chunksize=32)
     if not raw:
         return
-    write_file(osp.join(dir_path, 
+    write_file(osp.join(dir_path,
                         '{}-R0238-DA01-S00000.h5'.format(prefix)),
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
                     XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
                 ], ntrains=32, chunksize=32)
-    write_file(osp.join(dir_path, 
+    write_file(osp.join(dir_path,
                         '{}-R0238-DA01-S00001.h5'.format(prefix)),
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
