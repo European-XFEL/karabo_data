@@ -936,6 +936,10 @@ class DataCollection:
         from .writer import FileWriter
         FileWriter(filename, self).write()
 
+    def write_virtual(self, filename):
+        from .writer import VirtualFileWriter
+        VirtualFileWriter(filename, self).write()
+
 
 class TrainIterator:
     """Iterate over trains in a collection of data
