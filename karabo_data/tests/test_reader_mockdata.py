@@ -115,6 +115,17 @@ def test_read_spb_proc_run(mock_spb_proc_run):
     run = RunDirectory(mock_spb_proc_run) #Test for calib data
     assert len(run.files) == 16 # only 16 detector modules for calib data
     assert run.train_ids == list(range(10000, 10064)) #64 trains
+    tid, data = next(run.trains())
+    device = 'SPB_DET_AGIPD1M-1/DET/15CH0:xtdf'
+    assert tid == 10000
+    assert 'image.data' in data[device]
+    assert 'f4' == data[device]['image.data'].dtype
+    for prop in ('image.gain', 'image.mask'):
+        assert prop in data[device]
+        assert 'u2' == data[device][prop].dtype
+
+
+
     run.info() # Smoke test
 
 def test_properties_fxe_raw_run(mock_fxe_raw_run):
