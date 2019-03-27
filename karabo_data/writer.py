@@ -19,9 +19,11 @@ class FileWriter:
         a = self.data.get_array(source, key)
         path = 'CONTROL/{}/{}'.format(source, key.replace('.', '/'))
         self.file[path] = a.values
+        self._make_control_index(source)
 
+    def _make_control_index(self, source):
         if source not in self.indexes:
-            n = a.shape[0]
+            n = len(self.data.train_ids)
             self.indexes[source] = \
                 (np.arange(n, dtype='u8'), np.ones(n, dtype='u8'))
             self.data_sources.add('CONTROL/' + source)
@@ -30,10 +32,11 @@ class FileWriter:
         a = self.data.get_array(source, key)
         path = 'INSTRUMENT/{}/{}'.format(source, key.replace('.', '/'))
         self.file[path] = a.values
+        self._make_instrument_index(source, key, a.coords['trainId'].values)
 
+    def _make_instrument_index(self, source, key, data_tids):
         index_path = source + '/' + key.partition('.')[0]
         if index_path not in self.indexes:
-            data_tids = a.coords['trainId'].values
             self.indexes[index_path] = self._generate_index(data_tids)
             self.data_sources.add('INSTRUMENT/' + index_path)
 
