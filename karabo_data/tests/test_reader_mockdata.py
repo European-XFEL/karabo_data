@@ -105,28 +105,28 @@ def test_iterate_trains_require_all(mock_sa3_control_data):
         assert tids != []
 
 
-def test_read_fxe_run(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_read_fxe_raw_run(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     assert len(run.files) == 18  # 16 detector modules + 2 control data files
     assert run.train_ids == list(range(10000, 10480))
     run.info()  # Smoke test
 
-def test_read_spb_run(mock_spb_run):
-    run = RunDirectory(mock_spb_run) #Test for calib data
-    assert len(run.files) == 16 # only 16 detector modules
-    assert run.train_ids == list(range(10000, 10032)) #32 trains
+def test_read_spb_proc_run(mock_spb_proc_run):
+    run = RunDirectory(mock_spb_proc_run) #Test for calib data
+    assert len(run.files) == 16 # only 16 detector modules for calib data
+    assert run.train_ids == list(range(10000, 10064)) #64 trains
     run.info() # Smoke test
 
-def test_properties_fxe_run(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_properties_fxe_raw_run(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     assert run.train_ids == list(range(10000, 10480))
     assert 'SPB_XTD9_XGM/DOOCS/MAIN' in run.control_sources
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in run.instrument_sources
 
 
-def test_iterate_fxe_run(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_iterate_fxe_run(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     trains_iter = run.trains()
     tid, data = next(trains_iter)
@@ -137,8 +137,8 @@ def test_iterate_fxe_run(mock_fxe_run):
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
 
 
-def test_iterate_select_trains(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_iterate_select_trains(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     tids = [tid for (tid, _) in run.trains(train_range=by_id[10004:10006])]
     assert tids == [10004, 10005]
@@ -167,8 +167,8 @@ def test_iterate_select_trains(mock_fxe_run):
     assert tids == [10004, 10005]
 
 
-def test_iterate_run_glob_devices(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_iterate_run_glob_devices(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     trains_iter = run.trains([("*/DET/*", "image.data")])
     tid, data = next(trains_iter)
     assert tid == 10000
@@ -178,8 +178,8 @@ def test_iterate_run_glob_devices(mock_fxe_run):
     assert 'FXE_XAD_GEC/CAM/CAMERA' not in data
 
 
-def test_train_by_id_fxe_run(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_train_by_id_fxe_run(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     _, data = run.train_from_id(10024)
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
@@ -187,16 +187,16 @@ def test_train_by_id_fxe_run(mock_fxe_run):
     assert 'firmwareVersion.value' in data['FXE_XAD_GEC/CAM/CAMERA']
 
 
-def test_train_by_id_fxe_run_selection(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_train_by_id_fxe_run_selection(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     _, data = run.train_from_id(10024, [('*/DET/*', 'image.data')])
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
     assert 'FXE_XAD_GEC/CAM/CAMERA' not in data
 
 
-def test_train_from_index_fxe_run(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_train_from_index_fxe_run(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     _, data = run.train_from_index(479)
     assert 'FXE_DET_LPD1M-1/DET/15CH0:xtdf' in data
     assert 'image.data' in data['FXE_DET_LPD1M-1/DET/15CH0:xtdf']
@@ -236,16 +236,16 @@ def test_file_get_series_instrument(mock_agipd_data):
         )
 
 
-def test_run_get_series_control(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_series_control(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     s = run.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
     assert isinstance(s, pd.Series)
     assert len(s) == 480
     assert list(s.index) == list(range(10000, 10480))
 
 
-def test_run_get_series_select_trains(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_series_select_trains(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     sel = run.select_trains(by_id[10100:10150])
     s = sel.get_series('SA1_XTD2_XGM/DOOCS/MAIN', "beamPosition.iyPos.value")
     assert isinstance(s, pd.Series)
@@ -253,8 +253,8 @@ def test_run_get_series_select_trains(mock_fxe_run):
     assert list(s.index) == list(range(10100, 10150))
 
 
-def test_run_get_dataframe(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_dataframe(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     df = run.get_dataframe(fields=[("*_XGM/*", "*.i[xy]Pos*")])
     assert len(df.columns) == 4
     assert "SA1_XTD2_XGM/DOOCS/MAIN/beamPosition.ixPos" in df.columns
@@ -303,8 +303,8 @@ def test_file_get_array_control_roi(mock_sa3_control_data):
     assert arr.coords['trainId'][0] == 10000
 
 
-def test_run_get_array(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     arr = run.get_array(
         'SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD', extra_dims=['pulse']
     )
@@ -315,8 +315,8 @@ def test_run_get_array(mock_fxe_run):
     assert arr.coords['trainId'][0] == 10000
 
 
-def test_run_get_array_empty(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array_empty(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     arr = run.get_array('FXE_XAD_GEC/CAM/CAMERA_NODATA:daqOutput', 'data.image.pixels')
 
     assert isinstance(arr, DataArray)
@@ -324,8 +324,8 @@ def test_run_get_array_empty(mock_fxe_run):
     assert arr.shape == (0, 255, 1024)
 
 
-def test_run_get_array_error(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array_error(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     with pytest.raises(SourceNameError):
         run.get_array('bad_name', 'data.intensityTD')
@@ -334,8 +334,8 @@ def test_run_get_array_error(mock_fxe_run):
         run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'bad_name')
 
 
-def test_run_get_array_select_trains(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array_select_trains(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     sel = run.select_trains(by_id[10100:10150])
     arr = sel.get_array(
         'SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD', extra_dims=['pulse']
@@ -347,8 +347,8 @@ def test_run_get_array_select_trains(mock_fxe_run):
     assert arr.coords['trainId'][0] == 10100
 
 
-def test_run_get_array_roi(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array_roi(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     arr = run.get_array('SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD',
                         extra_dims=['pulse'], roi=by_index[:16])
 
@@ -358,8 +358,8 @@ def test_run_get_array_roi(mock_fxe_run):
     assert arr.coords['trainId'][0] == 10000
 
 
-def test_run_get_array_multiple_per_train(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_run_get_array_multiple_per_train(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
     sel = run.select_trains(by_index[:2])
     arr = sel.get_array(
         'FXE_DET_LPD1M-1/DET/6CH0:xtdf', 'image.data', roi=by_index[:, 10:20, 20:40]
@@ -369,8 +369,8 @@ def test_run_get_array_multiple_per_train(mock_fxe_run):
     np.testing.assert_array_equal(arr.coords['trainId'], np.repeat([10000, 10001], 128))
 
 
-def test_select(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_select(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     assert 'SPB_XTD9_XGM/DOOCS/MAIN' in run.control_sources
 
@@ -383,8 +383,8 @@ def test_select(mock_fxe_run):
         assert set(source_data.keys()) == {'image.pulseId', 'metadata'}
 
 
-def test_deselect(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_deselect(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     xtd9_xgm = 'SPB_XTD9_XGM/DOOCS/MAIN'
     assert xtd9_xgm in run.control_sources
@@ -399,8 +399,8 @@ def test_deselect(mock_fxe_run):
     assert 'beamPosition.iyPos.value' in sel.selection[xtd9_xgm]
 
 
-def test_select_trains(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_select_trains(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     assert len(run.train_ids) == 480
 
@@ -431,8 +431,8 @@ def test_select_trains(mock_fxe_run):
         run.select_trains(by_index[[480]])
 
 
-def test_union(mock_fxe_run):
-    run = RunDirectory(mock_fxe_run)
+def test_union(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
 
     sel1 = run.select('SPB_XTD9_XGM/DOOCS/MAIN', 'beamPosition.ixPos')
     sel2 = run.select('SPB_XTD9_XGM/DOOCS/MAIN', 'beamPosition.iyPos')
@@ -458,24 +458,24 @@ def test_read_skip_invalid(mock_lpd_data, empty_h5_file, capsys):
     assert "Skipping file" in err
 
 
-def test_stack_data(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_data(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     comb = stack_data(data, 'image.data')
     assert comb.shape == (128, 1, 16, 256, 256)
 
 
-def test_stack_detector_data(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     comb = stack_detector_data(data, 'image.data')
     assert comb.shape == (128, 1, 16, 256, 256)
 
 
-def test_stack_detector_data_missing(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data_missing(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     missing = ['FXE_DET_LPD1M-1/DET/{}CH0:xtdf'.format(m) for m in (1, 5, 9, 15)]
@@ -489,8 +489,8 @@ def test_stack_detector_data_missing(mock_fxe_run):
     )
 
 
-def test_stack_detector_data_wrong_pulses(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data_wrong_pulses(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     misshaped = ['FXE_DET_LPD1M-1/DET/{}CH0:xtdf'.format(m) for m in (12, 13)]
@@ -502,8 +502,8 @@ def test_stack_detector_data_wrong_pulses(mock_fxe_run):
     assert '(64, 1, 256, 256)' in str(excinfo.value)
 
 
-def test_stack_detector_data_wrong_shape(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data_wrong_shape(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     misshaped = ['FXE_DET_LPD1M-1/DET/{}CH0:xtdf'.format(m) for m in (0, 15)]
@@ -515,8 +515,8 @@ def test_stack_detector_data_wrong_shape(mock_fxe_run):
     assert '(128, 1, 512, 128)' in str(excinfo.value)
 
 
-def test_stack_detector_data_type_error(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data_type_error(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     module = 'FXE_DET_LPD1M-1/DET/3CH0:xtdf'
@@ -527,8 +527,8 @@ def test_stack_detector_data_type_error(mock_fxe_run):
     assert "dtype('float32')" in str(excinfo.value)
 
 
-def test_stack_detector_data_extra_mods(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_stack_detector_data_extra_mods(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
     data.setdefault(
@@ -541,8 +541,8 @@ def test_stack_detector_data_extra_mods(mock_fxe_run):
     assert "16" in str(excinfo.value)
 
 
-def test_run_immutable_sources(mock_fxe_run):
-    test_run = RunDirectory(mock_fxe_run)
+def test_run_immutable_sources(mock_fxe_raw_run):
+    test_run = RunDirectory(mock_fxe_raw_run)
     before = len(test_run.all_sources)
 
     with pytest.raises(AttributeError):

@@ -5,11 +5,11 @@ from testpath import assert_isfile
 from karabo_data import RunDirectory, H5File
 
 
-def test_write_selected(mock_fxe_run):
+def test_write_selected(mock_fxe_raw_run):
     with TemporaryDirectory() as td:
         new_file = osp.join(td, 'test.h5')
 
-        with RunDirectory(mock_fxe_run) as run:
+        with RunDirectory(mock_fxe_raw_run) as run:
             run.select('SPB_XTD9_XGM/*').write(new_file)
 
         assert_isfile(new_file)
