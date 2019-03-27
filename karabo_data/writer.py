@@ -31,8 +31,8 @@ class FileWriter:
             assert len(np.unique(data_tids)) == len(data_tids),\
                 "Duplicate train IDs in control data!"
             counts = np.isin(self.data.train_ids, data_tids).astype(np.uint64)
-            ends = np.cumsum(counts)
-            firsts = ends - ends[0]
+            firsts = np.zeros_like(counts)
+            firsts[1:] = np.cumsum(counts)[:-1]  # firsts[0] is always 0
             self.indexes[source] = (firsts, counts)
             self.data_sources.add('CONTROL/' + source)
 
@@ -53,8 +53,8 @@ class FileWriter:
         assert (np.diff(data_tids) >= 0).all(), "Out-of-order train IDs"
         counts = np.array([np.count_nonzero(t == data_tids)
                           for t in self.data.train_ids], dtype=np.uint64)
-        ends = np.cumsum(counts)
-        firsts = ends - ends[0]
+        firsts = np.zeros_like(counts)
+        firsts[1:] = np.cumsum(counts)[:-1]  # firsts[0] is always 0
 
         return firsts, counts
 
