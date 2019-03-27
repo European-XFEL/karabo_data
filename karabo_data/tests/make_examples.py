@@ -247,7 +247,7 @@ def make_spb_run(dir_path, raw=True):
         write_file(path, [
             AGIPDModule('SPB_DET_AGIPD1M-1/DET/{}CH0'.format(modno), raw=raw,
                          frames_per_train=64)
-            ], ntrains=32, chunksize=32)
+            ], ntrains=64, chunksize=32)
     if not raw:
         return
     write_file(osp.join(dir_path,
@@ -272,6 +272,6 @@ if __name__ == '__main__':
     make_lpd_file('lpd_example.h5')
     os.makedirs('fxe_example_run', exist_ok=True)
     make_fxe_run('fxe_example_run')
-    os.mkdirs('spb_example_run', exist_ok=True)
+    os.makedirs('spb_example_run', exist_ok=True)
     make_spb_run('spb_example_run')
     print("Written examples.")
