@@ -20,13 +20,20 @@ class FileWriter:
         assert a.shape[0] == len(self.data.train_ids)
         path = 'CONTROL/{}/{}'.format(source, key.replace('.', '/'))
         self.file[path] = a.values
-        self._make_control_index(source)
+        self._make_control_index(source, a.coords['trainId'].values)
 
-    def _make_control_index(self, source):
+    def _make_control_index(self, source, data_tids):
+        # Original files contain exactly 1 entry per train for control data,
+        # but if one file starts before another, there can be some values
+        # missing when we collect several files together. We don't try to
+        # extrapolate to fill missing data, so some counts may be 0.
         if source not in self.indexes:
-            n = len(self.data.train_ids)
-            self.indexes[source] = \
-                (np.arange(n, dtype='u8'), np.ones(n, dtype='u8'))
+            assert len(np.unique(data_tids)) == len(data_tids),\
+                "Duplicate train IDs in control data!"
+            counts = np.isin(self.data.train_ids, data_tids).astype(np.uint64)
+            ends = np.cumsum(counts)
+            firsts = ends - ends[0]
+            self.indexes[source] = (firsts, counts)
             self.data_sources.add('CONTROL/' + source)
 
     def add_instrument_dataset(self, source, key):
@@ -142,8 +149,10 @@ class VirtualFileWriter(FileWriter):
         layout = self._assemble_layout(chunks)
         self.file.create_virtual_dataset(path, layout)
 
-        assert layout.shape[0] == len(self.data.train_ids)
-        self._make_control_index(source)
+        train_ids = np.concatenate(
+            [np.repeat(c.train_ids, c.counts.astype(np.intp))
+             for c in chunks])
+        self._make_control_index(source, train_ids)
 
     def add_instrument_dataset(self, source, key):
         chunks = self._get_chunks(source, key)
