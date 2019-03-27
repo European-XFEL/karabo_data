@@ -937,6 +937,16 @@ class DataCollection:
         FileWriter(filename, self).write()
 
     def write_virtual(self, filename):
+        """Write an HDF5 file with virtual datasets for the selected data.
+
+        This doesn't copy the data, but each virtual dataset provides a view of
+        data spanning multiple sequence files, which can be accessed as if it
+        had been copied into one big file.
+
+        Creating and reading virtual datasets requires HDF5 version 1.10.
+
+        The target filename will be overwritten if it already exists.
+        """
         from .writer import VirtualFileWriter
         VirtualFileWriter(filename, self).write()
 
