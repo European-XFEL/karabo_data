@@ -21,7 +21,8 @@ class DetectorModule:
         self.device_id = device_id
         self.frames_per_train = frames_per_train
         if not raw:
-            # Drop the first dim (gain) if not raw (proc data)
+            # Raw data has an extra dimension, used in AGIPD to separate data
+            # and gain. This dimension is removed by the calibration process.
             self.image_dims = self.image_dims[1:]
         self.raw = raw
 
@@ -41,10 +42,10 @@ class DetectorModule:
 
         else:
             return [
-                ('cellId', 'u2', (1,)),
+                ('cellId', 'u2', ()),
                 ('data', 'f4', self.image_dims),
-                ('mask', 'u2', self.image_dims),
-                ('gain', 'u2', self.image_dims),
+                ('mask', 'u4', self.image_dims),
+                ('gain', 'u1', self.image_dims),
                 ('length', 'u4', (1,)),
                 ('status', 'u2', (1,)),
             ]

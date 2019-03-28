@@ -118,14 +118,11 @@ def test_read_spb_proc_run(mock_spb_proc_run):
     tid, data = next(run.trains())
     device = 'SPB_DET_AGIPD1M-1/DET/15CH0:xtdf'
     assert tid == 10000
-    assert 'image.data' in data[device]
-    assert 'f4' == data[device]['image.data'].dtype
-    for prop in ('image.gain', 'image.mask'):
+    for prop in ('image.gain', 'image.mask', 'image.data'):
         assert prop in data[device]
-        assert 'u2' == data[device][prop].dtype
-
-
-
+    assert 'u1' == data[device]['image.gain'].dtype
+    assert 'u4' == data[device]['image.mask'].dtype
+    assert 'f4' == data[device]['image.data'].dtype
     run.info() # Smoke test
 
 def test_properties_fxe_raw_run(mock_fxe_raw_run):
@@ -138,7 +135,6 @@ def test_properties_fxe_raw_run(mock_fxe_raw_run):
 
 def test_iterate_fxe_run(mock_fxe_raw_run):
     run = RunDirectory(mock_fxe_raw_run)
-
     trains_iter = run.trains()
     tid, data = next(trains_iter)
     assert tid == 10000
