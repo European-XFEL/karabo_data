@@ -140,6 +140,7 @@ from .mockdata import write_file
 from .mockdata.xgm import XGM
 from .mockdata.gec_camera import GECCamera
 from .mockdata.sidemic_camera import SidemicCamera
+from .mockdata.basler_camera import BaslerCamera
 from .mockdata.adc import ADC
 from .mockdata.uvlamp import UVLamp
 from .mockdata.motor import Motor
@@ -255,12 +256,14 @@ def make_spb_run(dir_path, raw=True):
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
                     XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                    BaslerCamera('SPB_IRU_SIDEMIC_CAM'),
                 ], ntrains=32, chunksize=32)
     write_file(osp.join(dir_path,
                         '{}-R0238-DA01-S00001.h5'.format(prefix)),
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
                     XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                    BaslerCamera('SPB_IRU_SIDEMIC_CAM'),
                 ], ntrains=32, firsttrain=10032, chunksize=32)
 
 
