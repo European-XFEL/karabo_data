@@ -7,8 +7,8 @@ def test_lsxfel_file(mock_lpd_data, capsys):
     assert "480 trains, 128 frames/train" in out
 
 
-def test_lsxfel_run(mock_fxe_run, capsys):
-    lsxfel.summarise_run(mock_fxe_run)
+def test_lsxfel_run(mock_fxe_raw_run, capsys):
+    lsxfel.summarise_run(mock_fxe_raw_run)
     out, err = capsys.readouterr()
 
     assert "480 trains" in out
