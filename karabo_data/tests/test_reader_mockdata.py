@@ -26,9 +26,10 @@ def test_get_train_bad_device_name(mock_spb_control_data_badname):
     with H5File(mock_spb_control_data_badname) as f:
         train_id, data = f.train_from_id(10004)
         assert train_id == 10004
-        assert 'SPB_IRU_SIDEMIC_CAM:daqOutput' in data
-        assert 'data.image.dims' in data['SPB_IRU_SIDEMIC_CAM:daqOutput']
-        dims = data['SPB_IRU_SIDEMIC_CAM:daqOutput']['data.image.dims']
+        device = 'SPB_IRU_SIDEMIC_CAM:daqOutput'
+        assert device in data.keys()
+        assert 'data.image.dims' in data[device].keys()
+        dims = data[device]['data.image.dims']
         assert list(dims) == [1000, 1000]
 
 
@@ -124,6 +125,16 @@ def test_read_spb_proc_run(mock_spb_proc_run):
     assert 'u4' == data[device]['image.mask'].dtype
     assert 'f4' == data[device]['image.data'].dtype
     run.info() # Smoke test
+
+def test_iterate_spb_raw_run(mock_spb_raw_run):
+    run = RunDirectory(mock_spb_raw_run)
+    trains_iter = run.trains()
+    tid, data = next(trains_iter)
+    assert tid == 10000
+    device = 'SPB_IRU_SIDEMIC_CAM:daqOutput'
+    assert tid == 10000
+    assert device in data.keys()
+    assert data[device]['data.image.pixels'].shape == (1024, 768)
 
 def test_properties_fxe_raw_run(mock_fxe_raw_run):
     run = RunDirectory(mock_fxe_raw_run)
