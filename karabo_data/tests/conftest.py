@@ -62,6 +62,12 @@ def mock_spb_proc_run():
         yield td
 
 @pytest.fixture(scope='module')
+def mock_spb_raw_run():
+    with TemporaryDirectory() as td:
+        make_examples.make_spb_run(td)
+        yield td
+
+@pytest.fixture(scope='module')
 def empty_h5_file():
     with TemporaryDirectory() as td:
         path = osp.join(td, 'empty.h5')
