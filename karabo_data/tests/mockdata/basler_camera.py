@@ -13,7 +13,7 @@ class BaslerCamera(DeviceBase):
         """Create a dummy basler device that inherits from Device Base"""
         self.px_size = px_size or (2058, 2456)
         super(BaslerCamera, self).__init__(device_id, nsamples=nsamples)
-        self.output_channels = ('daqQutput/data',)
+        self.output_channels = ('daqOutput/data',)
         self.instrument_keys = [
             ('image/bitsPerPixel', 'i4', ()),
             ('image/dimTypes', 'i4', (2,)),
