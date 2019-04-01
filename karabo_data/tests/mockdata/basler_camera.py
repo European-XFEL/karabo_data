@@ -14,6 +14,9 @@ class BaslerCamera(DeviceBase):
         self.sensor_size = sensor_size or (2058, 2456)
         super(BaslerCamera, self).__init__(device_id, nsamples=nsamples)
         self.output_channels = ('daqOutput/data',)
+        # Technically, only the part before the / is the output channel.
+        # But there is a structure associated with the part one level after that,
+        # and we don't know what else to call it.
         self.instrument_keys = [
             ('image/bitsPerPixel', 'i4', ()),
             ('image/dimTypes', 'i4', (2,)),
