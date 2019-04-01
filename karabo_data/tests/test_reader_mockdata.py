@@ -131,7 +131,7 @@ def test_iterate_spb_raw_run(mock_spb_raw_run):
     trains_iter = run.trains()
     tid, data = next(trains_iter)
     assert tid == 10000
-    device = 'SPB_IRU_SIDEMIC_CAM:daqOutput'
+    device = 'SPB_IRU_CAM/CAM/SIDEMIC:daqOutput'
     assert tid == 10000
     assert device in data.keys()
     assert data[device]['data.image.pixels'].shape == (1024, 768)

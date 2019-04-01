@@ -202,7 +202,7 @@ def make_sa3_da_file(path):
 def make_data_file_bad_device_name(path):
     """Not all devices have the Karabo standard A/B/C naming convention"""
     write_file(path, [
-        BaslerCamera('SPB_IRU_SIDEMIC_CAM', px_size=(1000, 1000))
+        BaslerCamera('SPB_IRU_SIDEMIC_CAM', sensor_size=(1000, 1000))
     ], ntrains=500, chunksize=50)
 
 def make_agipd_file(path):
@@ -239,7 +239,7 @@ def make_fxe_run(dir_path, raw=True):
         GECCamera('FXE_XAD_GEC/CAM/CAMERA_NODATA', nsamples=0),
     ], ntrains=80, firsttrain=10400, chunksize=200)
 
-def make_spb_run(dir_path, raw=True, px_size=(1024, 768)):
+def make_spb_run(dir_path, raw=True, sensor_size=(1024, 768)):
     prefix = 'RAW' if raw else 'CORR'
     for modno in range(16):
         path = osp.join(dir_path,
@@ -255,15 +255,16 @@ def make_spb_run(dir_path, raw=True, px_size=(1024, 768)):
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
                     XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
-                    BaslerCamera('SPB_IRU_SIDEMIC_CAM', px_size=px_size),
-                ], ntrains=32, chunksize=32)
+                    BaslerCamera('SPB_IRU_CAM/CAM/SIDEMIC',
+                        sensor_size=sensor_size), ], ntrains=32, chunksize=32)
     write_file(osp.join(dir_path,
                         '{}-R0238-DA01-S00001.h5'.format(prefix)),
                 [
                     XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
                     XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
-                    BaslerCamera('SPB_IRU_SIDEMIC_CAM', px_size=px_size),
-                ], ntrains=32, firsttrain=10032, chunksize=32)
+                    BaslerCamera('SPB_IRU_CAM/CAM/SIDEMIC',
+                        sensor_size=sensor_size), ], ntrains=32,
+                    firsttrain=10032, chunksize=32)
 
 
 if __name__ == '__main__':
