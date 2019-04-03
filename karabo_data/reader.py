@@ -20,6 +20,7 @@ import os.path as osp
 import pandas as pd
 import re
 import sys
+from warnings import warn
 import xarray
 
 from .exceptions import SourceNameError, PropertyNameError
@@ -1104,16 +1105,25 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     modules: int
         Number of modules composing a detector (default is 16).
     only: str
-        Only use devices in train containing this substring.
+        Deprecated: Only use devices in train containing this substring.
     xcept: list
-        List of devices to ignore (useful if you have reccored slow data with
-        detector data in the same run).
+        Deprecated: list of devices to ignore, if you have recorded slow data
+        with detector data in the same run).
 
     Returns
     -------
     combined: numpy.array
         Stacked data for requested data path.
     """
+    if xcept:
+        warn("xcept= parameter is deprecated, use data.select() or "
+             "data.deselect() instead before getting a dict.",
+             UserWarning, stacklevel=2)
+    if only:
+        warn("only= parameter is deprecated, use data.select() or "
+             "data.deselect() instead before getting a dict.",
+             UserWarning, stacklevel=2)
+
     devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
 
     if not devices:
