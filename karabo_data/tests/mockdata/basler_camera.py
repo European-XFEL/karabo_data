@@ -1,6 +1,4 @@
 """Script that creates a mock-run for the basler camera"""
-from os.path import join as op_join
-
 from .base import DeviceBase
 
 class BaslerCamera(DeviceBase):
