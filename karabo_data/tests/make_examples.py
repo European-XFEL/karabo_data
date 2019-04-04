@@ -3,6 +3,20 @@ import os
 import os.path as osp
 import numpy as np
 
+from .mockdata import write_file
+from .mockdata.xgm import XGM
+from .mockdata.gec_camera import GECCamera
+from .mockdata.basler_camera import BaslerCamera as BaslerCam
+from .mockdata.adc import ADC
+from .mockdata.uvlamp import UVLamp
+from .mockdata.motor import Motor
+from .mockdata.tsens import TemperatureSensor
+from .mockdata.imgfel import IMGFELCamera, IMGFELMotor
+from .mockdata.gauge import Gauge
+from .mockdata.dctrl import DCtrl
+from .mockdata.mpod import MPOD
+from .mockdata.detectors import AGIPDModule, LPDModule
+
 vlen_bytes = h5py.special_dtype(vlen=bytes)
 
 def make_metadata(h5file, data_sources, chunksize=16):
@@ -135,21 +149,6 @@ def make_agipd_example_file(path):
     f.create_dataset('INSTRUMENT/SPB_DET_AGIPD1M-1/DET/7CH0:xtdf/trailer/status',
                         (256,), 'u8', maxshape=(None,))  # Empty in example
 
-
-from .mockdata import write_file
-from .mockdata.xgm import XGM
-from .mockdata.gec_camera import GECCamera
-from .mockdata.basler_camera import BaslerCamera
-from .mockdata.adc import ADC
-from .mockdata.uvlamp import UVLamp
-from .mockdata.motor import Motor
-from .mockdata.tsens import TemperatureSensor
-from .mockdata.imgfel import IMGFELCamera, IMGFELMotor
-from .mockdata.gauge import Gauge
-from .mockdata.dctrl import DCtrl
-from .mockdata.mpod import MPOD
-from .mockdata.detectors import AGIPDModule, LPDModule
-
 def make_fxe_da_file(path):
     """Make the structure of a file with non-detector data from the FXE experiment
 
@@ -202,7 +201,7 @@ def make_sa3_da_file(path):
 def make_data_file_bad_device_name(path):
     """Not all devices have the Karabo standard A/B/C naming convention"""
     write_file(path, [
-        BaslerCamera('SPB_IRU_SIDEMIC_CAM', sensor_size=(1000, 1000))
+        BaslerCam('SPB_IRU_SIDEMIC_CAM', sensor_size=(1000, 1000))
     ], ntrains=500, chunksize=50)
 
 def make_agipd_file(path):
@@ -250,22 +249,17 @@ def make_spb_run(dir_path, raw=True, sensor_size=(1024, 768)):
             ], ntrains=64, chunksize=32)
     if not raw:
         return
-    write_file(osp.join(dir_path,
-                        '{}-R0238-DA01-S00000.h5'.format(prefix)),
-                [
-                    XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
-                    XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
-                    BaslerCamera('SPB_IRU_CAM/CAM/SIDEMIC',
-                        sensor_size=sensor_size), ], ntrains=32, chunksize=32)
-    write_file(osp.join(dir_path,
-                        '{}-R0238-DA01-S00001.h5'.format(prefix)),
-                [
-                    XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
-                    XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
-                    BaslerCamera('SPB_IRU_CAM/CAM/SIDEMIC',
-                        sensor_size=sensor_size), ], ntrains=32,
-                    firsttrain=10032, chunksize=32)
+    write_file(osp.join(dir_path, '{}-R0238-DA01-S00000.h5'.format(prefix)),
+               [ XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+                 XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                 BaslerCam('SPB_IRU_CAM/CAM/SIDEMIC', sensor_size=sensor_size)
+               ], ntrains=32, chunksize=32)
 
+    write_file(osp.join(dir_path, '{}-R0238-DA01-S00001.h5'.format(prefix)),
+               [ XGM('SA1_XTD2_XGM/DOOCS/MAIN'),
+                 XGM('SPB_XTD9_XGM/DOOCS/MAIN'),
+                 BaslerCam('SPB_IRU_CAM/CAM/SIDEMIC', sensor_size=sensor_size)
+               ], ntrains=32, firsttrain=10032, chunksize=32)
 
 if __name__ == '__main__':
     make_agipd_example_file('agipd_example.h5')
