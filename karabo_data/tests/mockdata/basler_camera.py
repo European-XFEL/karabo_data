@@ -35,7 +35,7 @@ class BaslerCamera(DeviceBase):
         # Add fixed metadata
         for channel in self.output_channels:
             image_grp = 'INSTRUMENT/{}:{}/image/'.format(self.device_id, channel)
-            f[op_join(image_grp, 'bitsPerPixel')][:self.nsamples] = 16
-            f[op_join(image_grp, 'dims')][:self.nsamples] = self.sensor_size
+            f[image_grp]['bitsPerPixel'][:self.nsamples] = 16
+            f[image_grp]['dims'][:self.nsamples] = self.sensor_size
 
 
