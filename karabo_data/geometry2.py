@@ -500,6 +500,68 @@ class DetectorGeometryBase:
 
         return distortion
 
+    def _tile_slice(self, tileno):
+        """Implement in subclass: which part of module array each tile is.
+        """
+        raise NotImplementedError
+
+    def get_pixel_positions(self, centre=True):
+        """Get the coordinates of each pixel in the detector
+
+        The output is an array with shape like the data, with an extra dimension
+        of length 3 to hold (x, y, z) coordinates. Coordinates are in pixel
+        units from the detector centre.
+
+        If centre=True, the coordinates are calculated for the centre of each
+        pixel. If not, the coordinates are for the first corner of the pixel
+        (the one nearest the [0, 0] corner of the tile in data space.
+        """
+        out = np.zeros(self.expected_data_shape + (3,), dtype=np.float32)
+
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, self.frag_ss_pixels),
+            np.arange(0, self.frag_fs_pixels),
+            indexing='ij'
+        )
+        if centre:
+            pixel_ss_index += 0.5
+            pixel_fs_index += 0.5
+
+        for m, mod in enumerate(self.modules, start=0):
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
+
+                # Calculate coordinates of each pixel's first corner
+                # 2D arrays, shape: (64, 128)
+                pixels_x = (
+                        corner_x
+                        + pixel_ss_index * ss_unit_x
+                        + pixel_fs_index * fs_unit_x
+                )
+                pixels_y = (
+                        corner_y
+                        + pixel_ss_index * ss_unit_y
+                        + pixel_fs_index * fs_unit_y
+                )
+                pixels_z = (
+                        corner_z
+                        + pixel_ss_index * ss_unit_z +
+                        + pixel_fs_index * fs_unit_z
+                )
+
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._tile_slice(t)
+
+                # Insert the data into the array
+                out[m, tile_ss_slice, tile_fs_slice, 0] = pixels_x
+                out[m, tile_ss_slice, tile_fs_slice, 1] = pixels_y
+                out[m, tile_ss_slice, tile_fs_slice, 2] = pixels_z
+
+        return out
+
 
 class AGIPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for AGIPD-1M
@@ -776,6 +838,15 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
         fs_dims = 0, cls.frag_fs_pixels - 1  # Every tile covers the full pixel range
         return ss_dims, fs_dims
+
+    @classmethod
+    def _tile_slice(cls, tileno):
+        # Which part of the array is this tile?
+        # tileno = 0 to 7
+        tile_offset = tileno * cls.frag_ss_pixels
+        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        return ss_slice, fs_slice
 
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
@@ -1136,6 +1207,19 @@ class LPD_1MGeometry(DetectorGeometryBase):
             fs_slice = slice(128, 256)
             tiles_up = t - 8
         tile_offset = module_offset + (tiles_up * 32)
+        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        return ss_slice, fs_slice
+
+    @classmethod
+    def _tile_slice(cls, tileno):
+        # Which part of the array is this tile?
+        if tileno < 8:  # First half of module (0 <= t <= 7)
+            fs_slice = slice(0, 128)
+            tiles_up = 7 - tileno
+        else:  # Second half of module (8 <= t <= 15)
+            fs_slice = slice(128, 256)
+            tiles_up = tileno - 8
+        tile_offset = tiles_up * 32
         ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
         return ss_slice, fs_slice
 
