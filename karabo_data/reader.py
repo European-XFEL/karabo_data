@@ -1091,7 +1091,8 @@ def stack_data(train, data, axis=-3, xcept=()):
     return np.stack(ordered_arrays, axis=axis)
 
 
-def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
+def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=(),
+                        fillvalue=np.nan):
     """Stack data from detector modules in a train.
 
     Parameters
@@ -1109,6 +1110,9 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
     xcept: list
         Deprecated: list of devices to ignore, if you have recorded slow data
         with detector data in the same run).
+    fillvalue: number
+        Value to use in place of data for missing modules. The default is nan
+        (not a number) for floating-point data, and 0 for integers.
 
     Returns
     -------
@@ -1137,7 +1141,10 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
             raise ValueError("Non-detector source: {}".format(device))
         modno = int(det_mod_match.group(1))
 
-        array = train[device][data]
+        try:
+            array = train[device][data]
+        except KeyError:
+            continue
         dtypes.add(array.dtype)
         shapes.add(array.shape)
         modno_arrays[modno] = array
@@ -1156,7 +1163,7 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=()):
 
     dtype = dtypes.pop()
     shape = shapes.pop()
-    combined = np.full((modules,) + shape, np.nan, dtype=dtype)
+    combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
     for modno, array in modno_arrays.items():
         if modno in skip:
             continue
