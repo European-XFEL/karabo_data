@@ -145,7 +145,7 @@ class DetectorGeometryBase:
     pixel_size = 0.0
     frag_ss_pixels = 0
     frag_fs_pixels = 0
-    expected_data_shape = ()
+    expected_data_shape = (0, 0, 0)
 
     def __init__(self, modules, filename='No file'):
         # List of lists (1 per module) of fragments (1 per tile)
@@ -256,6 +256,84 @@ class DetectorGeometryBase:
         return self._snapped().plot_data(
             data, axis_units=axis_units, frontview=frontview
         )
+
+    @classmethod
+    def _distortion_array_slice(cls, m, t):
+        """Implement in subclass: which part of distortion array each tile is.
+        """
+        raise NotImplementedError
+
+    def to_distortion_array(self):
+        """Generate a distortion array for pyFAI from this geometry.
+        """
+        nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
+        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 4, 3),
+                              dtype=np.float32)
+
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, self.frag_ss_pixels),
+            np.arange(0, self.frag_fs_pixels),
+            indexing='ij'
+        )
+        corner_ss_offsets = np.array([0, 1, 1, 0])
+        corner_fs_offsets = np.array([0, 0, 1, 1])
+
+        for m, mod in enumerate(self.modules, start=0):
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+
+                # Calculate coordinates of each pixel's first corner
+                # 2D arrays, shape: (64, 128)
+                pixel_corner1_x = (
+                        corner_x
+                        + pixel_ss_index * ss_unit_x
+                        + pixel_fs_index * fs_unit_x
+                )
+                pixel_corner1_y = (
+                        corner_y
+                        + pixel_ss_index * ss_unit_y
+                        + pixel_fs_index * fs_unit_y
+                )
+                pixel_corner1_z = (
+                        corner_z
+                        + pixel_ss_index * ss_unit_z +
+                        + pixel_fs_index * fs_unit_z
+                )
+
+                # Calculate corner coordinates for each pixel
+                # 3D arrays, shape: (64, 128, 4)
+                corners_x = (
+                        pixel_corner1_x[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_x
+                        + corner_fs_offsets * fs_unit_x
+                )
+                corners_y = (
+                        pixel_corner1_y[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_y
+                        + corner_fs_offsets * fs_unit_y
+                )
+                corners_z = (
+                        pixel_corner1_z[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_z
+                        + corner_fs_offsets * fs_unit_z
+                )
+
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Insert the data into the array
+                distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
+                distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
+                distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
+
+        # Shift the x & y origin from the centre to the corner
+        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+        distortion[..., 1:] -= min_yx
+
+        return distortion
 
 
 class AGIPD_1MGeometry(DetectorGeometryBase):
@@ -548,6 +626,16 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         # Split into 8 tiles along the slow-scan axis
         return np.split(module_data, 8, axis=-2)
 
+    @classmethod
+    def _distortion_array_slice(cls, m, t):
+        # Which part of the array is this tile?
+        # m = 0 to 15,  t = 0 to 7
+        module_offset = m * 512
+        tile_offset = module_offset + (t * cls.frag_ss_pixels)
+        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        return ss_slice, fs_slice
+
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
 
@@ -562,74 +650,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
             - 4 corners of each pixel
             - 3 numbers for z, y, x
         """
-        distortion = np.zeros((8192, 128, 4, 3), dtype=np.float32)
-
-        # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, 64), np.arange(0, 128), indexing='ij'
-        )
-        corner_ss_offsets = np.array([0, 1, 1, 0])
-        corner_fs_offsets = np.array([0, 0, 1, 1])
-
-        for m, mod in enumerate(self.modules, start=0):
-            # module offset along first dimension of distortion array
-            module_offset = m * 512
-
-            for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
-
-                # Calculate coordinates of each pixel's first corner
-                # 2D arrays, shape: (64, 128)
-                pixel_corner1_x = (
-                    corner_x
-                    + pixel_ss_index * ss_unit_x
-                    + pixel_fs_index * fs_unit_x
-                )
-                pixel_corner1_y = (
-                    corner_y
-                    + pixel_ss_index * ss_unit_y
-                    + pixel_fs_index * fs_unit_y
-                )
-                pixel_corner1_z = (
-                    corner_z
-                    + pixel_ss_index * ss_unit_z +
-                    + pixel_fs_index * fs_unit_z
-                )
-
-                # Calculate corner coordinates for each pixel
-                # 3D arrays, shape: (64, 128, 4)
-                corners_x = (
-                    pixel_corner1_x[:, :, np.newaxis]
-                    + corner_ss_offsets * ss_unit_x
-                    + corner_fs_offsets * fs_unit_x
-                )
-                corners_y = (
-                    pixel_corner1_y[:, :, np.newaxis]
-                    + corner_ss_offsets * ss_unit_y
-                    + corner_fs_offsets * fs_unit_y
-                )
-                corners_z = (
-                    pixel_corner1_z[:, :, np.newaxis]
-                    + corner_ss_offsets * ss_unit_z
-                    + corner_fs_offsets * fs_unit_z
-                )
-
-                # Which part of the array is this tile?
-                tile_offset = module_offset + (t * 64)
-                tile_slice = slice(tile_offset, tile_offset + tile.ss_pixels)
-
-                # Insert the data into the array
-                distortion[tile_slice, :, :, 0] = corners_z
-                distortion[tile_slice, :, :, 1] = corners_y
-                distortion[tile_slice, :, :, 2] = corners_x
-
-        # Shift the x & y origin from the centre to the corner
-        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
-        distortion[..., 1:] -= min_yx
-
-        return distortion
+        return super().to_distortion_array()  # Overridden only for docstring
 
 
 class SnappedGeometry:
@@ -975,6 +996,38 @@ class LPD_1MGeometry(DetectorGeometryBase):
         # Tiles 1-8 (half1) are numbered top to bottom, whereas the array
         # starts at the bottom. So we reverse their order after splitting.
         return np.split(half1, 8, axis=-2)[::-1] + np.split(half2, 8, axis=-2)
+
+    @classmethod
+    def _distortion_array_slice(cls, m, t):
+        # Which part of the array is this tile?
+        # The distortion array for LPD is 4096 x 256, with modules stacked
+        # along their slow-scan axis, Q1M1 (m=0) to Q4M4 (m=15)
+        module_offset = m * 256
+        if t < 8:  # First half of module (0 <= t <= 7)
+            fs_slice = slice(0, 128)
+            tiles_up = 7 - t
+        else:      # Second half of module (8 <= t <= 15)
+            fs_slice = slice(128, 256)
+            tiles_up = t - 8
+        tile_offset = module_offset + (tiles_up * 32)
+        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        return ss_slice, fs_slice
+
+    def to_distortion_array(self):
+        """Return distortion matrix for LPD detector, suitable for pyFAI.
+
+        Returns
+        -------
+        out: ndarray
+            Array of float 32 with shape (4096, 256, 4, 3).
+            The dimensions mean:
+
+            - 4096 = 16 modules * 256 pixels (slow scan axis)
+            - 256 pixels (fast scan axis)
+            - 4 corners of each pixel
+            - 3 numbers for z, y, x
+        """
+        return super().to_distortion_array()  # Overridden only for docstring
 
 
 def invert_xfel_lpd_geom(path_in, path_out):
