@@ -485,15 +485,23 @@ def test_stack_detector_data_missing(mock_fxe_raw_run):
     test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
+    # Three variants of missing data:
+    # 1. Source missing
+    del data['FXE_DET_LPD1M-1/DET/3CH0:xtdf']
+    # 2. Key missing
+    del data['FXE_DET_LPD1M-1/DET/7CH0:xtdf']['image.data']
+    # 3. Empty array
     missing = ['FXE_DET_LPD1M-1/DET/{}CH0:xtdf'.format(m) for m in (1, 5, 9, 15)]
     for module in missing:
         data[module]['image.data'] = np.zeros((0, 1, 256, 256), dtype=np.uint16)
 
-    comb = stack_detector_data(data, 'image.data')
+    comb = stack_detector_data(data, 'image.data', fillvalue=22)
     assert comb.shape == (128, 1, 16, 256, 256)
-    assert np.array_equal(
-        comb[:, :, 5, ...], np.full((128, 1, 256, 256), np.nan, dtype=np.uint16)
-    )
+
+    assert not (comb[:, :, 0] == 22).any()  # Control
+    assert (comb[:, :, 3] == 22).all()  # Source missing
+    assert (comb[:, :, 7] == 22).all()  # Key missing
+    assert (comb[:, :, 5] == 22).all()  # Empty array
 
 
 def test_stack_detector_data_wrong_pulses(mock_fxe_raw_run):
