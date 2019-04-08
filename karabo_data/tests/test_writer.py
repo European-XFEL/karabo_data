@@ -27,11 +27,11 @@ def test_write_selected(mock_fxe_raw_run):
             a = f.get_array('SPB_XTD9_XGM/DOOCS/MAIN:output', 'data.intensityTD')
             assert a.shape == (480, 1000)
 
-def test_write_virtual(mock_fxe_run):
+def test_write_virtual(mock_fxe_raw_run):
     with TemporaryDirectory() as td:
         new_file = osp.join(td, 'test.h5')
 
-        with RunDirectory(mock_fxe_run) as run:
+        with RunDirectory(mock_fxe_raw_run) as run:
             run.write_virtual(new_file)
 
         assert_isfile(new_file)
