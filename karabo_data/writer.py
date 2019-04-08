@@ -111,6 +111,13 @@ class VirtualFileWriter(FileWriter):
     but they provide more convenient access by reassembling data spread over
     several sequence files.
     """
+    def __init__(self, path, data):
+        if not hasattr(h5py, 'VirtualLayout'):
+            raise Exception("Creating virtual datasets requires HDF5 1.10 "
+                            "and h5py 2.9")
+
+        super().__init__(path,  data)
+
     def _assemble_data(self, source, key):
         """Assemble chunks of data into a virtual layout"""
         # First, get a list of all non-empty data chunks
