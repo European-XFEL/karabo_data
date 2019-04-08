@@ -519,14 +519,15 @@ class DetectorGeometryBase:
         out = np.zeros(self.expected_data_shape + (3,), dtype=np.float32)
 
         # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels),
-            np.arange(0, self.frag_fs_pixels),
+        pixel_ss_coord, pixel_fs_coord = np.meshgrid(
+            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
+            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
             indexing='ij'
         )
         if centre:
-            pixel_ss_index += 0.5
-            pixel_fs_index += 0.5
+            # A pixel is from n to n+1 in each axis, so centres are at n+0.5.
+            pixel_ss_coord += 0.5
+            pixel_fs_coord += 0.5
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
@@ -538,18 +539,18 @@ class DetectorGeometryBase:
                 # 2D arrays, shape: (64, 128)
                 pixels_x = (
                         corner_x
-                        + pixel_ss_index * ss_unit_x
-                        + pixel_fs_index * fs_unit_x
+                        + pixel_ss_coord * ss_unit_x
+                        + pixel_fs_coord * fs_unit_x
                 )
                 pixels_y = (
                         corner_y
-                        + pixel_ss_index * ss_unit_y
-                        + pixel_fs_index * fs_unit_y
+                        + pixel_ss_coord * ss_unit_y
+                        + pixel_fs_coord * fs_unit_y
                 )
                 pixels_z = (
                         corner_z
-                        + pixel_ss_index * ss_unit_z +
-                        + pixel_fs_index * fs_unit_z
+                        + pixel_ss_coord * ss_unit_z +
+                        + pixel_fs_coord * fs_unit_z
                 )
 
                 # Which part of the array is this tile?
