@@ -58,6 +58,8 @@ including the main detectors, record data more frequently.
 
    .. automethod:: write
 
+   .. automethod:: write_virtual
+
 Missing data
 ------------
 
