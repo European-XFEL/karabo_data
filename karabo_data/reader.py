@@ -15,11 +15,14 @@ import datetime
 import fnmatch
 from glob import glob
 import h5py
+import logging
 import numpy as np
 import os.path as osp
 import pandas as pd
+from pathlib import Path
 import re
 import sys
+import time
 from warnings import warn
 import xarray
 
@@ -37,6 +40,7 @@ from .read_machinery import (
 __all__ = [
     'H5File',
     'RunDirectory',
+    'open_run',
     'FileAccess',
     'DataCollection',
     'stack_data',
@@ -47,6 +51,7 @@ __all__ = [
     'PropertyNameError',
 ]
 
+log = logging.getLogger(__name__)
 
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
@@ -1056,6 +1061,67 @@ def RunDirectory(path):
 # RunDirectory was previously RunHandler; we'll leave it accessible in case
 # any code was already using it.
 RunHandler = RunDirectory
+
+
+def find_proposal(propno):
+    """Find the proposal directory for a given proposal on Maxwell"""
+    if '/' in propno:
+        # Already passed a proposal directory
+        return propno
+
+    t0 = time.monotonic()
+    for d in Path('/gpfs/exfel/exp').glob('*/*/{}'.format(propno)):
+        dt = time.monotonic() - t0
+        log.info("Found proposal dir %r in %.2g s", d, dt)
+        return d
+
+    raise Exception("Couldn't find proposal dir for {!r}".format(propno))
+
+
+def open_run(proposal, run, proc=True):
+    """Access data from a specified run in the EuXFEL files on Maxwell.
+
+    Parameters
+    ----------
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    proc: bool
+        If True (default), combine data from the raw and 'proc' (processed)
+        folders for the specified run. If False, access only the raw data.
+    """
+    if isinstance(proposal, int):
+        proposal = 'p{:06d}'.format(proposal)
+    elif ('/' not in proposal) and not proposal.startswith('p'):
+        proposal = 'p' + proposal.rjust(6, '0')
+
+    prop_dir = find_proposal(proposal)
+
+    if isinstance(run, int):
+        run = 'r{:04d}'.format(run)
+    elif not run.startswith('r'):
+        run = 'r' + run.rjust(4, '0')
+
+    if not proc:
+        return RunDirectory(str(prop_dir / 'raw' / run))
+
+    raw_files = list((prop_dir / 'raw' / run).glob('*.h5'))
+    proc_files = list((prop_dir / 'proc' / run).glob('*.h5'))
+
+    # The first part of the name is RAW or CORR. After trimming that,
+    # ignore raw files with a corresponding file in proc.
+    got_in_proc = {p.name.split('-', 1)[1] for p in proc_files}
+    raw_files = [p for p in raw_files
+                 if p.name.split('-', 1)[1] not in got_in_proc]
+
+    files = proc_files + raw_files
+    if not files:
+        raise Exception("No .h5 files found for proposal {!r} run {!r}"
+                        .format(proposal, run))
+
+    return DataCollection.from_paths(files)
 
 
 def stack_data(train, data, axis=-3, xcept=()):
