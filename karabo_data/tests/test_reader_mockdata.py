@@ -1,13 +1,15 @@
 from itertools import islice
 
 import numpy as np
+import os
 import pandas as pd
 import pytest
+from unittest import mock
 from xarray import DataArray
 
 from karabo_data import (
     H5File, RunDirectory, stack_data, stack_detector_data, by_index, by_id,
-    SourceNameError, PropertyNameError, DataCollection,
+    SourceNameError, PropertyNameError, DataCollection, open_run,
 )
 
 
@@ -574,3 +576,49 @@ def test_run_immutable_sources(mock_fxe_raw_run):
         test_run.all_sources.pop()
 
     assert len(test_run.all_sources) == before
+
+
+def test_open_run(mock_spb_raw_run, mock_spb_proc_run, tmpdir):
+    prop_dir = os.path.join(tmpdir, 'SPB', '201830', 'p002012')
+    # Set up raw
+    os.makedirs(os.path.join(prop_dir, 'raw'))
+    os.symlink(mock_spb_raw_run, os.path.join(prop_dir, 'raw', 'r0238'))
+
+    # Set up proc
+    os.makedirs(os.path.join(prop_dir, 'proc'))
+    os.symlink(mock_spb_proc_run, os.path.join(prop_dir, 'proc', 'r0238'))
+
+    with mock.patch('karabo_data.read_machinery.DATA_ROOT_DIR', tmpdir):
+        # With integers
+        run = open_run(proposal=2012, run=238)
+        paths = {f.filename for f in run.files}
+
+        # Should have both AGIPD files from proc/ and other data from raw/
+        agipd_paths = {f for f in paths if 'AGIPD' in f}
+        assert agipd_paths
+        for path in agipd_paths:
+            assert '/proc/' in path
+
+        control_paths = paths - agipd_paths
+        assert control_paths
+        for path in control_paths:
+            assert '/raw/' in path
+
+        # With strings
+        run = open_run(proposal='2012', run='238')
+        assert {f.filename for f in run.files} == paths
+
+        # Don't read proc data
+        run = open_run(proposal=2012, run=238, proc=False)
+        raw_only_paths = {f.filename for f in run.files}
+        assert raw_only_paths.issuperset(control_paths)
+        assert raw_only_paths.isdisjoint(agipd_paths)
+
+        raw_agipd_paths = {f for f in raw_only_paths if 'AGIPD' in f}
+        assert raw_agipd_paths
+        for path in raw_agipd_paths:
+            assert '/raw/' in path
+
+        # Run that doesn't exist
+        with pytest.raises(Exception):
+            open_run(proposal=2012, run=999)

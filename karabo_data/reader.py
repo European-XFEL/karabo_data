@@ -19,10 +19,8 @@ import logging
 import numpy as np
 import os.path as osp
 import pandas as pd
-from pathlib import Path
 import re
 import sys
-import time
 from warnings import warn
 import xarray
 
@@ -35,6 +33,7 @@ from .read_machinery import (
     _tid_to_slice_ix,
     union_selections,
     contiguous_regions,
+    find_proposal,
 )
 
 __all__ = [
@@ -1063,21 +1062,6 @@ def RunDirectory(path):
 RunHandler = RunDirectory
 
 
-def find_proposal(propno):
-    """Find the proposal directory for a given proposal on Maxwell"""
-    if '/' in propno:
-        # Already passed a proposal directory
-        return propno
-
-    t0 = time.monotonic()
-    for d in Path('/gpfs/exfel/exp').glob('*/*/{}'.format(propno)):
-        dt = time.monotonic() - t0
-        log.info("Found proposal dir %r in %.2g s", d, dt)
-        return d
-
-    raise Exception("Couldn't find proposal dir for {!r}".format(propno))
-
-
 def open_run(proposal, run, proc=True):
     """Access data from a specified run in the EuXFEL files on Maxwell.
 
@@ -1105,16 +1089,16 @@ def open_run(proposal, run, proc=True):
         run = 'r' + run.rjust(4, '0')
 
     if not proc:
-        return RunDirectory(str(prop_dir / 'raw' / run))
+        return RunDirectory(osp.join(prop_dir, 'raw', run))
 
-    raw_files = list((prop_dir / 'raw' / run).glob('*.h5'))
-    proc_files = list((prop_dir / 'proc' / run).glob('*.h5'))
+    raw_files = glob(osp.join(prop_dir, 'raw', run, '*.h5'))
+    proc_files = glob(osp.join(prop_dir, 'proc', run, '*.h5'))
 
     # Names look like RAW-R0243-AGIPD10-S00002.h5 . If the 3rd part ('AGIPD10')
     # exists in proc, skip loading it from raw.
-    got_in_proc = {p.name.split('-')[2] for p in proc_files}
+    got_in_proc = {osp.basename(p).split('-')[2] for p in proc_files}
     raw_files = [p for p in raw_files
-                 if p.name.split('-')[2] not in got_in_proc]
+                 if osp.basename(p).split('-')[2] not in got_in_proc]
 
     files = proc_files + raw_files
     if not files:

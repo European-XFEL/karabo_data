@@ -3,14 +3,21 @@
 The public API is in karabo_data.reader; this is internal code.
 """
 from collections import defaultdict
+from glob import iglob
+import logging
 import numpy as np
 import os.path as osp
 import re
+import time
 
 from .exceptions import SourceNameError
 
+log = logging.getLogger(__name__)
+
 DETECTOR_NAMES = {'AGIPD', 'LPD'}
 DETECTOR_SOURCE_RE = re.compile(r'(.+)/DET/(\d+)CH')
+
+DATA_ROOT_DIR = '/gpfs/exfel/exp'
 
 
 class _SliceConstructor(type):
@@ -183,3 +190,18 @@ class FilenameInfo:
             )
         else:
             self.description = "Unknown data source ({})", datasrc
+
+
+def find_proposal(propno):
+    """Find the proposal directory for a given proposal on Maxwell"""
+    if '/' in propno:
+        # Already passed a proposal directory
+        return propno
+
+    t0 = time.monotonic()
+    for d in iglob(osp.join(DATA_ROOT_DIR, '*/*/{}'.format(propno))):
+        dt = time.monotonic() - t0
+        log.info("Found proposal dir %r in %.2g s", d, dt)
+        return d
+
+    raise Exception("Couldn't find proposal dir for {!r}".format(propno))
