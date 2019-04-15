@@ -1110,11 +1110,11 @@ def open_run(proposal, run, proc=True):
     raw_files = list((prop_dir / 'raw' / run).glob('*.h5'))
     proc_files = list((prop_dir / 'proc' / run).glob('*.h5'))
 
-    # The first part of the name is RAW or CORR. After trimming that,
-    # ignore raw files with a corresponding file in proc.
-    got_in_proc = {p.name.split('-', 1)[1] for p in proc_files}
+    # Names look like RAW-R0243-AGIPD10-S00002.h5 . If the 3rd part ('AGIPD10')
+    # exists in proc, skip loading it from raw.
+    got_in_proc = {p.name.split('-')[2] for p in proc_files}
     raw_files = [p for p in raw_files
-                 if p.name.split('-', 1)[1] not in got_in_proc]
+                 if p.name.split('-')[2] not in got_in_proc]
 
     files = proc_files + raw_files
     if not files:
