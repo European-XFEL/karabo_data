@@ -579,7 +579,7 @@ def test_run_immutable_sources(mock_fxe_raw_run):
 
 
 def test_open_run(mock_spb_raw_run, mock_spb_proc_run, tmpdir):
-    prop_dir = os.path.join(tmpdir, 'SPB', '201830', 'p002012')
+    prop_dir = os.path.join(str(tmpdir), 'SPB', '201830', 'p002012')
     # Set up raw
     os.makedirs(os.path.join(prop_dir, 'raw'))
     os.symlink(mock_spb_raw_run, os.path.join(prop_dir, 'raw', 'r0238'))
