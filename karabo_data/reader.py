@@ -943,6 +943,12 @@ class DataCollection:
         data spanning multiple sequence files, which can be accessed as if it
         had been copied into one big file.
 
+        This is *not* the same as `building virtual datasets to combine
+        multi-module detector data
+        <https://in.xfel.eu/readthedocs/docs/data-analysis-user-documentation/en/latest/datafiles.html#combining-detector-data-from-multiple-modules>`__.
+        That more complex operation will be integrated into karabo_data in the
+        future.
+
         Creating and reading virtual datasets requires HDF5 version 1.10.
 
         The target filename will be overwritten if it already exists.
