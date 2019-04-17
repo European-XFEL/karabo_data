@@ -1,7 +1,9 @@
+import os.path as osp
 import pytest
+from testpath import assert_isfile
 
 from karabo_data.reader import RunDirectory, by_id, by_index
-from karabo_data.components import LPD1M
+from karabo_data.components import AGIPD1M, LPD1M
 
 
 def test_get_array(mock_fxe_raw_run):
@@ -104,3 +106,11 @@ def test_iterate_pulse_index(mock_fxe_raw_run):
     tid, d = next(iter(det.trains(pulses=by_index[[1, 7, 22, 23]])))
     assert d['image.data'].shape == (16, 1, 4, 256, 256)
     assert list(d['image.data'].coords['pulse']) == [1, 7, 22, 23]
+
+def test_write_virtual_cxi(mock_spb_proc_run, tmpdir):
+    run = RunDirectory(mock_spb_proc_run)
+    det = AGIPD1M(run)
+
+    test_file = osp.join(str(tmpdir), 'test.cxi')
+    det.write_virtual_cxi(test_file)
+    assert_isfile(test_file)
