@@ -1,11 +1,14 @@
 """Interfaces to data from specific instruments
 """
+import logging
 import numpy as np
 import pandas as pd
 import re
 import xarray
 
 from .reader import DataCollection, by_id, by_index
+
+log = logging.getLogger(__name__)
 
 MAX_PULSES = 2700
 
@@ -79,15 +82,30 @@ class MPxDetectorBase:
 
     _source_re = re.compile(r'(?P<detname>.+)/DET/(\d+)CH')
 
-    def __init__(self, data: DataCollection, detector_name=None, modules=None):
+    def __init__(self, data: DataCollection, detector_name=None, modules=None,
+                 *, min_modules=1):
         if detector_name is None:
             detector_name = self._find_detector_name(data)
 
         source_to_modno = self._identify_sources(data, detector_name, modules)
 
-        self.data = data.select([(src, '*') for src in source_to_modno])
+        data = data.select([(src, '*') for src in source_to_modno])
         self.detector_name = detector_name
         self.source_to_modno = source_to_modno
+
+        mod_data_counts = pd.DataFrame({
+            src: data.get_data_counts(src, 'image.data')
+            for src in source_to_modno
+        })
+
+        # Sanity check: all non-zero counts should be equal
+        data_count_values = set(mod_data_counts.values.flatten()) - {0}
+        if len(data_count_values) > 1:
+            raise ValueError("Inconsistent frame counts: {}"
+                             .format(data_count_values))
+
+        self.frames_per_train = data_count_values.pop()
+        self.data = self._select_trains(data, mod_data_counts, min_modules)
 
         # This should be a reversible 1-to-1 mapping
         self.modno_to_source = {m: s for (s, m) in source_to_modno.items()}
@@ -132,6 +150,19 @@ class MPxDetectorBase:
             raise ValueError("No detector sources found in this data")
 
         return source_to_modno
+
+    @classmethod
+    def _select_trains(cls, data, mod_data_counts, min_modules):
+        modules_present = (mod_data_counts > 0).sum(axis=1)
+        mod_data_counts = mod_data_counts[modules_present >= min_modules]
+        ntrains = len(mod_data_counts)
+        if not ntrains:
+            raise ValueError("No data found with >= {} modules present"
+                             .format(min_modules))
+        log.info("Found %d trains with data for at least %d modules",
+                 ntrains, min_modules)
+        train_ids = mod_data_counts.index.values
+        return data.select_trains(by_id[train_ids])
 
     @property
     def train_ids(self):
@@ -481,6 +512,8 @@ class AGIPD1M(MPxDetectorBase):
     detector_name: str, optional
       Name of a detector, e.g. 'SPB_DET_AGIPD1M-1'. This is only needed
       if the dataset includes more than one AGIPD detector.
+    min_modules: int
+      Include trains where at least n modules have data. Default is 1.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
 
@@ -499,5 +532,7 @@ class LPD1M(MPxDetectorBase):
     detector_name: str, optional
       Name of a detector, e.g. 'FXE_DET_LPD1M-1'. This is only needed
       if the dataset includes more than one LPD detector.
+    min_modules: int
+      Include trains where at least n modules have data. Default is 1.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_LPD1M(.*))/DET/(\d+)CH')
