@@ -81,6 +81,7 @@ class MPxDetectorBase:
     """
 
     _source_re = re.compile(r'(?P<detname>.+)/DET/(\d+)CH')
+    module_shape = (0, 0)  # Override in subclass
 
     def __init__(self, data: DataCollection, detector_name=None, modules=None,
                  *, min_modules=1):
@@ -342,6 +343,21 @@ class MPxDetectorBase:
         pulses = _check_pulse_selection(pulses)
         return MPxDetectorTrainIterator(self, pulses)
 
+    def write_virtual_cxi(self, filename):
+        """Write a virtual CXI file to access the detector data.
+
+        The virtual datasets in the file provide a view of the detector
+        data as if it was a single huge array, but without copying the data.
+        Creating and using virtual datasets requires HDF5 1.10.
+
+        Parameters
+        ----------
+        filename: str
+          The file to be written. Will be overwritten if it already exists.
+        """
+        from .write_cxi import VirtualCXIWriter
+        VirtualCXIWriter(self).write(filename)
+
 
 class MPxDetectorTrainIterator:
     """Iterate over trains in detector data, assembling arrays.
@@ -516,6 +532,7 @@ class AGIPD1M(MPxDetectorBase):
       Include trains where at least n modules have data. Default is 1.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
+    module_shape = (512, 128)
 
 
 class LPD1M(MPxDetectorBase):
@@ -536,3 +553,4 @@ class LPD1M(MPxDetectorBase):
       Include trains where at least n modules have data. Default is 1.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_LPD1M(.*))/DET/(\d+)CH')
+    module_shape = (256, 256)
