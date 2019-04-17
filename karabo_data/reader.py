@@ -423,6 +423,27 @@ class DataCollection:
         train_id = self.train_ids[train_index]
         return self.train_from_id(int(train_id), devices=devices)
 
+    def get_data_counts(self, source, key):
+        """Get a count of data points in each train
+
+        Returns a pandas series with an index of train IDs.
+        """
+        self._check_field(source, key)
+        seq_series = []
+
+        for f in self._source_index[source]:
+            if source in self.control_sources:
+                counts = np.ones(f.train_ids, dtype=np.uint64)
+            else:
+                group = key.partition('.')[0]
+                _, counts = f.get_index(source, group)
+            seq_series.append(pd.Series(counts, index=f.train_ids))
+
+        ser = pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+        # Select out only the train IDs of interest
+        train_ids = ser.index.intersection(self.train_ids)
+        return ser.loc[train_ids]
+
     def get_series(self, source, key):
         """Return a pandas Series for a particular data field.
 
