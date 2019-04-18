@@ -38,9 +38,13 @@ class VirtualCXIWriter:
 
         for i, source in enumerate(self.detdata.source_to_modno):
             for chunk in self.data._find_data_chunks(source, 'image.pulseId'):
-                ix = self.train_id_to_ix[chunk.train_ids[0]]
-                n = chunk.counts.sum()
+                # Expand the list of train IDs to one per frame
                 chunk_tids = np.repeat(chunk.train_ids, chunk.counts.astype(np.intp))
+
+                # Look up where this chunk fits in the output
+                ix = self.train_id_to_ix[chunk_tids[0]]
+                n = chunk.counts.sum()
+
                 if (chunk_tids != self.train_ids_perframe[ix: ix + n]).any():
                     raise Exception(
                         "Train IDs mismatch in chunk from source {} "
