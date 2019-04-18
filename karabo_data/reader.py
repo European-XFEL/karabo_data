@@ -1094,8 +1094,10 @@ def open_run(proposal, run, proc=True):
     if not proc:
         return RunDirectory(osp.join(prop_dir, 'raw', run))
 
-    raw_files = glob(osp.join(prop_dir, 'raw', run, '*.h5'))
-    proc_files = glob(osp.join(prop_dir, 'proc', run, '*.h5'))
+    raw_dir = osp.join(prop_dir, 'raw', run)
+    proc_dir = osp.join(prop_dir, 'proc', run)
+    raw_files = glob(osp.join(raw_dir, '*.h5'))
+    proc_files = glob(osp.join(proc_dir, '*.h5'))
 
     # Names look like RAW-R0243-AGIPD10-S00002.h5 . If the 3rd part ('AGIPD10')
     # exists in proc, skip loading it from raw.
@@ -1105,8 +1107,8 @@ def open_run(proposal, run, proc=True):
 
     files = proc_files + raw_files
     if not files:
-        raise Exception("No .h5 files found for proposal {!r} run {!r}"
-                        .format(proposal, run))
+        raise Exception("No .h5 files found in {!r} or {!r}"
+                        .format(raw_dir, proc_dir))
 
     return DataCollection.from_paths(files)
 
