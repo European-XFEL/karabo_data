@@ -33,42 +33,65 @@ class VirtualCXIWriter:
     def collect_pulse_ids(self):
         # Gather pulse IDs
         NO_PULSE_ID = 9999
-        pulse_ids = np.full((self.nmodules, self.nframes), NO_PULSE_ID,
+        pulse_ids = np.full((self.nframes, self.nmodules), NO_PULSE_ID,
                             dtype=np.uint64)
 
         for i, source in enumerate(self.detdata.source_to_modno):
             for chunk in self.data._find_data_chunks(source, 'image.pulseId'):
-                # Expand the list of train IDs to one per frame
-                chunk_tids = np.repeat(chunk.train_ids, chunk.counts.astype(np.intp))
-
-                # Look up where this chunk fits in the output
-                ix = self.train_id_to_ix[chunk_tids[0]]
-                n = chunk.counts.sum()
-
-                if (chunk_tids != self.train_ids_perframe[ix: ix + n]).any():
-                    raise Exception(
-                        "Train IDs mismatch in chunk from source {} "
-                        "({} frames from train ID {})"
-                            .format(source, n, chunk_tids[0])
-                    )
                 # In some cases, there's an extra dimension of length 1
                 if chunk.dataset.ndim > 1:
-                    chunk_pulse_ids = chunk.dataset[chunk.slice, 0]
+                    chunk_data = chunk.dataset[:, 0]
                 else:
-                    chunk_pulse_ids = chunk.dataset[chunk.slice]
-                pulse_ids[i, ix: ix + n] = chunk_pulse_ids
+                    chunk_data = chunk.dataset
+                self._map_chunk(chunk, chunk_data, pulse_ids, i)
 
         # Sanity checks on pulse IDs
-        pulse_ids_min = pulse_ids.min(axis=0)
+        pulse_ids_min = pulse_ids.min(axis=1)
         if (pulse_ids_min == NO_PULSE_ID).any():
             raise Exception("Failed to find pulse IDs for some data")
         pulse_ids[pulse_ids == NO_PULSE_ID] = 0
-        if (pulse_ids_min != pulse_ids.max(axis=0)).any():
+        if (pulse_ids_min != pulse_ids.max(axis=1)).any():
             raise Exception("Inconsistent pulse IDs for different modules")
 
         # Pulse IDs make sense. Drop the modules dimension, giving one pulse ID
         # for each frame.
         return pulse_ids_min
+
+    def _map_chunk(self, chunk, chunk_data, target, tgt_ax1):
+        """Map data from chunk into target
+
+        chunk points to contiguous source data, but if this misses a train,
+        it might not correspond to a contiguous region in the output. So this
+        may perform multiple mappings.
+        """
+        # Expand the list of train IDs to one per frame
+        chunk_tids = np.repeat(chunk.train_ids, chunk.counts.astype(np.intp))
+
+        chunk_match_start = int(chunk.first)
+
+        while chunk_tids.size > 0:
+            # Look up where the start of this chunk fits in the target
+            tgt_start = int(self.train_id_to_ix[chunk_tids[0]])
+
+            target_tids = self.train_ids_perframe[tgt_start : tgt_start+len(chunk_tids)]
+            assert target_tids.shape == chunk_tids.shape
+            assert target_tids[0] == chunk_tids[0]
+
+            # How much of this chunk can be mapped in one go?
+            mismatches = (chunk_tids != target_tids).nonzero()[0]
+            if mismatches.size > 0:
+                n_match = mismatches[0]
+            else:
+                n_match = len(chunk_tids)
+
+            # Select the matching data and add it to the target
+            chunk_match_end = chunk_match_start + n_match
+            matched = chunk_data[chunk_match_start:chunk_match_end]
+            target[tgt_start : tgt_start+n_match, tgt_ax1] = matched
+
+            # Prepare remaining data in the chunk for the next match
+            chunk_match_start = chunk_match_end
+            chunk_tids = chunk_tids[n_match:]
 
     def collect_data(self):
         src = next(iter(self.detdata.source_to_modno))
@@ -90,12 +113,10 @@ class VirtualCXIWriter:
             for source, modno in self.detdata.source_to_modno.items():
                 mod_ix = self.modulenos.index(modno)
                 for chunk in self.data._find_data_chunks(source, key):
-                    ix = self.train_id_to_ix[chunk.train_ids[0]]
-                    n = chunk.counts.sum()
                     vsrc = h5py.VirtualSource(chunk.dataset)
-                    layout[ix:ix+n, mod_ix] = vsrc[chunk.slice]
+                    self._map_chunk(chunk, vsrc, layout, mod_ix)
 
-                    have_data[ix:ix+n, mod_ix] = True
+                    #have_data[ix:ix+n, mod_ix] = True
                     nchunks += 1
 
             filled_pct = 100 * have_data.sum() / have_data.size
