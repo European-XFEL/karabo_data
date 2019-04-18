@@ -1073,8 +1073,11 @@ def open_run(proposal, run, proc=True):
     run: str, int
         A run number such as 243, '243' or 'r0243'.
     proc: bool
-        If True (default), combine data from the raw and 'proc' (processed)
-        folders for the specified run. If False, access only the raw data.
+        If True (default), open files from the 'proc' (processed) data folder,
+        and raw data files where there isn't a corresponding processed file.
+        Files which do not need post-processing are not copied to proc, so
+        this combination is necessary to include all data sources for the run.
+        If False, open only the raw data files.
     """
     if isinstance(proposal, int):
         proposal = 'p{:06d}'.format(proposal)
