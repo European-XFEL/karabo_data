@@ -2,6 +2,11 @@
 import h5py
 import logging
 import numpy as np
+import sys
+
+from . import RunDirectory
+from .exceptions import SourceNameError
+from .components import AGIPD1M, LPD1M
 
 log = logging.getLogger(__name__)
 
@@ -172,10 +177,15 @@ class VirtualCXIWriter:
 
         log.info("Finished writing virtual CXI file")
 
+def _get_detector(data, min_modules):
+    for cls in (AGIPD1M, LPD1M):
+        try:
+            return cls(data, min_modules=min_modules)
+        except SourceNameError:
+            continue
+
 def main(argv=None):
     import argparse
-    from karabo_data import RunDirectory
-    from karabo_data.components import AGIPD1M
 
     ap = argparse.ArgumentParser('karabo-data-make-virtual-cxi')
     ap.add_argument('run_dir', help="Path to an EuXFEL run directory")
@@ -192,7 +202,10 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO)
 
     run = RunDirectory(args.run_dir)
-    det = AGIPD1M(run, min_modules=args.min_modules)
+    det = _get_detector(run, args.min_modules)
+    if det is None:
+        sys.exit("No AGIPD or LPD sources found in {!r}".format(args.run_dir))
+
     det.write_virtual_cxi(args.output)
 
 if __name__ == '__main__':

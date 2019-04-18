@@ -6,6 +6,7 @@ import pandas as pd
 import re
 import xarray
 
+from .exceptions import SourceNameError
 from .reader import DataCollection, by_id, by_index
 
 log = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ class MPxDetectorBase:
             if m:
                 detector_names.add(m.group(1))
         if not detector_names:
-            raise ValueError("No detector sources found in this data")
+            raise SourceNameError(cls._source_re.pattern)
         elif len(detector_names) > 1:
             raise ValueError(
                 "Multiple detectors found in the data: {}. "
@@ -150,7 +151,7 @@ class MPxDetectorBase:
                                if n in modules}
 
         if not source_to_modno:
-            raise ValueError("No detector sources found in this data")
+            raise SourceNameError(detector_re.pattern)
 
         return source_to_modno
 
