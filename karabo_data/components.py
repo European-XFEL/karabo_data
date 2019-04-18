@@ -94,10 +94,12 @@ class MPxDetectorBase:
         self.detector_name = detector_name
         self.source_to_modno = source_to_modno
 
+        # pandas' missing-data handling converts the data to floats if there
+        # are any gaps - so fill them with 0s and convert back to uint64.
         mod_data_counts = pd.DataFrame({
             src: data.get_data_counts(src, 'image.data')
             for src in source_to_modno
-        })
+        }).fillna(0).astype(np.uint64)
 
         # Sanity check: all non-zero counts should be equal
         data_count_values = set(mod_data_counts.values.flatten()) - {0}
