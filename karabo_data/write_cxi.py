@@ -57,7 +57,7 @@ class VirtualCXIWriter:
         # for each frame.
         return pulse_ids_min
 
-    def _map_chunk(self, chunk, chunk_data, target, tgt_ax1):
+    def _map_chunk(self, chunk, chunk_data, target, tgt_ax1, have_data=None):
         """Map data from chunk into target
 
         chunk points to contiguous source data, but if this misses a train,
@@ -89,6 +89,10 @@ class VirtualCXIWriter:
             matched = chunk_data[chunk_match_start:chunk_match_end]
             target[tgt_start : tgt_start+n_match, tgt_ax1] = matched
 
+            # Fill in the map of what data we have
+            if have_data is not None:
+                have_data[tgt_start : tgt_start+n_match, tgt_ax1] = True
+
             # Prepare remaining data in the chunk for the next match
             chunk_match_start = chunk_match_end
             chunk_tids = chunk_tids[n_match:]
@@ -108,20 +112,17 @@ class VirtualCXIWriter:
 
         for name, layout in layouts.items():
             key = 'image.{}'.format(name)
-            nchunks = 0
             have_data = np.zeros((self.nframes, self.nmodules), dtype=bool)
+
             for source, modno in self.detdata.source_to_modno.items():
                 mod_ix = self.modulenos.index(modno)
                 for chunk in self.data._find_data_chunks(source, key):
                     vsrc = h5py.VirtualSource(chunk.dataset)
-                    self._map_chunk(chunk, vsrc, layout, mod_ix)
-
-                    #have_data[ix:ix+n, mod_ix] = True
-                    nchunks += 1
+                    self._map_chunk(chunk, vsrc, layout, mod_ix, have_data)
 
             filled_pct = 100 * have_data.sum() / have_data.size
             log.info("Assembled %d chunks for %s, filling %.2f%% of the hyperslab",
-                     nchunks, key, filled_pct)
+                     len(layout.sources), key, filled_pct)
 
         return layouts
 
