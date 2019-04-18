@@ -17,6 +17,7 @@ from glob import glob
 import h5py
 import logging
 import numpy as np
+import os
 import os.path as osp
 import pandas as pd
 import re
@@ -1096,8 +1097,13 @@ def open_run(proposal, run, proc=True):
 
     raw_dir = osp.join(prop_dir, 'raw', run)
     proc_dir = osp.join(prop_dir, 'proc', run)
-    raw_files = glob(osp.join(raw_dir, '*.h5'))
-    proc_files = glob(osp.join(proc_dir, '*.h5'))
+
+    # Not using glob here because it suppresses errors when you don't have
+    # permission to list the files.
+    raw_files = [e.path for e in os.scandir(raw_dir)
+                 if e.is_file() and e.name.endswith('.h5')]
+    proc_files = [e.path for e in os.scandir(proc_dir)
+                 if e.is_file() and e.name.endswith('.h5')]
 
     # Names look like RAW-R0243-AGIPD10-S00002.h5 . If the 3rd part ('AGIPD10')
     # exists in proc, skip loading it from raw.
