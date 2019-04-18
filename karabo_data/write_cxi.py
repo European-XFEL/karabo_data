@@ -171,3 +171,29 @@ class VirtualCXIWriter:
             dgrp.create_dataset('module_identifier', data=self.modulenos)
 
         log.info("Finished writing virtual CXI file")
+
+def main(argv=None):
+    import argparse
+    from karabo_data import RunDirectory
+    from karabo_data.components import AGIPD1M
+
+    ap = argparse.ArgumentParser('karabo-data-make-virtual-cxi')
+    ap.add_argument('run_dir', help="Path to an EuXFEL run directory")
+    ap.add_argument(
+        '-o', '--output',
+        help="Filename or path for the CXI output file."
+    )
+    ap.add_argument(
+        '--min-modules', type=int, default=9, metavar='N',
+        help="Include trains where at least N modules have data (default 9)"
+    )
+    args = ap.parse_args(argv)
+
+    logging.basicConfig(level=logging.INFO)
+
+    run = RunDirectory(args.run_dir)
+    det = AGIPD1M(run, min_modules=args.min_modules)
+    det.write_virtual_cxi(args.output)
+
+if __name__ == '__main__':
+    main()
