@@ -1,3 +1,5 @@
+import h5py
+import numpy as np
 import os.path as osp
 import pytest
 from testpath import assert_isfile
@@ -114,6 +116,18 @@ def test_write_virtual_cxi(mock_spb_proc_run, tmpdir):
     test_file = osp.join(str(tmpdir), 'test.cxi')
     det.write_virtual_cxi(test_file)
     assert_isfile(test_file)
+
+    with h5py.File(test_file) as f:
+        det_grp = f['entry_1/instrument_1/detector_1']
+        ds = det_grp['data']
+        assert isinstance(ds, h5py.Dataset)
+        assert ds.is_virtual
+        assert ds.shape[1:] == (16, 512, 128)
+        assert 'axes' in ds.attrs
+
+        assert 'gain' in det_grp
+        assert 'mask' in det_grp
+        assert 'experiment_identifier' in det_grp
 
 def test_write_virtual_cxi_raw_data(mock_fxe_raw_run, tmpdir, caplog):
     import logging
