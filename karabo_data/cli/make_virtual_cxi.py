@@ -65,10 +65,10 @@ def main(argv=None):
     if not os.access(out_dir, os.W_OK):
         sys.exit("ERROR: Don't have write access to {}".format(out_dir))
 
-    run = RunDirectory(args.run_dir)
+    run = RunDirectory(run_dir)
     det = _get_detector(run, args.min_modules)
     if det is None:
-        sys.exit("No AGIPD or LPD sources found in {!r}".format(args.run_dir))
+        sys.exit("No AGIPD or LPD sources found in {!r}".format(run_dir))
 
     det.write_virtual_cxi(out_file)
 
