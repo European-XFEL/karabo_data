@@ -114,3 +114,13 @@ def test_write_virtual_cxi(mock_spb_proc_run, tmpdir):
     test_file = osp.join(str(tmpdir), 'test.cxi')
     det.write_virtual_cxi(test_file)
     assert_isfile(test_file)
+
+def test_write_virtual_cxi_raw_data(mock_fxe_raw_run, tmpdir, caplog):
+    import logging
+    caplog.set_level(logging.INFO)
+    run = RunDirectory(mock_fxe_raw_run)
+    det = LPD1M(run)
+
+    test_file = osp.join(str(tmpdir), 'test.cxi')
+    det.write_virtual_cxi(test_file)
+    assert_isfile(test_file)

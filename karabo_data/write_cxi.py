@@ -18,8 +18,6 @@ class VirtualCXIWriter:
         self.nframes = ntrains * frames_per_train
         log.info("%d frames per train, %d frames in total",
                      frames_per_train, self.nframes)
-        self.shape = (self.nframes, self.nmodules) + detdata.module_shape
-        log.info("Virtual data shape: %r", self.shape)
 
         self.train_ids_perframe = np.repeat(train_ids, frames_per_train)
 
@@ -102,13 +100,30 @@ class VirtualCXIWriter:
         h5file = self.data._source_index[src][0].file
         image_grp = h5file['INSTRUMENT'][src]['image']
 
-        layouts = {
-            'data': h5py.VirtualLayout(self.shape, dtype=image_grp['data'].dtype),
-            'gain': h5py.VirtualLayout(self.shape, dtype=image_grp['gain'].dtype),
-            'mask': h5py.VirtualLayout(self.shape, dtype=image_grp['mask'].dtype),
-            'cellId': h5py.VirtualLayout((self.nframes, self.nmodules),
-                                         dtype=image_grp['data'].dtype),
-        }
+        VLayout = h5py.VirtualLayout
+
+        if 'gain' in image_grp:
+            log.info("Identified calibrated data")
+            shape = (self.nframes, self.nmodules) + self.detdata.module_shape
+            log.info("Virtual data shape: %r", shape)
+
+            layouts = {
+                'data': VLayout(shape, dtype=image_grp['data'].dtype),
+                'gain': VLayout(shape, dtype=image_grp['gain'].dtype),
+                'mask': VLayout(shape, dtype=image_grp['mask'].dtype),
+            }
+        else:
+            log.info("Identified raw data")
+
+            shape = (self.nframes, self.nmodules) + image_grp['data'].shape[1:]
+            log.info("Virtual data shape: %r", shape)
+
+            layouts = {
+                'data': VLayout(shape, dtype=image_grp['data'].dtype),
+            }
+
+        layouts['cellId'] = VLayout((self.nframes, self.nmodules),
+                                    dtype=image_grp['cellId'].dtype)
 
         for name, layout in layouts.items():
             key = 'image.{}'.format(name)
@@ -152,18 +167,34 @@ class VirtualCXIWriter:
 
 
             dgrp = f.create_group('entry_1/instrument_1/detector_1')
+            if len(layouts['data'].shape) == 4:
+                axes_s = 'experiment_identifier:module_identifier:y:x'
+            else:
+                # 5D dataset, with extra axis for
+                axes_s = 'experiment_identifier:module_identifier:data_gain:y:x'
+                ndg = layouts['data'].shape[2]
+                d = f.create_dataset('entry_1/data_gain', shape=(ndg,),
+                                     dtype=h5py.special_dtype(vlen=str))
+                d[:] = (['data', 'gain'] if ndg == 2 else ['data'])
+                dgrp['data_gain'] = h5py.SoftLink('/entry_1/data_gain')
+
             data = dgrp.create_virtual_dataset(
                 'data', layouts['data'], fillvalue=np.nan
             )
-            data.attrs['axes'] = 'experiment_identifier:module_identifier:y:x'
-            gain = dgrp.create_virtual_dataset(
-                'gain', layouts['gain'], fillvalue=np.nan
-            )
-            gain.attrs['axes'] = 'experiment_identifier:module_identifier:y:x'
-            mask = dgrp.create_virtual_dataset(
-                'mask', layouts['mask'], fillvalue=np.nan
-            )
-            mask.attrs['axes'] = 'experiment_identifier:module_identifier:y:x'
+            data.attrs['axes'] = axes_s
+
+            if 'gain' in layouts:
+                gain = dgrp.create_virtual_dataset(
+                    'gain', layouts['gain'], fillvalue=np.nan
+                )
+                gain.attrs['axes'] = axes_s
+
+            if 'mask' in layouts:
+                mask = dgrp.create_virtual_dataset(
+                    'mask', layouts['mask'], fillvalue=np.nan
+                )
+                mask.attrs['axes'] = axes_s
+
             dgrp['experiment_identifier'] = h5py.SoftLink('/entry_1/experiment_identifier')
 
             f['entry_1/data_1'] = h5py.SoftLink('/entry_1/instrument_1/detector_1')
