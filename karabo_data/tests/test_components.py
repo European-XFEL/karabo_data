@@ -125,6 +125,18 @@ def test_write_virtual_cxi(mock_spb_proc_run, tmpdir):
         assert ds.shape[1:] == (16, 512, 128)
         assert 'axes' in ds.attrs
 
+        assert len(ds.virtual_sources()) == 16
+
+        # Check position of each source file in the modules dimension
+        for src in ds.virtual_sources():
+            start, _, block, count = src.vspace.get_regular_hyperslab()
+            assert block[1] == 1
+            assert count[1] == 1
+
+            expected_file = 'CORR-R0238-AGIPD{:0>2}-S00000.h5'.format(start[1])
+            assert osp.basename(src.file_name) == expected_file
+
+        # Check presence of other datasets
         assert 'gain' in det_grp
         assert 'mask' in det_grp
         assert 'experiment_identifier' in det_grp
