@@ -50,13 +50,13 @@ def main(argv=None):
         # run directory
         run_dir = os.path.abspath(args.run_dir)
         if out_file is None:
-            m = re.search(r'/proc/(r\d{4})/?$', run_dir)
+            m = re.search(r'/(raw|proc)/(r\d{4})/?$', run_dir)
             if not m:
                 sys.exit("ERROR: '-o outfile' option needed when "
                          "input directory doesn't look like .../proc/r0123")
             proposal = run_dir[:m.start()]
-            out_file = osp.join(proposal, 'scratch',
-                                '{}_detectors_virt.cxi'.format(m.group(1)))
+            fname = '{}_{}_detectors_virt.cxi'.format(*m.group(2, 1))
+            out_file = osp.join(proposal, 'scratch', fname)
 
     out_dir = osp.dirname(osp.abspath(out_file))
 
