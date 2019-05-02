@@ -35,7 +35,6 @@ Contents:
    examine_geometry
    agipd_geometry
    xpd_examples
-   xgm_two_runs
 
 .. toctree::
    :caption: Development
