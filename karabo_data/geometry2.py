@@ -1055,8 +1055,114 @@ def invert_xfel_lpd_geom(path_in, path_out):
                 fout[path] = -fin[path][:]
 
 
-if __name__ == '__main__':
-    geom = AGIPD_1MGeometry.from_quad_positions(
-        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
-    )
-    geom.write_crystfel_geom('sample.geom')
+class DSSC_Geometry(DetectorGeometryBase):
+    """Detector layout for DSSC
+
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
+    """
+    # Hexagonal pixels, 236 μm step in slow-scan axis, 204 μm in fast-scan
+    pixel_size = 236e-6
+    frag_ss_pixels = 256
+    frag_fs_pixels = 128
+    expected_data_shape = (16, 512, 128)
+
+    @classmethod
+    def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
+        """Load a DSSC geometry from an XFEL HDF5 format geometry file
+
+        The quadrant positions are not stored in the file, and must be provided
+        separately. By default, both the quadrant positions and the positions
+        in the file are measured in millimetres; the unit parameter controls
+        this.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        This version of the code only handles x and y translation,
+        as this is all that is recorded in the initial LPD geometry file.
+
+        Parameters
+        ----------
+
+        path : str
+          Path of an EuXFEL format (HDF5) geometry file for DSSC.
+        positions : list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit : float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        """
+        assert len(positions) == 4
+        modules = []
+        with h5py.File(path, 'r') as f:
+            for Q, M in product(range(1, 5), range(1, 5)):
+                quad_pos = np.array(positions[Q - 1])
+                mod_grp = f['Q{}/M{}'.format(Q, M)]
+                mod_offset = mod_grp['Position'][:2]
+
+                tiles = []
+                for T in range(1, 3):
+                    corner_pos = np.zeros(3)
+                    tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
+                    corner_pos[:2] = quad_pos + mod_offset + tile_offset
+
+                    # Convert units (mm) to pixels
+                    corner_pos *= unit / cls.pixel_size
+
+                    # Measuring in terms of the step within a row, the
+                    # step to the next row of hexagons is 1.5/sqrt(3).
+                    ss_vec= np.array([1, 0, 0])
+                    fs_vec = np.array([0, 1.5/np.sqrt(3), 0])
+
+                    # LPD geometry is measured to the last pixel of each tile.
+                    # Subtract tile dimensions for the position of 1st pixel.
+                    first_px_pos = (corner_pos
+                                    - (ss_vec * cls.frag_ss_pixels)
+                                    - (fs_vec * cls.frag_fs_pixels))
+
+                    tiles.append(GeometryFragment(
+                        corner_pos=first_px_pos,
+                        ss_vec=ss_vec,
+                        fs_vec=fs_vec,
+                        ss_pixels=cls.frag_ss_pixels,
+                        fs_pixels=cls.frag_fs_pixels,
+                    ))
+                modules.append(tiles)
+
+        return cls(modules, filename=path)
+
+    def inspect(self, frontview=True):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Axes object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
+        """
+        ax = super().inspect(frontview=frontview)
+
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[0].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
+
+            for t in [1]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
+
+        ax.set_title('DSSC detector geometry ({})'.format(self.filename))
+        return ax
