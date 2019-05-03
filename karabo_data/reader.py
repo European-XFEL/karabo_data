@@ -1063,7 +1063,7 @@ def RunDirectory(path):
 RunHandler = RunDirectory
 
 
-def open_run(proposal, run, proc=True):
+def open_run(proposal, run, data='raw'):
     """Access data from a specified run in the EuXFEL files on Maxwell.
 
     Parameters
@@ -1073,12 +1073,9 @@ def open_run(proposal, run, proc=True):
         '/gpfs/exfel/exp/SPB/201701/p002012'.
     run: str, int
         A run number such as 243, '243' or 'r0243'.
-    proc: bool
-        If True (default), open files from the 'proc' (processed) data folder,
-        and raw data files where there isn't a corresponding processed file.
-        Files which do not need post-processing are not copied to proc, so
-        this combination is necessary to include all data sources for the run.
-        If False, open only the raw data files.
+    data: str
+        'raw' or 'proc' (processed) to access data from one of those folders.
+        The default is 'raw'.
     """
     if isinstance(proposal, int):
         proposal = 'p{:06d}'.format(proposal)
@@ -1092,31 +1089,7 @@ def open_run(proposal, run, proc=True):
     elif not run.startswith('r'):
         run = 'r' + run.rjust(4, '0')
 
-    if not proc:
-        return RunDirectory(osp.join(prop_dir, 'raw', run))
-
-    raw_dir = osp.join(prop_dir, 'raw', run)
-    proc_dir = osp.join(prop_dir, 'proc', run)
-
-    # Not using glob here because it suppresses errors when you don't have
-    # permission to list the files.
-    raw_files = [e.path for e in os.scandir(raw_dir)
-                 if e.is_file() and e.name.endswith('.h5')]
-    proc_files = [e.path for e in os.scandir(proc_dir)
-                 if e.is_file() and e.name.endswith('.h5')]
-
-    # Names look like RAW-R0243-AGIPD10-S00002.h5 . If the 3rd part ('AGIPD10')
-    # exists in proc, skip loading it from raw.
-    got_in_proc = {osp.basename(p).split('-')[2] for p in proc_files}
-    raw_files = [p for p in raw_files
-                 if osp.basename(p).split('-')[2] not in got_in_proc]
-
-    files = proc_files + raw_files
-    if not files:
-        raise Exception("No .h5 files found in {!r} or {!r}"
-                        .format(raw_dir, proc_dir))
-
-    return DataCollection.from_paths(files)
+    return RunDirectory(osp.join(prop_dir, data, run))
 
 
 def stack_data(train, data, axis=-3, xcept=()):

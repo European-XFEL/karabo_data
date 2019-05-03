@@ -593,31 +593,21 @@ def test_open_run(mock_spb_raw_run, mock_spb_proc_run, tmpdir):
         run = open_run(proposal=2012, run=238)
         paths = {f.filename for f in run.files}
 
-        # Should have both AGIPD files from proc/ and other data from raw/
-        agipd_paths = {f for f in paths if 'AGIPD' in f}
-        assert agipd_paths
-        for path in agipd_paths:
-            assert '/proc/' in path
-
-        control_paths = paths - agipd_paths
-        assert control_paths
-        for path in control_paths:
+        assert paths
+        for path in paths:
             assert '/raw/' in path
 
         # With strings
         run = open_run(proposal='2012', run='238')
         assert {f.filename for f in run.files} == paths
 
-        # Don't read proc data
-        run = open_run(proposal=2012, run=238, proc=False)
-        raw_only_paths = {f.filename for f in run.files}
-        assert raw_only_paths.issuperset(control_paths)
-        assert raw_only_paths.isdisjoint(agipd_paths)
+        # Proc folder
+        run = open_run(proposal=2012, run=238, data='proc')
 
-        raw_agipd_paths = {f for f in raw_only_paths if 'AGIPD' in f}
-        assert raw_agipd_paths
-        for path in raw_agipd_paths:
-            assert '/raw/' in path
+        proc_paths = {f.filename for f in run.files}
+        assert proc_paths
+        for path in proc_paths:
+            assert '/raw/' not in path
 
         # Run that doesn't exist
         with pytest.raises(Exception):
