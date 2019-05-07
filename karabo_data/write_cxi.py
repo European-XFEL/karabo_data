@@ -6,6 +6,23 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 class VirtualCXIWriter:
+    """Machinery to write a CXI file containing virtual datasets.
+
+    You don't normally need to use this class directly. Instead,
+    use the write_virtual_cxi() method on an AGIPD/LPD data interface object.
+
+    CXI specifies a particular layout of data in the HDF5 file format.
+    It is documented here:
+    http://www.cxidb.org/cxi.html
+
+    This code writes version 1.5 CXI files.
+
+    Parameters
+    ----------
+
+    detdata: karabo_data.components.MPxDetectorBase
+      The detector data interface for the data to gather in this file.
+    """
     def __init__(self, detdata):
         self.detdata = detdata
 
