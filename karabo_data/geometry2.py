@@ -1171,3 +1171,103 @@ class DSSC_Geometry(DetectorGeometryBase):
     def split_tiles(module_data):
         # Split into 2 tiles along the slow-scan axis
         return np.split(module_data, 2, axis=-2)
+
+    @classmethod
+    def _distortion_array_slice(cls, m, t):
+        # Which part of the array is this tile?
+        # m = 0 to 15,  t = 0 to 1
+        module_offset = m * 512
+        tile_offset = module_offset + (t * cls.frag_ss_pixels)
+        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        return ss_slice, fs_slice
+
+    def to_distortion_array(self):
+        """Return distortion matrix for DSSC detector, suitable for pyFAI.
+
+        Returns
+        -------
+        out: ndarray
+            Array of float 32 with shape (8192, 128, 6, 3).
+            The dimensions mean:
+
+            - 8192 = 16 modules * 512 pixels (slow scan axis)
+            - 128 pixels (fast scan axis)
+            - 6 corners of each pixel
+            - 3 numbers for z, y, x
+        """
+        nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
+        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 6, 3),
+                              dtype=np.float32)
+
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
+            np.arange(0, self.frag_fs_pixels),
+            indexing='ij'
+        )
+        # Every second line of pixels across the fast-scan direction is shifted
+        # half a pixel in the slow-scan direction so the hexagons tessalate.
+        # TODO: check we're shifting the right way once we know the pixel order
+        pixel_ss_index[:, 1::2] += 0.5
+
+        # Corners described clockwise from the top, assuming the reference point
+        # for a pixel is outside it, aligned with the top point & left edge.
+        corner_ss_offsets = np.array([0.5, 1, 1, 0.5, 0, 0])
+        corner_fs_offsets = np.array([0, 0.25, 0.75, 1, 0.75, 0.25])
+
+        for m, mod in enumerate(self.modules, start=0):
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+
+                # Calculate coordinates of each pixel's first corner
+                # 2D arrays, shape: (64, 128)
+                pixel_corner1_x = (
+                        corner_x
+                        + pixel_ss_index * ss_unit_x
+                        + pixel_fs_index * fs_unit_x
+                )
+                pixel_corner1_y = (
+                        corner_y
+                        + pixel_ss_index * ss_unit_y
+                        + pixel_fs_index * fs_unit_y
+                )
+                pixel_corner1_z = (
+                        corner_z
+                        + pixel_ss_index * ss_unit_z +
+                        + pixel_fs_index * fs_unit_z
+                )
+
+                # Calculate corner coordinates for each pixel
+                # 3D arrays, shape: (64, 128, 4)
+                corners_x = (
+                        pixel_corner1_x[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_x
+                        + corner_fs_offsets * fs_unit_x
+                )
+                corners_y = (
+                        pixel_corner1_y[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_y
+                        + corner_fs_offsets * fs_unit_y
+                )
+                corners_z = (
+                        pixel_corner1_z[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_z
+                        + corner_fs_offsets * fs_unit_z
+                )
+
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Insert the data into the array
+                distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
+                distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
+                distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
+
+        # Shift the x & y origin from the centre to the corner
+        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+        distortion[..., 1:] -= min_yx
+
+        return distortion
