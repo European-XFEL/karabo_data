@@ -1166,3 +1166,8 @@ class DSSC_Geometry(DetectorGeometryBase):
 
         ax.set_title('DSSC detector geometry ({})'.format(self.filename))
         return ax
+
+    @staticmethod
+    def split_tiles(module_data):
+        # Split into 2 tiles along the slow-scan axis
+        return np.split(module_data, 2, axis=-2)
