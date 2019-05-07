@@ -107,6 +107,8 @@ class MPxDetectorBase:
         if len(data_count_values) > 1:
             raise ValueError("Inconsistent frame counts: {}"
                              .format(data_count_values))
+        elif not data_count_values:
+            raise ValueError("No data found for selected sources")
 
         self.frames_per_train = data_count_values.pop()
         self.data = self._select_trains(data, mod_data_counts, min_modules)
