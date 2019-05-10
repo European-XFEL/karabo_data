@@ -673,8 +673,8 @@ class DataCollection:
                               'SA1_XTD2_XGM/XGM/DOOCS': set()})
 
            Unlike the others, this option *doesn't* allow glob patterns.
-           It's a more advanced option for code that knows precisely what
-           sources and keys it needs.
+           It's a more precise but less convenient option for code that knows
+           exactly what sources and keys it needs.
 
         Returns a new :class:`DataCollection` object for the selected data.
 
