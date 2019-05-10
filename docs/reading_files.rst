@@ -10,6 +10,10 @@ including the main detectors, record data more frequently.
 
 .. autofunction:: RunDirectory
 
+.. autofunction:: open_run
+
+   .. versionadded:: 0.5
+
 .. autofunction:: H5File
 
 .. autoclass:: DataCollection

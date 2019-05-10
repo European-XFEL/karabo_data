@@ -1070,7 +1070,9 @@ RunHandler = RunDirectory
 
 
 def open_run(proposal, run, data='raw'):
-    """Access data from a specified run in the EuXFEL files on Maxwell.
+    """Access EuXFEL data on the Maxwell cluster by proposal and run number.
+
+    Returns a :class:`DataCollection` object.
 
     Parameters
     ----------
