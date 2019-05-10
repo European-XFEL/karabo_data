@@ -669,7 +669,7 @@ class DataCollection:
            (or empty sets to get all keys)::
 
             # Select image.data from one detector source, and all data from one XGM
-            sel = run.select({'SPB_DET_AGIPD1M-1/DET/ALLCH:xtdf': {'image.data'},
+            sel = run.select({'SPB_DET_AGIPD1M-1/DET/0CH0:xtdf': {'image.data'},
                               'SA1_XTD2_XGM/XGM/DOOCS': set()})
 
            Unlike the others, this option *doesn't* allow glob patterns.
