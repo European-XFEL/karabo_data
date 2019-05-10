@@ -15,7 +15,9 @@ import datetime
 import fnmatch
 from glob import glob
 import h5py
+import logging
 import numpy as np
+import os
 import os.path as osp
 import pandas as pd
 import re
@@ -32,11 +34,13 @@ from .read_machinery import (
     _tid_to_slice_ix,
     union_selections,
     contiguous_regions,
+    find_proposal,
 )
 
 __all__ = [
     'H5File',
     'RunDirectory',
+    'open_run',
     'FileAccess',
     'DataCollection',
     'stack_data',
@@ -47,6 +51,7 @@ __all__ = [
     'PropertyNameError',
 ]
 
+log = logging.getLogger(__name__)
 
 RUN_DATA = 'RUN'
 INDEX_DATA = 'INDEX'
@@ -1062,6 +1067,35 @@ def RunDirectory(path):
 # RunDirectory was previously RunHandler; we'll leave it accessible in case
 # any code was already using it.
 RunHandler = RunDirectory
+
+
+def open_run(proposal, run, data='raw'):
+    """Access data from a specified run in the EuXFEL files on Maxwell.
+
+    Parameters
+    ----------
+    proposal: str, int
+        A proposal number, such as 2012, '2012', 'p002012', or a path such as
+        '/gpfs/exfel/exp/SPB/201701/p002012'.
+    run: str, int
+        A run number such as 243, '243' or 'r0243'.
+    data: str
+        'raw' or 'proc' (processed) to access data from one of those folders.
+        The default is 'raw'.
+    """
+    if isinstance(proposal, int):
+        proposal = 'p{:06d}'.format(proposal)
+    elif ('/' not in proposal) and not proposal.startswith('p'):
+        proposal = 'p' + proposal.rjust(6, '0')
+
+    prop_dir = find_proposal(proposal)
+
+    if isinstance(run, int):
+        run = 'r{:04d}'.format(run)
+    elif not run.startswith('r'):
+        run = 'r' + run.rjust(4, '0')
+
+    return RunDirectory(osp.join(prop_dir, data, run))
 
 
 def stack_data(train, data, axis=-3, xcept=()):
