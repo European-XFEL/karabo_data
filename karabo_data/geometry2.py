@@ -146,6 +146,7 @@ class DetectorGeometryBase:
     frag_ss_pixels = 0
     frag_fs_pixels = 0
     expected_data_shape = (0, 0, 0)
+    _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
 
     def __init__(self, modules, filename='No file'):
         # List of lists (1 per module) of fragments (1 per tile)
@@ -161,20 +162,38 @@ class DetectorGeometryBase:
         Returns a matplotlib Figure object.
         """
         import matplotlib.pyplot as plt
-        from matplotlib.collections import PatchCollection
+        from matplotlib.collections import PatchCollection, LineCollection
         from matplotlib.patches import Polygon
 
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
 
         rects = []
+        first_rows = []
         for module in self.modules:
-            for fragment in module:
+            for t, fragment in enumerate(module, start=1):
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
                 rects.append(Polygon(corners))
 
+                if t == self._draw_first_px_on_tile:
+                    # Find the ends of the first row in reading order
+                    c1 = fragment.corner_pos
+                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels)
+                    first_rows.append((c1[:2], c2[:2]))
+
+        # Add tile shapes
         pc = PatchCollection(rects, facecolor=(0.75, 1.0, 0.75), edgecolor=None)
         ax.add_collection(pc)
+
+        # Add markers for first pixels & lines for first row
+        first_rows = np.array(first_rows)
+        first_px_x, first_px_y = first_rows[:, 0, 0], first_rows[:, 0, 1]
+
+        ax.scatter(first_px_x, first_px_y, marker='x', label='First pixel')
+        ax.add_collection(LineCollection(
+            first_rows, linestyles=':', color='k', label='First row'
+        ))
+        ax.legend()
 
         # Draw cross in the centre.
         ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
@@ -811,6 +830,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
     frag_ss_pixels = 32
     frag_fs_pixels = 128
     expected_data_shape = (16, 256, 256)
+    _draw_first_px_on_tile = 8  # The first pixel in stored data is on tile 8
 
     @classmethod
     def from_quad_positions(cls, quad_pos, *, unit=1e-3, asic_gap=None,
