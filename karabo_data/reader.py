@@ -498,8 +498,8 @@ class DataCollection:
         Parameters
         ----------
         fields : dict or list, optional
-            Filter data by sources and keys.
-            Refer to :meth:`select` for how to use this.
+            Select data sources and keys to include in the dataframe.
+            Selections are defined by lists or dicts as in :meth:`select`.
         timestamps : bool
             If false (the default), exclude the timestamps associated with each
             control data field.
@@ -658,21 +658,44 @@ class DataCollection:
 
         There are three possible ways to select data:
 
-        1. With glob patterns (* is a wildcard) for source and key::
+        1. With two glob patterns (see below) for source and key names::
 
+            # Select data in the image group for any detector sources
             sel = run.select('*/DET/*, 'image.*')
 
         2. With a list of (source, key) glob patterns::
 
+            # Select image.data and image.mask for any detector sources
             sel = run.select([('*/DET/*, 'image.data'), ('*/DET/*, 'image.mask')])
+
+           Data is included if it matches any of the pattern pairs.
 
         3. With a dict of source names mapped to sets of key names
            (or empty sets to get all keys)::
 
-            sel = run.select({'SPB_DET_AGIPD1M-1/DET/ALLCH:xtdf': {'image.data'},
+            # Select image.data from one detector source, and all data from one XGM
+            sel = run.select({'SPB_DET_AGIPD1M-1/DET/0CH0:xtdf': {'image.data'},
                               'SA1_XTD2_XGM/XGM/DOOCS': set()})
 
+           Unlike the others, this option *doesn't* allow glob patterns.
+           It's a more precise but less convenient option for code that knows
+           exactly what sources and keys it needs.
+
         Returns a new :class:`DataCollection` object for the selected data.
+
+        .. note::
+           'Glob' patterns may be familiar from selecting files in a Unix shell.
+           ``*`` matches anything, so ``*/DET/*`` selects sources with "/DET/"
+           anywhere in the name. There are several kinds of wildcard:
+
+           - ``*``: anything
+           - ``?``: any single character
+           - ``[xyz]``: one character, "x", "y" or "z"
+           - ``[0-9]``: one digit character
+           - ``[!xyz]``: one character, *not* x, y or z
+
+           Anything else in the pattern must match exactly. It's case-sensitive,
+           so "x" does not match "X".
         """
         if isinstance(seln_or_source_glob, str):
             seln_or_source_glob = [(seln_or_source_glob, key_glob)]
