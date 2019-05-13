@@ -852,7 +852,7 @@ class DataCollection:
         return None, None
 
     def info(self):
-        """Show information about the run.
+        """Show information about the selected data.
         """
         # time info
         first_train = self.train_ids[0]
