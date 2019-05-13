@@ -40,6 +40,8 @@ including the main detectors, record data more frequently.
 
    .. automethod:: keys_for_source
 
+   .. automethod:: info
+
    .. automethod:: trains
 
    .. automethod:: train_from_id
@@ -96,3 +98,33 @@ missing from the data returned by ``karabo_data``:
 Missing data does not necessarily mean that something has gone wrong:
 some devices send data at less than 10 Hz (the train rate), so they always
 have gaps between updates.
+
+Data problems
+-------------
+
+If you encounter problems accessing data with ``karabo_data``, there may be
+problems with the data files themselves. Use the ``karabo-data-validate``
+command to check for this (see :doc:`validation`).
+
+Here are some problems we've seen, and possible solutions or workarounds:
+
+- Indexes point to data beyond the end of datasets:
+  this has previously been caused by bugs in the detector calibration pipeline.
+  If you see this in calibrated data (in the ``proc/`` folder),
+  ask for the relevant runs to be re-calibrated.
+- Train IDs are not strictly increasing:
+  issues with the timing system when the data is recorded can create an
+  occasional train ID which is completely out of sequence.
+  Usually it seems to be possible to ignore this and use the remaining data,
+  but if you have any issues, please let us know.
+
+  - In one case, a train ID had the maximum possible value (2\ :sup:`64` - 1),
+    causing :meth:`~.info` to fail. You can select everything except this train
+    using :meth:`~.select_trains`::
+
+        from karabo_data import by_id
+        sel = run.select_trains(by_id[:2**64-1])
+
+If you're having problems with karabo_data, you can also try searching
+`previously reported issues <https://github.com/European-XFEL/karabo_data/issues?q=is%3Aissue>`_
+to see if anyone has encountered similar symptoms.

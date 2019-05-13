@@ -266,6 +266,16 @@ class DataCollection:
             raise PropertyNameError(key, source)
 
     def keys_for_source(self, source):
+        """Get a set of key names for the given source
+
+        If you have used :meth:`select` to filter keys, only selected keys
+        are returned.
+
+        Only one file is used to find the keys. Within a run, all files should
+        have the same keys for a given source, but if you use :meth:`union` to
+        combine two runs where the source was configured differently, the
+        result can be unpredictable.
+        """
         selected_keys = self.selection[source]
         if selected_keys is not None:
             return selected_keys
@@ -852,7 +862,7 @@ class DataCollection:
         return None, None
 
     def info(self):
-        """Show information about the run.
+        """Show information about the selected data.
         """
         # time info
         first_train = self.train_ids[0]
