@@ -1140,14 +1140,12 @@ class DSSC_Geometry(DetectorGeometryBase):
 
                     # Measuring in terms of the step within a row, the
                     # step to the next row of hexagons is 1.5/sqrt(3).
-                    ss_vec= np.array([1, 0, 0])
-                    fs_vec = np.array([0, 1.5/np.sqrt(3), 0])
+                    ss_vec= np.array([-1, 0, 0])
+                    fs_vec = np.array([0, -1.5/np.sqrt(3), 0])
 
-                    # LPD geometry is measured to the last pixel of each tile.
-                    # Subtract tile dimensions for the position of 1st pixel.
-                    first_px_pos = (corner_pos
-                                    - (ss_vec * cls.frag_ss_pixels)
-                                    - (fs_vec * cls.frag_fs_pixels))
+                    # TODO: putting the first pixel in the same corner as the
+                    #  measurement position is entirely a guess.
+                    first_px_pos = corner_pos
 
                     tiles.append(GeometryFragment(
                         corner_pos=first_px_pos,
