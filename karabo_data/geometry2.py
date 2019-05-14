@@ -77,11 +77,11 @@ class GeometryFragment:
             coffset=c[2],
         )
 
-    def snap(self):
+    def snap(self, px_shape=np.array([1., 1.])):
         # Round positions and vectors to integers, drop z dimension
-        corner_pos = np.around(self.corner_pos[:2]).astype(np.int32)
-        ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
-        fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
+        corner_pos = np.around(self.corner_pos[:2] / px_shape).astype(np.int32)
+        ss_vec = np.around(self.ss_vec[:2] / px_shape).astype(np.int32)
+        fs_vec = np.around(self.fs_vec[:2] / px_shape).astype(np.int32)
 
         # We should have one vector in the x direction and one in y, but
         # we don't know which is which.
@@ -146,6 +146,7 @@ class DetectorGeometryBase:
     frag_ss_pixels = 0
     frag_fs_pixels = 0
     expected_data_shape = (0, 0, 0)
+    _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
     _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
 
     def __init__(self, modules, filename='No file'):
@@ -214,7 +215,7 @@ class DetectorGeometryBase:
         if self._snapped_cache is None:
             new_modules = []
             for module in self.modules:
-                new_tiles = [t.snap() for t in module]
+                new_tiles = [t.snap(px_shape=self._pixel_shape) for t in module]
                 new_modules.append(new_tiles)
             self._snapped_cache = SnappedGeometry(new_modules, self)
         return self._snapped_cache
@@ -1089,6 +1090,9 @@ class DSSC_Geometry(DetectorGeometryBase):
     frag_ss_pixels = 256
     frag_fs_pixels = 128
     expected_data_shape = (16, 512, 128)
+    # This stretches the dimensions for the 'snapped' geometry so that its pixel
+    # grid matches the aspect ratio of the detector pixels.
+    _pixel_shape = np.array([1., 1.5/np.sqrt(3)])
 
     @classmethod
     def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
