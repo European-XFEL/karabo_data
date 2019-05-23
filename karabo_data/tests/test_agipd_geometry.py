@@ -80,3 +80,25 @@ def test_to_distortion_array():
     assert 0.20 < distortion[..., 2].max() < 0.30
     assert 0.0 <= distortion[..., 1].min() < 0.01
     assert 0.0 <= distortion[..., 2].min() < 0.01
+
+def test_data_coords_to_physical():
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+
+    module_no = np.zeros(16, dtype=np.int16)
+    slow_scan = np.linspace(0, 500, num=16, dtype=np.float32)
+    fast_scan = np.zeros(16, dtype=np.float32)
+
+    res = geom.data_coords_to_physical(module_no, slow_scan, fast_scan)
+
+    assert res.shape == (16, 3)
+
+    resx, resy, resz = res.T
+
+    np.testing.assert_allclose(resz, 0)
+    np.testing.assert_allclose(resy, 625)
+
+    assert (np.diff(resx) > 0).all()   # Monotonically increasing
+    np.testing.assert_allclose(resx[0], -525)
+    assert -50 < resx[-1] < 50

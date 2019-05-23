@@ -505,6 +505,11 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
+    def _module_coords_to_tile(self, slow_scan, fast_scan):
+        """Implement in subclass: positions in module to tile numbers & pos in tile
+        """
+        raise NotImplementedError
+
     def get_pixel_positions(self, centre=True):
         """Get the coordinates of each pixel in the detector
 
@@ -562,6 +567,47 @@ class DetectorGeometryBase:
                 out[m, tile_ss_slice, tile_fs_slice, 2] = pixels_z
 
         return out
+
+    def data_coords_to_physical(self, module_no, slow_scan, fast_scan):
+        """Convert coordinates in data space to physical space
+
+        module_no, fast_scan and slow_scan should all be numpy arrays of the
+        same shape. module_no should hold integers, starting from 0,
+        so 0: Q1M1, 1: Q1M2, etc.
+
+        slow_scan and fast_scan describe positions within that module.
+        They may hold floats for sub-pixel positions. In both, 0.5 is the centre
+        of the first pixel.
+
+        Returns an array of similar shape with an extra dimension of length 3,
+        for (x, y, z) coordinates in pixel units.
+        """
+        assert module_no.shape == slow_scan.shape == fast_scan.shape
+
+        # We want to avoid iterating over the positions in Python.
+        # So we assemble arrays of the corner position and step vectors for all
+        # tiles, and then use numpy indexing to select the relevant ones for
+        # each set of coordinates.
+        tiles_corner_pos = np.stack([t.corner_pos
+                                     for m in self.modules for t in m])
+        tiles_ss_vec = np.stack([t.ss_vec for m in self.modules for t in m])
+        tiles_fs_vec = np.stack([t.fs_vec for m in self.modules for t in m])
+
+        # Convert coordinates within each module to coordinates in a tile
+        tilenos, tile_ss, tile_fs = self._module_coords_to_tile(slow_scan, fast_scan)
+
+        # The indexes of the relevant tiles in the arrays assembled above
+        all_tiles_ix = (module_no * self.n_tiles_per_module) + tilenos
+
+        # Select the relevant tile geometry for each set of coordinates
+        coords_tile_corner = tiles_corner_pos[all_tiles_ix]
+        coords_ss_vec = tiles_ss_vec[all_tiles_ix]
+        coords_fs_vec = tiles_fs_vec[all_tiles_ix]
+
+        # Calculate the physical coordinate for each data coordinate
+        return coords_tile_corner \
+            + (np.expand_dims(tile_ss, -1) * coords_ss_vec) \
+            + (np.expand_dims(tile_fs, -1) * coords_fs_vec)
 
 
 class AGIPD_1MGeometry(DetectorGeometryBase):
@@ -848,6 +894,11 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
         fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
         return ss_slice, fs_slice
+
+    @classmethod
+    def _module_coords_to_tile(cls, slow_scan, fast_scan):
+        tileno, tile_ss = np.divmod(slow_scan, cls.frag_ss_pixels)
+        return tileno.astype(np.int16), tile_ss, fast_scan
 
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
