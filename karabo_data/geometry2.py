@@ -1085,11 +1085,11 @@ class DSSC_Geometry(DetectorGeometryBase):
     You won't normally instantiate this class directly:
     use one of the constructor class methods to create or load a geometry.
     """
-    # Hexagonal pixels, 236 μm step in slow-scan axis, 204 μm in fast-scan
+    # Hexagonal pixels, 236 μm step in fast-scan axis, 204 μm in slow-scan
     pixel_size = 236e-6
-    frag_ss_pixels = 256
-    frag_fs_pixels = 128
-    expected_data_shape = (16, 512, 128)
+    frag_ss_pixels = 128
+    frag_fs_pixels = 256
+    expected_data_shape = (16, 128, 512)
     # This stretches the dimensions for the 'snapped' geometry so that its pixel
     # grid matches the aspect ratio of the detector pixels.
     _pixel_shape = np.array([1., 1.5/np.sqrt(3)])
@@ -1140,8 +1140,8 @@ class DSSC_Geometry(DetectorGeometryBase):
 
                     # Measuring in terms of the step within a row, the
                     # step to the next row of hexagons is 1.5/sqrt(3).
-                    ss_vec= np.array([-1, 0, 0])
-                    fs_vec = np.array([0, -1.5/np.sqrt(3), 0])
+                    ss_vec = np.array([0, -1.5/np.sqrt(3), 0])
+                    fs_vec = np.array([-1, 0, 0])
 
                     # TODO: putting the first pixel in the same corner as the
                     #  measurement position is entirely a guess.
@@ -1191,17 +1191,17 @@ class DSSC_Geometry(DetectorGeometryBase):
 
     @staticmethod
     def split_tiles(module_data):
-        # Split into 2 tiles along the slow-scan axis
-        return np.split(module_data, 2, axis=-2)
+        # Split into 2 tiles along the fast-scan axis
+        return np.split(module_data, 2, axis=-1)
 
     @classmethod
     def _distortion_array_slice(cls, m, t):
         # Which part of the array is this tile?
         # m = 0 to 15,  t = 0 to 1
         module_offset = m * 512
-        tile_offset = module_offset + (t * cls.frag_ss_pixels)
-        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        tile_offset = module_offset + (t * cls.frag_fs_pixels)
+        ss_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        fs_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
         return ss_slice, fs_slice
 
     def to_distortion_array(self):
@@ -1228,10 +1228,10 @@ class DSSC_Geometry(DetectorGeometryBase):
             np.arange(0, self.frag_fs_pixels),
             indexing='ij'
         )
-        # Every second line of pixels across the fast-scan direction is shifted
-        # half a pixel in the slow-scan direction so the hexagons tessalate.
+        # Every second line of pixels across the slow-scan direction is shifted
+        # half a pixel in the fast-scan direction so the hexagons tessalate.
         # TODO: check we're shifting the right way once we know the pixel order
-        pixel_ss_index[:, 1::2] += 0.5
+        pixel_fs_index[1::2, :] += 0.5
 
         # Corners described clockwise from the top, assuming the reference point
         # for a pixel is outside it, aligned with the top point & left edge.
