@@ -1123,11 +1123,19 @@ class DSSC_Geometry(DetectorGeometryBase):
         """
         assert len(positions) == 4
         modules = []
+
+        quads_x_orientation = [-1, -1, 1, 1]
+        quads_y_orientation = [1, 1, -1, -1]
+
         with h5py.File(path, 'r') as f:
             for Q, M in product(range(1, 5), range(1, 5)):
                 quad_pos = np.array(positions[Q - 1])
                 mod_grp = f['Q{}/M{}'.format(Q, M)]
                 mod_offset = mod_grp['Position'][:2]
+
+                # Which way round is this quadrant
+                x_orient = quads_x_orientation[Q - 1]
+                y_orient = quads_y_orientation[Q - 1]
 
                 tiles = []
                 for T in range(1, 3):
@@ -1138,14 +1146,21 @@ class DSSC_Geometry(DetectorGeometryBase):
                     # Convert units (mm) to pixels
                     corner_pos *= unit / cls.pixel_size
 
+
+
                     # Measuring in terms of the step within a row, the
                     # step to the next row of hexagons is 1.5/sqrt(3).
-                    ss_vec = np.array([0, -1.5/np.sqrt(3), 0])
-                    fs_vec = np.array([-1, 0, 0])
+                    ss_vec = np.array([0, y_orient * 1.5/np.sqrt(3), 0])
+                    fs_vec = np.array([x_orient, 0, 0])
 
-                    # TODO: putting the first pixel in the same corner as the
-                    #  measurement position is entirely a guess.
-                    first_px_pos = corner_pos
+                    # Corner position is measured at high-x, high-y corner
+                    # (top left as plotted). We want the position of the corner
+                    # with the first pixel, which is either high-x low-y or
+                    # low-x high-y.
+                    if x_orient == 1:
+                        first_px_pos = corner_pos - (fs_vec * cls.frag_fs_pixels)
+                    else:
+                        first_px_pos = corner_pos - (ss_vec * cls.frag_ss_pixels)
 
                     tiles.append(GeometryFragment(
                         corner_pos=first_px_pos,
