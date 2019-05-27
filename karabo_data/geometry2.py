@@ -1213,10 +1213,8 @@ class DSSC_Geometry(DetectorGeometryBase):
     def _distortion_array_slice(cls, m, t):
         # Which part of the array is this tile?
         # m = 0 to 15,  t = 0 to 1
-        module_offset = m * 512
-        tile_offset = module_offset + (t * cls.frag_fs_pixels)
-        ss_slice = slice(None, None)  # Every tile covers the full 128 pixels
-        fs_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
+        ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
+        fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
         return ss_slice, fs_slice
 
     def to_distortion_array(self):
@@ -1228,8 +1226,8 @@ class DSSC_Geometry(DetectorGeometryBase):
             Array of float 32 with shape (8192, 128, 6, 3).
             The dimensions mean:
 
-            - 8192 = 16 modules * 512 pixels (slow scan axis)
-            - 128 pixels (fast scan axis)
+            - 2048 = 16 modules * 128 pixels (slow scan axis)
+            - 512 pixels (fast scan axis)
             - 6 corners of each pixel
             - 3 numbers for z, y, x
         """
@@ -1240,7 +1238,7 @@ class DSSC_Geometry(DetectorGeometryBase):
         # Prepare some arrays to use inside the loop
         pixel_ss_index, pixel_fs_index = np.meshgrid(
             np.arange(0, self.frag_ss_pixels, dtype=np.float32),
-            np.arange(0, self.frag_fs_pixels),
+            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
             indexing='ij'
         )
         # Every second line of pixels across the slow-scan direction is shifted
