@@ -22,6 +22,7 @@ import os.path as osp
 import pandas as pd
 import re
 import sys
+import tempfile
 from warnings import warn
 import xarray
 
@@ -993,6 +994,47 @@ class DataCollection:
         """
         from .writer import VirtualFileWriter
         VirtualFileWriter(filename, self).write()
+
+    def get_virtual_dataset(self, source, key):
+        """Create an HDF5 virtual dataset for a given source & key
+
+        A dataset looks like a multidimensional array, but the data is loaded
+        on-demand when you access it. So it's suitable as an
+        interface to data which is too big to load entirely into memory.
+
+        This returns an h5py.Dataset object. This exists in a real temporary
+        file as a 'virtual dataset', a collection of links pointing to the
+        data in real datasets. The file path is available as ``ds.file.name``,
+        and the path of the dataset inside the file as ``ds.name``.
+
+        The temporary file may be cleaned up when this process exits, and will
+        probably not be visible from other machines. If you want to access the
+        data for longer or from other systems, for instance for distributed
+        data processing, you can copy the temporary file to another location.
+        It should be a small file, as it only points to the real data. However,
+        it will only be usable where you have access to the original data files.
+        """
+        self._check_field(source, key)
+
+        from .writer import VirtualFileWriter
+        fd, filename = tempfile.mkstemp(suffix='-karabo-data-vds.h5')
+        os.close(fd)
+        vfw = VirtualFileWriter(filename, self)
+
+        vfw.write_train_ids()
+
+        if source in self.control_sources:
+            ds_path = vfw.add_control_dataset(source, key)
+        else:
+            ds_path = vfw.add_instrument_dataset(source, key)
+
+        vfw.write_indexes()
+        vfw.write_metadata()
+        vfw.set_writer()
+        vfw.file.close()  # Close the file for writing and reopen read-only
+
+        f = h5py.File(filename, 'r')
+        return f[ds_path]
 
 
 class TrainIterator:
