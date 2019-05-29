@@ -17,6 +17,8 @@ pulling together the separate modules into a single array.
 
    .. automethod:: trains
 
+   .. automethod:: write_virtual_cxi
+
 .. seealso::
 
    :doc:`lpd_data`: An example using the class above.

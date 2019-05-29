@@ -24,6 +24,7 @@ Contents:
    streaming
    validation
    geometry
+   cli
    data_format
 
 .. toctree::
