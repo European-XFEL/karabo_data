@@ -406,9 +406,9 @@ def test_run_get_virtual_dataset(mock_fxe_raw_run):
     assert ds.shape == (480, 255, 1024)
 
 
-def test_run_get_virtual_dataset_filename(mock_fxe_raw_run, tmp_path):
+def test_run_get_virtual_dataset_filename(mock_fxe_raw_run, tmpdir):
     run = RunDirectory(mock_fxe_raw_run)
-    path = str(tmp_path / 'test-vds.h5')
+    path = str(tmpdir / 'test-vds.h5')
     ds = run.get_virtual_dataset(
         'FXE_DET_LPD1M-1/DET/6CH0:xtdf', 'image.data', filename=path
     )
