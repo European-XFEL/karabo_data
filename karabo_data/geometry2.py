@@ -758,7 +758,7 @@ class SnappedGeometry:
         # Draw a cross at the centre
         ax.hlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         ax.vlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
-        return fig
+        return ax
 
 
 CRYSTFEL_HEADER_TEMPLATE = """\
@@ -1208,6 +1208,13 @@ class DSSC_Geometry(DetectorGeometryBase):
     def split_tiles(module_data):
         # Split into 2 tiles along the fast-scan axis
         return np.split(module_data, 2, axis=-1)
+
+    def plot_data_fast(self, data, axis_units='px', frontview=True):
+        ax = super().plot_data_fast(data, axis_units, frontview)
+        # Squash image to physically equal aspect ratio, so a circle projected
+        # on the detector looks like a circle on screen.
+        ax.set_aspect(204/236.)
+        return ax
 
     @classmethod
     def _distortion_array_slice(cls, m, t):
