@@ -127,8 +127,10 @@ class VirtualCXIWriter:
             layouts = {
                 'data': VLayout(shape, dtype=image_grp['data'].dtype),
                 'gain': VLayout(shape, dtype=image_grp['gain'].dtype),
-                'mask': VLayout(shape, dtype=image_grp['mask'].dtype),
             }
+
+            if 'mask' in image_grp:
+                layouts['mask'] = VLayout(shape, dtype=image_grp['mask'].dtype)
         else:
             log.info("Identified raw data")
 
