@@ -70,6 +70,7 @@ class GeometryFragment:
             p=p,
             min_ss=(a * self.ss_pixels),
             max_ss=(((a + 1) * self.ss_pixels) - 1),
+            max_fs=self.fs_pixels,
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
             corner_x=c[0],
@@ -816,7 +817,7 @@ CRYSTFEL_PANEL_TEMPLATE = """
 {name}/dim3 = fs
 {name}/min_fs = 0
 {name}/min_ss = {min_ss}
-{name}/max_fs = 127
+{name}/max_fs = {max_fs}
 {name}/max_ss = {max_ss}
 {name}/fs = {fs_vec}
 {name}/ss = {ss_vec}
