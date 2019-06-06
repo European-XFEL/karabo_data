@@ -246,8 +246,24 @@ class DetectorGeometryBase:
         rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
         return rigid_string
 
-    def write_crystfel_geom(self, filename):
-        """Write this geometry to a CrystFEL format (.geom) geometry file."""
+    def write_crystfel_geom(self, filename, adu_per_ev=0.0075, clen=0.119,
+                            photon_energy=10235):
+        """Write this geometry to a CrystFEL format (.geom) geometry file.
+        Parameters
+        ----------
+        filename : str
+        filename of the geometry file
+
+        Keywords
+        --------
+        adu_per_ev : float
+        ADU (analog digital units) per electron volt for the considered 
+        detector (default 0.0075).
+        clen : float
+        Distance between sample and detector in meters (default 0.119)
+        photon_energy : int
+        Beam wave length in eV (default 10235)
+        """
         from . import __version__
 
         panel_chunks = []
@@ -257,7 +273,10 @@ class DetectorGeometryBase:
         pix_size = self.pixel_size * 1e6 # Convert pixels size to microns
         with open(filename, 'w') as f:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
-                                                    pix_size=pix_size))
+                                                    pix_size=pix_size,
+                                                    adu_per_ev=adu_per_ev,
+                                                    clen=clen,
+                                                    photon_energy=photon_energy))
             rigid_groups = self._get_rigid_groups()
             f.write(rigid_groups)
             for chunk in panel_chunks:
@@ -804,9 +823,9 @@ CRYSTFEL_HEADER_TEMPLATE = """\
 
 dim0 = %
 res = {pix_size} ;
-photon_energy = 10235 ;
-clen = 0.119  ; Camera length, aka detector distance
-adu_per_eV = 0.0075  ; no idea
+photon_energy = {photon_energy} ;
+clen = {clen}  ; Camera length, aka detector distance
+adu_per_eV = {adu_per_ev}; no idea
 
 """
 
