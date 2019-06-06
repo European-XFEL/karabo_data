@@ -1099,7 +1099,10 @@ class DSSC_Geometry(DetectorGeometryBase):
         """Load a DSSC geometry from an XFEL HDF5 format geometry file
 
         The quadrant positions are not stored in the file, and must be provided
-        separately. By default, both the quadrant positions and the positions
+        separately. The position given should refer to the bottom right (looking
+        along the beam) corner of the quadrant.
+
+        By default, both the quadrant positions and the positions
         in the file are measured in millimetres; the unit parameter controls
         this.
 
@@ -1153,11 +1156,11 @@ class DSSC_Geometry(DetectorGeometryBase):
                     ss_vec = np.array([0, y_orient * 1.5/np.sqrt(3), 0])
                     fs_vec = np.array([x_orient, 0, 0])
 
-                    # Corner position is measured at high-x, high-y corner
-                    # (top left as plotted). We want the position of the corner
+                    # Corner position is measured at low-x, low-y corner (bottom
+                    # right as plotted). We want the position of the corner
                     # with the first pixel, which is either high-x low-y or
                     # low-x high-y.
-                    if x_orient == 1:
+                    if x_orient == -1:
                         first_px_pos = corner_pos - (fs_vec * cls.frag_fs_pixels)
                     else:
                         first_px_pos = corner_pos - (ss_vec * cls.frag_ss_pixels)
