@@ -539,6 +539,25 @@ class AGIPD1M(MPxDetectorBase):
     _source_re = re.compile(r'(?P<detname>(.+)_AGIPD1M(.*))/DET/(\d+)CH')
     module_shape = (512, 128)
 
+class DSSC(MPxDetectorBase):
+    """An interface to DSSC-1M data.
+
+    Parameters
+    ----------
+
+    data: DataCollection
+      A data collection, e.g. from RunDirectory.
+    modules: set of ints, optional
+      Detector module numbers to use. By default, all available modules
+      are used.
+    detector_name: str, optional
+      Name of a detector, e.g. 'SCS_DET_DSSC1M-1'. This is only needed
+      if the dataset includes more than one DSSC detector.
+    """
+    _source_re = re.compile(r'(?P<detname>(.+)_DSSC1M(.*))/DET/(\d+)CH')
+    module_shape = (128, 512)
+
+
 
 class LPD1M(MPxDetectorBase):
     """An interface to LPD-1M data.
