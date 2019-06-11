@@ -42,6 +42,8 @@ but this geometry code works with a position for each tile.
 
    .. automethod:: write_crystfel_geom
 
+   .. automethod:: get_pixel_positions
+
    .. automethod:: to_distortion_array
 
    .. automethod:: plot_data_fast
@@ -53,6 +55,8 @@ but this geometry code works with a position for each tile.
    .. automethod:: inspect
 
    .. automethod:: compare
+
+   .. automethod:: data_coords_to_physical
 
 LPD-1M
 ------
@@ -75,6 +79,8 @@ which this geometry code can position independently.
 
    .. automethod:: write_crystfel_geom
 
+   .. automethod:: get_pixel_positions
+
    .. automethod:: to_distortion_array
 
    .. automethod:: plot_data_fast
@@ -82,6 +88,8 @@ which this geometry code can position independently.
    .. automethod:: position_modules_fast
 
    .. automethod:: inspect
+
+   .. automethod:: data_coords_to_physical
 
 DSSC-1M
 -------

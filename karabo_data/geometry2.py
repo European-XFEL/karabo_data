@@ -519,7 +519,7 @@ class DetectorGeometryBase:
 
         If centre=True, the coordinates are calculated for the centre of each
         pixel. If not, the coordinates are for the first corner of the pixel
-        (the one nearest the [0, 0] corner of the tile in data space.
+        (the one nearest the [0, 0] corner of the tile in data space).
         """
         out = np.zeros(self.expected_data_shape + (3,), dtype=np.float32)
 
