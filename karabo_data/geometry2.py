@@ -239,7 +239,7 @@ class DetectorGeometryBase:
         return cls(modules, filename=filename)
 
     def _get_rigid_groups(self, nquads=4):
-        """Create ridget stings for rigid groups definiton."""
+        """Create rigid stings for rigid groups definiton."""
 
         quads = ','.join(['q{}'.format(q) for q in range(nquads)])
         modules = ','.join(['p{}'.format(p) for p in range(self.n_modules)])
@@ -264,8 +264,8 @@ class DetectorGeometryBase:
                             mask_path=None, extra_dim=None, *, filename,
                             adu_per_ev, clen, photon_energy):
         """Write this geometry to a CrystFEL format (.geom) geometry file.
-        Keywords
-        --------
+        Parameters
+        ----------
         data_path  : (str)
             path to the group that contains the data array in the hdf5 file
             (default : /entry_1/instrument_1/detector_1/data)
