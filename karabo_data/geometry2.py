@@ -62,15 +62,23 @@ class GeometryFragment:
             + (0.5 * self.fs_vec * self.fs_pixels)
         )
 
-    def to_crystfel_geom(self, p, a):
+    def to_crystfel_geom(self, p, a, ss_dims, fs_dims, extra_dim):
         name = 'p{}a{}'.format(p, a)
         c = self.corner_pos
+        dims = [p, 'ss', 'fs']
+        if extra_dim:
+            dims.insert(extra_dim[0]-1, extra_dim[1])
+        dims_str = ''
+        for num, value in enumerate(dims):
+            dims_str += '{}/dim{} = {}\n'.format(name, num+1, value)
+
         return CRYSTFEL_PANEL_TEMPLATE.format(
+            dims=dims_str,
             name=name,
-            p=p,
-            min_ss=(a * self.ss_pixels),
-            max_ss=(((a + 1) * self.ss_pixels) - 1),
-            max_fs=self.fs_pixels,
+            min_ss=ss_dims[0],
+            max_ss=ss_dims[1],
+            min_fs=fs_dims[0],
+            max_fs=fs_dims[1],
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
             corner_x=c[0],
@@ -208,6 +216,12 @@ class DetectorGeometryBase:
 
         return ax
 
+    def _tile_dims(self, tileno):
+        """Implement in subclass: which part of module array each tile is.
+        """
+        raise NotImplementedError
+
+
     @classmethod
     def from_crystfel_geom(cls, filename):
         """Read a CrystFEL format (.geom) geometry file.
@@ -246,33 +260,58 @@ class DetectorGeometryBase:
         rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
         return rigid_string
 
-    def write_crystfel_geom(self, filename, adu_per_ev=0.0075, clen=0.119,
-                            photon_energy=10235):
+    def write_crystfel_geom(self, data_path='/entry_1/instrument_1/detector_1/data',
+                            mask_path=None, extra_dim=None, *, filename,
+                            adu_per_ev, clen, photon_energy):
         """Write this geometry to a CrystFEL format (.geom) geometry file.
-        Parameters
-        ----------
+        Keywords
+        --------
+        data_path  : (str)
+            path to the group that contains the data array in the hdf5 file
+            (default : /entry_1/instrument_1/detector_1/data)
+        mask_path : (str)
+            path to the group that contains the mask array in the hdf5 file
+            (default : /entry_1/instrument_1/detector_1/mask)
+
+        extra_dim (dim_number, index) : collection
+            extra data dimension that has to inserted to read the data. The
+            first number of the tuple refers to the axis number; the second to
+            the index of that axis which holds the data of interest.
+            If for example raw data is to be read then extra_dim is could be
+            (2, 0).
+
         filename : str
         filename of the geometry file
 
-        Keywords
-        --------
         adu_per_ev : float
-        ADU (analog digital units) per electron volt for the considered 
-        detector (default 0.0075).
+        ADU (analog digital units) per electron volt for the considered
+        detector.
+
         clen : float
-        Distance between sample and detector in meters (default 0.119)
+        Distance between sample and detector in meters
+
         photon_energy : int
-        Beam wave length in eV (default 10235)
+        Beam wave length in eV
         """
         from . import __version__
 
         panel_chunks = []
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
-                panel_chunks.append(fragment.to_crystfel_geom(p, a))
+                ss_dims, fs_dims = self._tile_dims(a)
+                panel_chunks.append(fragment.to_crystfel_geom(p,
+                                                              a,
+                                                              ss_dims,
+                                                              fs_dims,
+                                                              extra_dim))
         pix_size = self.pixel_size * 1e6 # Convert pixels size to microns
+        paths = dict(data=data_path)
+        if mask_path:
+            paths['mask'] = mask_path
+        path_str = '\n'.join('{} = {} ;'.format(i,j) for i,j in paths.items())
         with open(filename, 'w') as f:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
+                                                    paths=path_str,
                                                     pix_size=pix_size,
                                                     adu_per_ev=adu_per_ev,
                                                     clen=clen,
@@ -706,6 +745,18 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
         return ss_slice, fs_slice
 
+    @classmethod
+    def _tile_dims(cls, tileno):
+        # Which part of the array is this tile?
+
+        #min_ss=(a * self.ss_pixels),
+        #max_ss=(((a + 1) * self.ss_pixels) - 1),
+        tile_offset = tileno * cls.frag_ss_pixels
+        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
+        fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
+        return ss_dims, fs_dims
+
+
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
 
@@ -821,6 +872,7 @@ CRYSTFEL_HEADER_TEMPLATE = """\
 ;
 ; See: http://www.desy.de/~twhite/crystfel/manual-crystfel_geometry.html
 
+{paths}
 dim0 = %
 res = {pix_size} ;
 photon_energy = {photon_energy} ;
@@ -831,10 +883,7 @@ adu_per_eV = {adu_per_ev}; no idea
 
 
 CRYSTFEL_PANEL_TEMPLATE = """
-{name}/dim1 = {p}
-{name}/dim2 = ss
-{name}/dim3 = fs
-{name}/min_fs = 0
+{dims}{name}/min_fs = {min_fs}
 {name}/min_ss = {min_ss}
 {name}/max_fs = {max_fs}
 {name}/max_ss = {max_ss}
@@ -1080,6 +1129,15 @@ class LPD_1MGeometry(DetectorGeometryBase):
         """
         return super().to_distortion_array()  # Overridden only for docstring
 
+    @classmethod
+    def _tile_dims(cls, tileno):
+        # Which part of the array is this tile?
+        tile_offset = tileno * cls.frag_ss_pixels
+        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
+        fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
+        return ss_dims, fs_dims
+
+
 
 def invert_xfel_lpd_geom(path_in, path_out):
     """Invert the coordinates in an XFEL geometry file (HDF5)
@@ -1255,6 +1313,15 @@ class DSSC_Geometry(DetectorGeometryBase):
         ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
         fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
         return ss_slice, fs_slice
+
+    @classmethod
+    def _tile_dims(cls, tileno):
+        # Which part of the array is this tile?
+        tile_offset = tileno * cls.frag_fs_pixels
+        fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
+        ss_dims = 0, cls.frag_ss_pixels - 1# Every tile covers the full pixel range
+        return ss_dims, fs_dims
+
 
     def to_distortion_array(self):
         """Return distortion matrix for DSSC detector, suitable for pyFAI.
