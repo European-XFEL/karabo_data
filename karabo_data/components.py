@@ -553,6 +553,8 @@ class DSSC(MPxDetectorBase):
     detector_name: str, optional
       Name of a detector, e.g. 'SCS_DET_DSSC1M-1'. This is only needed
       if the dataset includes more than one DSSC detector.
+    min_modules: int
+      Include trains where at least n modules have data. Default is 1.
     """
     _source_re = re.compile(r'(?P<detname>(.+)_DSSC1M(.*))/DET/(\d+)CH')
     module_shape = (128, 512)
