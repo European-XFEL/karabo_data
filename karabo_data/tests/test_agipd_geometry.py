@@ -81,6 +81,21 @@ def test_to_distortion_array():
     assert 0.0 <= distortion[..., 1].min() < 0.01
     assert 0.0 <= distortion[..., 2].min() < 0.01
 
+def test_get_pixel_positions():
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+
+    pixelpos = geom.get_pixel_positions()
+    assert pixelpos.shape == (16, 512, 128, 3)
+    px = pixelpos[..., 0]
+    py = pixelpos[..., 1]
+
+    assert -550 < px.min() < -500
+    assert  550 > px.max() >  500
+    assert -650 < py.min() < -600
+    assert  650 > py.max() >  600
+
 def test_data_coords_to_physical():
     geom = AGIPD_1MGeometry.from_quad_positions(
         quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
