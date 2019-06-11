@@ -77,11 +77,11 @@ class GeometryFragment:
             coffset=c[2],
         )
 
-    def snap(self):
+    def snap(self, px_shape=np.array([1., 1.])):
         # Round positions and vectors to integers, drop z dimension
-        corner_pos = np.around(self.corner_pos[:2]).astype(np.int32)
-        ss_vec = np.around(self.ss_vec[:2]).astype(np.int32)
-        fs_vec = np.around(self.fs_vec[:2]).astype(np.int32)
+        corner_pos = np.around(self.corner_pos[:2] / px_shape).astype(np.int32)
+        ss_vec = np.around(self.ss_vec[:2] / px_shape).astype(np.int32)
+        fs_vec = np.around(self.fs_vec[:2] / px_shape).astype(np.int32)
 
         # We should have one vector in the x direction and one in y, but
         # we don't know which is which.
@@ -146,6 +146,8 @@ class DetectorGeometryBase:
     frag_ss_pixels = 0
     frag_fs_pixels = 0
     expected_data_shape = (0, 0, 0)
+    _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
+    _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
 
     def __init__(self, modules, filename='No file'):
         # List of lists (1 per module) of fragments (1 per tile)
@@ -161,20 +163,38 @@ class DetectorGeometryBase:
         Returns a matplotlib Figure object.
         """
         import matplotlib.pyplot as plt
-        from matplotlib.collections import PatchCollection
+        from matplotlib.collections import PatchCollection, LineCollection
         from matplotlib.patches import Polygon
 
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
 
         rects = []
+        first_rows = []
         for module in self.modules:
-            for fragment in module:
+            for t, fragment in enumerate(module, start=1):
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
                 rects.append(Polygon(corners))
 
+                if t == self._draw_first_px_on_tile:
+                    # Find the ends of the first row in reading order
+                    c1 = fragment.corner_pos
+                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels)
+                    first_rows.append((c1[:2], c2[:2]))
+
+        # Add tile shapes
         pc = PatchCollection(rects, facecolor=(0.75, 1.0, 0.75), edgecolor=None)
         ax.add_collection(pc)
+
+        # Add markers for first pixels & lines for first row
+        first_rows = np.array(first_rows)
+        first_px_x, first_px_y = first_rows[:, 0, 0], first_rows[:, 0, 1]
+
+        ax.scatter(first_px_x, first_px_y, marker='x', label='First pixel')
+        ax.add_collection(LineCollection(
+            first_rows, linestyles=':', color='k', label='First row'
+        ))
+        ax.legend()
 
         # Draw cross in the centre.
         ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
@@ -195,7 +215,7 @@ class DetectorGeometryBase:
         if self._snapped_cache is None:
             new_modules = []
             for module in self.modules:
-                new_tiles = [t.snap() for t in module]
+                new_tiles = [t.snap(px_shape=self._pixel_shape) for t in module]
                 new_modules.append(new_tiles)
             self._snapped_cache = SnappedGeometry(new_modules, self)
         return self._snapped_cache
@@ -738,7 +758,7 @@ class SnappedGeometry:
         # Draw a cross at the centre
         ax.hlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         ax.vlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
-        return fig
+        return ax
 
 
 CRYSTFEL_HEADER_TEMPLATE = """\
@@ -811,6 +831,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
     frag_ss_pixels = 32
     frag_fs_pixels = 128
     expected_data_shape = (16, 256, 256)
+    _draw_first_px_on_tile = 8  # The first pixel in stored data is on tile 8
 
     @classmethod
     def from_quad_positions(cls, quad_pos, *, unit=1e-3, asic_gap=None,
@@ -1055,8 +1076,243 @@ def invert_xfel_lpd_geom(path_in, path_out):
                 fout[path] = -fin[path][:]
 
 
-if __name__ == '__main__':
-    geom = AGIPD_1MGeometry.from_quad_positions(
-        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
-    )
-    geom.write_crystfel_geom('sample.geom')
+class DSSC_Geometry(DetectorGeometryBase):
+    """Detector layout for DSSC
+
+    The coordinates used in this class are 3D (x, y, z), and represent multiples
+    of the pixel size.
+
+    You won't normally instantiate this class directly:
+    use one of the constructor class methods to create or load a geometry.
+    """
+    # Hexagonal pixels, 236 μm step in fast-scan axis, 204 μm in slow-scan
+    pixel_size = 236e-6
+    frag_ss_pixels = 128
+    frag_fs_pixels = 256
+    expected_data_shape = (16, 128, 512)
+    # This stretches the dimensions for the 'snapped' geometry so that its pixel
+    # grid matches the aspect ratio of the detector pixels.
+    _pixel_shape = np.array([1., 1.5/np.sqrt(3)])
+
+    @classmethod
+    def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
+        """Load a DSSC geometry from an XFEL HDF5 format geometry file
+
+        The quadrant positions are not stored in the file, and must be provided
+        separately. The position given should refer to the bottom right (looking
+        along the beam) corner of the quadrant.
+
+        By default, both the quadrant positions and the positions
+        in the file are measured in millimetres; the unit parameter controls
+        this.
+
+        The origin of the coordinates is in the centre of the detector.
+        Coordinates increase upwards and to the left (looking along the beam).
+
+        This version of the code only handles x and y translation,
+        as this is all that is recorded in the initial LPD geometry file.
+
+        Parameters
+        ----------
+
+        path : str
+          Path of an EuXFEL format (HDF5) geometry file for DSSC.
+        positions : list of 2-tuples
+          (x, y) coordinates of the last corner (the one by module 4) of each
+          quadrant.
+        unit : float, optional
+          The conversion factor to put the coordinates into metres.
+          The default 1e-3 means the numbers are in millimetres.
+        """
+        assert len(positions) == 4
+        modules = []
+
+        quads_x_orientation = [-1, -1, 1, 1]
+        quads_y_orientation = [1, 1, -1, -1]
+
+        with h5py.File(path, 'r') as f:
+            for Q, M in product(range(1, 5), range(1, 5)):
+                quad_pos = np.array(positions[Q - 1])
+                mod_grp = f['Q{}/M{}'.format(Q, M)]
+                mod_offset = mod_grp['Position'][:2]
+
+                # Which way round is this quadrant
+                x_orient = quads_x_orientation[Q - 1]
+                y_orient = quads_y_orientation[Q - 1]
+
+                tiles = []
+                for T in range(1, 3):
+                    corner_pos = np.zeros(3)
+                    tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
+                    corner_pos[:2] = quad_pos + mod_offset + tile_offset
+
+                    # Convert units (mm) to pixels
+                    corner_pos *= unit / cls.pixel_size
+
+
+
+                    # Measuring in terms of the step within a row, the
+                    # step to the next row of hexagons is 1.5/sqrt(3).
+                    ss_vec = np.array([0, y_orient * 1.5/np.sqrt(3), 0])
+                    fs_vec = np.array([x_orient, 0, 0])
+
+                    # Corner position is measured at low-x, low-y corner (bottom
+                    # right as plotted). We want the position of the corner
+                    # with the first pixel, which is either high-x low-y or
+                    # low-x high-y.
+                    if x_orient == -1:
+                        first_px_pos = corner_pos - (fs_vec * cls.frag_fs_pixels)
+                    else:
+                        first_px_pos = corner_pos - (ss_vec * cls.frag_ss_pixels)
+
+                    tiles.append(GeometryFragment(
+                        corner_pos=first_px_pos,
+                        ss_vec=ss_vec,
+                        fs_vec=fs_vec,
+                        ss_pixels=cls.frag_ss_pixels,
+                        fs_pixels=cls.frag_fs_pixels,
+                    ))
+                modules.append(tiles)
+
+        return cls(modules, filename=path)
+
+    def inspect(self, frontview=True):
+        """Plot the 2D layout of this detector geometry.
+
+        Returns a matplotlib Axes object.
+
+        Parameters
+        ----------
+
+        frontview : bool
+          If True (the default), x increases to the left, as if you were looking
+          along the beam. False gives a 'looking into the beam' view.
+        """
+        ax = super().inspect(frontview=frontview)
+
+        # Label modules and tiles
+        for ch, module in enumerate(self.modules):
+            s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
+            cx, cy, _ = module[0].centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
+
+            for t in [1]:
+                cx, cy, _ = module[t].centre()
+                ax.text(cx, cy, 'T{}'.format(t + 1),
+                        verticalalignment='center',
+                        horizontalalignment='center')
+
+        ax.set_title('DSSC detector geometry ({})'.format(self.filename))
+        return ax
+
+    @staticmethod
+    def split_tiles(module_data):
+        # Split into 2 tiles along the fast-scan axis
+        return np.split(module_data, 2, axis=-1)
+
+    def plot_data_fast(self, data, axis_units='px', frontview=True):
+        ax = super().plot_data_fast(data, axis_units, frontview)
+        # Squash image to physically equal aspect ratio, so a circle projected
+        # on the detector looks like a circle on screen.
+        ax.set_aspect(204/236.)
+        return ax
+
+    @classmethod
+    def _distortion_array_slice(cls, m, t):
+        # Which part of the array is this tile?
+        # m = 0 to 15,  t = 0 to 1
+        ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
+        fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
+        return ss_slice, fs_slice
+
+    def to_distortion_array(self):
+        """Return distortion matrix for DSSC detector, suitable for pyFAI.
+
+        Returns
+        -------
+        out: ndarray
+            Array of float 32 with shape (8192, 128, 6, 3).
+            The dimensions mean:
+
+            - 2048 = 16 modules * 128 pixels (slow scan axis)
+            - 512 pixels (fast scan axis)
+            - 6 corners of each pixel
+            - 3 numbers for z, y, x
+        """
+        nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
+        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 6, 3),
+                              dtype=np.float32)
+
+        # Prepare some arrays to use inside the loop
+        pixel_ss_index, pixel_fs_index = np.meshgrid(
+            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
+            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
+            indexing='ij'
+        )
+        # Every second line of pixels across the slow-scan direction is shifted
+        # half a pixel in the fast-scan direction so the hexagons tessalate.
+        # TODO: check we're shifting the right way once we know the pixel order
+        pixel_fs_index[1::2, :] += 0.5
+
+        # Corners described clockwise from the top, assuming the reference point
+        # for a pixel is outside it, aligned with the top point & left edge.
+        corner_ss_offsets = np.array([0.5, 1, 1, 0.5, 0, 0])
+        corner_fs_offsets = np.array([0, 0.25, 0.75, 1, 0.75, 0.25])
+
+        for m, mod in enumerate(self.modules, start=0):
+            for t, tile in enumerate(mod, start=0):
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+
+                # Calculate coordinates of each pixel's first corner
+                # 2D arrays, shape: (64, 128)
+                pixel_corner1_x = (
+                        corner_x
+                        + pixel_ss_index * ss_unit_x
+                        + pixel_fs_index * fs_unit_x
+                )
+                pixel_corner1_y = (
+                        corner_y
+                        + pixel_ss_index * ss_unit_y
+                        + pixel_fs_index * fs_unit_y
+                )
+                pixel_corner1_z = (
+                        corner_z
+                        + pixel_ss_index * ss_unit_z +
+                        + pixel_fs_index * fs_unit_z
+                )
+
+                # Calculate corner coordinates for each pixel
+                # 3D arrays, shape: (64, 128, 4)
+                corners_x = (
+                        pixel_corner1_x[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_x
+                        + corner_fs_offsets * fs_unit_x
+                )
+                corners_y = (
+                        pixel_corner1_y[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_y
+                        + corner_fs_offsets * fs_unit_y
+                )
+                corners_z = (
+                        pixel_corner1_z[:, :, np.newaxis]
+                        + corner_ss_offsets * ss_unit_z
+                        + corner_fs_offsets * fs_unit_z
+                )
+
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Insert the data into the array
+                distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
+                distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
+                distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
+
+        # Shift the x & y origin from the centre to the corner
+        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+        distortion[..., 1:] -= min_yx
+
+        return distortion
