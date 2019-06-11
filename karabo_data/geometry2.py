@@ -155,7 +155,7 @@ class DetectorGeometryBase:
     frag_ss_pixels = 0
     frag_fs_pixels = 0
     n_modules = 0
-    n_asics_per_module = 0
+    n_tiles_per_module = 0
     expected_data_shape = (0, 0, 0)
     _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
     _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
@@ -233,7 +233,7 @@ class DetectorGeometryBase:
         for p in range(cls.n_modules):
             tiles = []
             modules.append(tiles)
-            for a in range(cls.n_asics_per_module):
+            for a in range(cls.n_tiles_per_module):
                 d = geom_dict['panels']['p{}a{}'.format(p, a)]
                 tiles.append(GeometryFragment.from_panel_dict(d))
         return cls(modules, filename=filename)
@@ -244,7 +244,7 @@ class DetectorGeometryBase:
         quads = ','.join(['q{}'.format(q) for q in range(nquads)])
         modules = ','.join(['p{}'.format(p) for p in range(self.n_modules)])
 
-        prod = product(range(self.n_modules), range(self.n_asics_per_module))
+        prod = product(range(self.n_modules), range(self.n_tiles_per_module))
         rigid_group = ['p{}a{}'.format(p, a) for (p, a) in prod]
         rigid_string = '\n'
 
@@ -260,18 +260,20 @@ class DetectorGeometryBase:
         rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
         return rigid_string
 
-    def write_crystfel_geom(self, data_path='/entry_1/instrument_1/detector_1/data',
-                            mask_path=None, extra_dim=None, *, filename,
-                            adu_per_ev, clen, photon_energy):
+    def write_crystfel_geom(self, filename, *,
+                            data_path='/entry_1/instrument_1/detector_1/data',
+                            mask_path=None, extra_dim=None, adu_per_ev=None,
+                            clen=None, photon_energy=None):
         """Write this geometry to a CrystFEL format (.geom) geometry file.
         Parameters
         ----------
-        data_path  : (str)
+        filename : str
+        filename of the geometry file
+
+        data_path  : str, default : /entry_1/instrument_1/detector_1/data
             path to the group that contains the data array in the hdf5 file
-            (default : /entry_1/instrument_1/detector_1/data)
-        mask_path : (str)
+        mask_path : str
             path to the group that contains the mask array in the hdf5 file
-            (default : /entry_1/instrument_1/detector_1/mask)
 
         extra_dim (dim_number, index) : collection
             extra data dimension that has to inserted to read the data. The
@@ -280,20 +282,27 @@ class DetectorGeometryBase:
             If for example raw data is to be read then extra_dim is could be
             (2, 0).
 
-        filename : str
-        filename of the geometry file
-
-        adu_per_ev : float
+        adu_per_ev : float, default : 0.0075
         ADU (analog digital units) per electron volt for the considered
         detector.
 
-        clen : float
+        clen : float, default : 0.119
         Distance between sample and detector in meters
 
-        photon_energy : int
+        photon_energy : int, default : 9800
         Beam wave length in eV
         """
         from . import __version__
+
+        if adu_per_ev is None:
+            adu_per_ev = 0.0075
+            warnings.warn('adu_per_ev must be set; Setting to default value')
+        if clen is None:
+            clen = 0.119
+            warnings.warn('clen must be set; Setting to default value')
+        if photon_energy is None:
+            photon_energy = 9800
+            warnings.warn('photon_energy must be set, setting to default value')
 
         panel_chunks = []
         for p, module in enumerate(self.modules):
@@ -489,7 +498,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
     frag_fs_pixels = 128
     expected_data_shape = (16, 512, 128)
     n_modules = 16
-    n_asics_per_module = 8
+    n_tiles_per_module = 8
 
     @classmethod
     def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29,
@@ -908,7 +917,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
     frag_ss_pixels = 32
     frag_fs_pixels = 128
     n_modules = 16
-    n_asics_per_module = 16
+    n_tiles_per_module = 16
     expected_data_shape = (16, 256, 256)
     _draw_first_px_on_tile = 8  # The first pixel in stored data is on tile 8
 
@@ -973,7 +982,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
             tiles = []
             modules.append(tiles)
 
-            for a in range(cls.n_asics_per_module):
+            for a in range(cls.n_tiles_per_module):
                 if a < 8:
                     up = -a
                     across = -1
@@ -1178,7 +1187,7 @@ class DSSC_Geometry(DetectorGeometryBase):
     frag_ss_pixels = 128
     frag_fs_pixels = 256
     n_modules = 16
-    n_asics_per_module = 2
+    n_tiles_per_module = 2
     expected_data_shape = (16, 128, 512)
     # This stretches the dimensions for the 'snapped' geometry so that its pixel
     # grid matches the aspect ratio of the detector pixels.
