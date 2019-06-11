@@ -909,7 +909,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
         panels_across = [-1, -1, 0, 0]
         panels_up = [0, -1, -1, 0]
         modules = []
-        for p in range(self.n_modules):
+        for p in range(cls.n_modules):
             quad = p // 4
             quad_corner_x = quad_pos[quad][0] * px_conversion
             quad_corner_y = quad_pos[quad][1] * px_conversion
@@ -924,7 +924,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
             tiles = []
             modules.append(tiles)
 
-            for a in range(self.n_asics_per_module):
+            for a in range(cls.n_asics_per_module):
                 if a < 8:
                     up = -a
                     across = -1
