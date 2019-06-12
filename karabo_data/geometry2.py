@@ -216,7 +216,7 @@ class DetectorGeometryBase:
 
         return ax
 
-    def _tile_dims(self, tileno):
+    def _tile_dims(self, modno, tileno):
         """Implement in subclass: which part of module array each tile is.
         """
         raise NotImplementedError
@@ -307,7 +307,7 @@ class DetectorGeometryBase:
         panel_chunks = []
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
-                ss_dims, fs_dims = self._tile_dims(a)
+                ss_dims, fs_dims = self._tile_dims(p, a)
                 panel_chunks.append(fragment.to_crystfel_geom(p,
                                                               a,
                                                               ss_dims,
@@ -755,7 +755,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, tileno):
+    def _tile_dims(cls, modno, tileno):
         # Which part of the array is this tile?
 
         #min_ss=(a * self.ss_pixels),
@@ -1139,11 +1139,18 @@ class LPD_1MGeometry(DetectorGeometryBase):
         return super().to_distortion_array()  # Overridden only for docstring
 
     @classmethod
-    def _tile_dims(cls, tileno):
+    def _tile_dims(cls, moduleno, tileno):
         # Which part of the array is this tile?
-        tile_offset = tileno * cls.frag_ss_pixels
+        module_offset = moduleno * 256
+        if tileno < 8: # First half of module (0 <= t <=7)
+            fs_dims = 0, 127
+            tiles_up = 7 - tileno
+        else:
+            fs_dims = 128, 255
+            tiles_up = tileno - 8
+
+        tile_offset = module_offset + (tiles_up * 32)
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
-        fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
         return ss_dims, fs_dims
 
 
@@ -1324,7 +1331,7 @@ class DSSC_Geometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, tileno):
+    def _tile_dims(cls, modno, tileno):
         # Which part of the array is this tile?
         tile_offset = tileno * cls.frag_fs_pixels
         fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
