@@ -62,19 +62,20 @@ class GeometryFragment:
             + (0.5 * self.fs_vec * self.fs_pixels)
         )
 
-    def to_crystfel_geom(self, p, a, ss_dims, fs_dims, extra_dim):
-        name = 'p{}a{}'.format(p, a)
+    def to_crystfel_geom(self, p, a, ss_dims, fs_dims, dims):
+        tile_name = 'p{}a{}'.format(p, a)
         c = self.corner_pos
-        dims = [p, 'ss', 'fs']
-        if extra_dim:
-            dims.insert(extra_dim[0]-1, extra_dim[1])
-        dims_str = ''
-        for num, value in enumerate(dims):
-            dims_str += '{}/dim{} = {}\n'.format(name, num+1, value)
+        dim_list = []
+        for num, value in dims.items():
+            if value == 'modno':
+                key = p
+            else:
+                key = value
+            dim_list.append('{}/dim{} = {}'.format(tile_name, num, key))
 
         return CRYSTFEL_PANEL_TEMPLATE.format(
-            dims=dims_str,
-            name=name,
+            dims='\n'.join(dim_list),
+            name=tile_name,
             min_ss=ss_dims[0],
             max_ss=ss_dims[1],
             min_fs=fs_dims[0],
@@ -262,8 +263,8 @@ class DetectorGeometryBase:
 
     def write_crystfel_geom(self, filename, *,
                             data_path='/entry_1/instrument_1/detector_1/data',
-                            mask_path=None, extra_dim=None, adu_per_ev=None,
-                            clen=None, photon_energy=None):
+                            mask_path=None, dims=('frame', 'modno', 'ss', 'fs'),
+                            adu_per_ev=None, clen=None, photon_energy=None):
         """Write this geometry to a CrystFEL format (.geom) geometry file.
         Parameters
         ----------
@@ -275,34 +276,49 @@ class DetectorGeometryBase:
         mask_path : str
             path to the group that contains the mask array in the hdf5 file
 
-        extra_dim (dim_number, index) : collection
-            extra data dimension that has to inserted to read the data. The
-            first number of the tuple refers to the axis number; the second to
-            the index of that axis which holds the data of interest.
-            If for example raw data is to be read then extra_dim is could be
-            (2, 0).
+        dims : collection, default : ('frame', 'modno', 'ss', 'fs')
+            Dimensions of the data. Extra dimensios, except for details are
+            added by thier index. The dimensions should contain frame, modno,
+            ss, fs.
 
         adu_per_ev : float, default : 0.0075
-        ADU (analog digital units) per electron volt for the considered
-        detector.
+            ADU (analog digital units) per electron volt for the considered
+            detector.
 
         clen : float, default : 0.119
-        Distance between sample and detector in meters
+            Distance between sample and detector in meters
 
         photon_energy : int, default : 9800
-        Beam wave length in eV
+            Beam wave length in eV
         """
         from . import __version__
 
         if adu_per_ev is None:
-            adu_per_ev = 0.0075
             warnings.warn('adu_per_ev must be set; Setting to default value')
+            adu_per_ev_str = '; adu_per_eV = 0.0075'
+        else:
+            adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
         if clen is None:
-            clen = 0.119
+            clen_str = '; clen = 0.119'
             warnings.warn('clen must be set; Setting to default value')
+        else:
+            clen_str = 'clen = {}'.format(clen)
         if photon_energy is None:
-            photon_energy = 9800
+            photon_energy_str = '; photon_energy = 9800'
             warnings.warn('photon_energy must be set, setting to default value')
+        else:
+            photon_energy_str = 'photon_energy = {}'.format(photon_energy)
+        
+        # Get the frame dimension
+        tile_dims = {}
+
+        for nn, dim_name in enumerate(dims):
+            if dim_name == 'frame':
+                frame_dim = 'dim{} = %'.format(nn)
+            else:
+                tile_dims[nn] = dim_name
+        if frame_dim is None:
+            raise ValueError ('No frame dimension given')
 
         panel_chunks = []
         for p, module in enumerate(self.modules):
@@ -312,7 +328,7 @@ class DetectorGeometryBase:
                                                               a,
                                                               ss_dims,
                                                               fs_dims,
-                                                              extra_dim))
+                                                              tile_dims))
         pix_size = self.pixel_size * 1e6 # Convert pixels size to microns
         paths = dict(data=data_path)
         if mask_path:
@@ -321,10 +337,11 @@ class DetectorGeometryBase:
         with open(filename, 'w') as f:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
                                                     paths=path_str,
+                                                    frame_dim=frame_dim,
                                                     pix_size=pix_size,
-                                                    adu_per_ev=adu_per_ev,
-                                                    clen=clen,
-                                                    photon_energy=photon_energy))
+                                                    adu_per_ev=adu_per_ev_str,
+                                                    clen=clen_str,
+                                                    photon_energy=photon_energy_str))
             rigid_groups = self._get_rigid_groups()
             f.write(rigid_groups)
             for chunk in panel_chunks:
@@ -882,17 +899,23 @@ CRYSTFEL_HEADER_TEMPLATE = """\
 ; See: http://www.desy.de/~twhite/crystfel/manual-crystfel_geometry.html
 
 {paths}
-dim0 = %
+{frame_dim}
 res = {pix_size} ;
-photon_energy = {photon_energy} ;
-clen = {clen}  ; Camera length, aka detector distance
-adu_per_eV = {adu_per_ev}; no idea
 
+; Beam energy in eV
+{photon_energy}
+
+; Camera length, aka detector distance
+{clen}
+
+; Analogue Digital Units per eV
+{adu_per_ev}
 """
 
 
 CRYSTFEL_PANEL_TEMPLATE = """
-{dims}{name}/min_fs = {min_fs}
+{dims}
+{name}/min_fs = {min_fs}
 {name}/min_ss = {min_ss}
 {name}/max_fs = {max_fs}
 {name}/max_ss = {max_ss}
@@ -1149,7 +1172,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
             fs_dims = 128, 255
             tiles_up = tileno - 8
 
-        tile_offset = module_offset + (tiles_up * 32)
+        tile_offset = tiles_up * 32
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
         return ss_dims, fs_dims
 
@@ -1332,7 +1355,6 @@ class DSSC_Geometry(DetectorGeometryBase):
 
     @classmethod
     def _tile_dims(cls, modno, tileno):
-        # Which part of the array is this tile?
         tile_offset = tileno * cls.frag_fs_pixels
         fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
         ss_dims = 0, cls.frag_ss_pixels - 1# Every tile covers the full pixel range
