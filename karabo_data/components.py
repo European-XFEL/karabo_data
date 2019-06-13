@@ -82,7 +82,9 @@ class MPxDetectorBase:
     """
 
     _source_re = re.compile(r'(?P<detname>.+)/DET/(\d+)CH')
-    module_shape = (0, 0)  # Override in subclass
+    n_modules = 16
+    # Override in subclass
+    module_shape = (0, 0)
 
     def __init__(self, data: DataCollection, detector_name=None, modules=None,
                  *, min_modules=1):

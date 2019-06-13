@@ -141,6 +141,19 @@ def test_write_virtual_cxi(mock_spb_proc_run, tmpdir):
         assert 'mask' in det_grp
         assert 'experiment_identifier' in det_grp
 
+def test_write_virtual_cxi_some_modules(mock_spb_proc_run, tmpdir):
+    run = RunDirectory(mock_spb_proc_run)
+    det = AGIPD1M(run, modules=[3, 4, 8, 15])
+
+    test_file = osp.join(str(tmpdir), 'test.cxi')
+    det.write_virtual_cxi(test_file)
+    assert_isfile(test_file)
+
+    with h5py.File(test_file) as f:
+        det_grp = f['entry_1/instrument_1/detector_1']
+        ds = det_grp['data']
+        assert ds.shape[1:] == (16, 512, 128)
+
 def test_write_virtual_cxi_raw_data(mock_fxe_raw_run, tmpdir, caplog):
     import logging
     caplog.set_level(logging.INFO)

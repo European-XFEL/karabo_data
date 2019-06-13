@@ -26,7 +26,6 @@ class VirtualCXIWriter:
     def __init__(self, detdata):
         self.detdata = detdata
 
-        self.nmodules = len(detdata.modno_to_source)
         self.modulenos = sorted(detdata.modno_to_source)
 
         train_ids = detdata.train_ids
@@ -42,6 +41,10 @@ class VirtualCXIWriter:
         self.train_id_to_ix = dict(zip(train_ids, positions))
 
     @property
+    def nmodules(self):
+        return self.detdata.n_modules
+
+    @property
     def data(self):
         return self.detdata.data
 
@@ -51,14 +54,14 @@ class VirtualCXIWriter:
         pulse_ids = np.full((self.nframes, self.nmodules), NO_PULSE_ID,
                             dtype=np.uint64)
 
-        for i, source in enumerate(self.detdata.source_to_modno):
+        for source, modno in self.detdata.source_to_modno.items():
             for chunk in self.data._find_data_chunks(source, 'image.pulseId'):
                 # In some cases, there's an extra dimension of length 1
                 if chunk.dataset.ndim > 1:
                     chunk_data = chunk.dataset[:, 0]
                 else:
                     chunk_data = chunk.dataset
-                self._map_chunk(chunk, chunk_data, pulse_ids, i)
+                self._map_chunk(chunk, chunk_data, pulse_ids, modno)
 
         # Sanity checks on pulse IDs
         pulse_ids_min = pulse_ids.min(axis=1)
@@ -149,10 +152,9 @@ class VirtualCXIWriter:
             have_data = np.zeros((self.nframes, self.nmodules), dtype=bool)
 
             for source, modno in self.detdata.source_to_modno.items():
-                mod_ix = self.modulenos.index(modno)
                 for chunk in self.data._find_data_chunks(source, key):
                     vsrc = h5py.VirtualSource(chunk.dataset)
-                    self._map_chunk(chunk, vsrc, layout, mod_ix, have_data)
+                    self._map_chunk(chunk, vsrc, layout, modno, have_data)
 
             filled_pct = 100 * have_data.sum() / have_data.size
             log.info("Assembled %d chunks for %s, filling %.2f%% of the hyperslab",
