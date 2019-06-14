@@ -295,16 +295,18 @@ class DetectorGeometryBase:
 
         if adu_per_ev is None:
             warnings.warn('adu_per_ev must be set; Setting to default value')
-            adu_per_ev_str = '; adu_per_eV = 0.0075'
+            adu_per_ev_str = '; adu_per_eV = SET ME'
+            # TODO: adu_per_ev should be fixed for each detector, we should 
+            #       find out the values and set them.
         else:
             adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
         if clen is None:
-            clen_str = '; clen = 0.119'
+            clen_str = '; clen = SET ME'
             warnings.warn('clen must be set; Setting to default value')
         else:
             clen_str = 'clen = {}'.format(clen)
         if photon_energy is None:
-            photon_energy_str = '; photon_energy = 9800'
+            photon_energy_str = '; photon_energy = SET ME'
             warnings.warn('photon_energy must be set, setting to default value')
         else:
             photon_energy_str = 'photon_energy = {}'.format(photon_energy)
@@ -1163,8 +1165,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
     @classmethod
     def _tile_dims(cls, moduleno, tileno):
-        # Which part of the array is this tile?
-        module_offset = moduleno * 256
         if tileno < 8: # First half of module (0 <= t <=7)
             fs_dims = 0, 127
             tiles_up = 7 - tileno
