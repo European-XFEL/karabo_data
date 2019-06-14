@@ -331,7 +331,7 @@ class DetectorGeometryBase:
                                                               ss_dims,
                                                               fs_dims,
                                                               tile_dims))
-        pix_size = self.pixel_size * 1e6 # Convert pixels size to microns
+        resolution = 1.0 / self.pixel_size  # Pixels per metre
         paths = dict(data=data_path)
         if mask_path:
             paths['mask'] = mask_path
@@ -340,7 +340,7 @@ class DetectorGeometryBase:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
                                                     paths=path_str,
                                                     frame_dim=frame_dim,
-                                                    pix_size=pix_size,
+                                                    resolution=resolution,
                                                     adu_per_ev=adu_per_ev_str,
                                                     clen=clen_str,
                                                     photon_energy=photon_energy_str))
@@ -898,7 +898,7 @@ CRYSTFEL_HEADER_TEMPLATE = """\
 
 {paths}
 {frame_dim}
-res = {pix_size} ;
+res = {resolution} ; pixels per metre
 
 ; Beam energy in eV
 {photon_energy}

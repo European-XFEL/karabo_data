@@ -42,6 +42,7 @@ def test_write_read_crystfel_file(tmpdir):
     assert geom_dict['rigid_groups']['p0'] == quad_gr0[:8]
     assert geom_dict['rigid_groups']['p3'] == quad_gr0[-8:]
     assert geom_dict['rigid_groups']['q0'] == quad_gr0
+    assert geom_dict['panels']['p0a0']['res'] == 5000  # 5000 pixels/metre
 
 
 def test_inspect():
