@@ -217,7 +217,7 @@ class DetectorGeometryBase:
 
         return ax
 
-    def _tile_dims(self, modno, tileno):
+    def _tile_dims(self, tileno):
         """Implement in subclass: which part of module array each tile is.
         """
         raise NotImplementedError
@@ -278,7 +278,7 @@ class DetectorGeometryBase:
 
         dims : collection, default : ('frame', 'modno', 'ss', 'fs')
             Dimensions of the data. Extra dimensions, except for the defaults,
-            should be added by therr index e.g ('frame', 'modno', 0, 'ss', 'fs)
+            should be added by their index e.g ('frame', 'modno', 0, 'ss', 'fs)
             for raw data. Note: the dimensions must contain frame, modno,
             ss, fs.
 
@@ -325,7 +325,7 @@ class DetectorGeometryBase:
         panel_chunks = []
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
-                ss_dims, fs_dims = self._tile_dims(p, a)
+                ss_dims, fs_dims = self._tile_dims(a)
                 panel_chunks.append(fragment.to_crystfel_geom(p,
                                                               a,
                                                               ss_dims,
@@ -774,11 +774,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, modno, tileno):
-        # Which part of the array is this tile?
-
-        #min_ss=(a * self.ss_pixels),
-        #max_ss=(((a + 1) * self.ss_pixels) - 1),
+    def _tile_dims(cls, tileno):
         tile_offset = tileno * cls.frag_ss_pixels
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
         fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
@@ -1164,7 +1160,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
         return super().to_distortion_array()  # Overridden only for docstring
 
     @classmethod
-    def _tile_dims(cls, moduleno, tileno):
+    def _tile_dims(cls, tileno):
         if tileno < 8: # First half of module (0 <= t <=7)
             fs_dims = 0, 127
             tiles_up = 7 - tileno
@@ -1354,7 +1350,7 @@ class DSSC_Geometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, modno, tileno):
+    def _tile_dims(cls, tileno):
         tile_offset = tileno * cls.frag_fs_pixels
         fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
         ss_dims = 0, cls.frag_ss_pixels - 1# Every tile covers the full pixel range
