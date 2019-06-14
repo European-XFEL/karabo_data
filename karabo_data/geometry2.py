@@ -62,14 +62,24 @@ class GeometryFragment:
             + (0.5 * self.fs_vec * self.fs_pixels)
         )
 
-    def to_crystfel_geom(self, p, a):
-        name = 'p{}a{}'.format(p, a)
+    def to_crystfel_geom(self, p, a, ss_dims, fs_dims, dims):
+        tile_name = 'p{}a{}'.format(p, a)
         c = self.corner_pos
+        dim_list = []
+        for num, value in dims.items():
+            if value == 'modno':
+                key = p
+            else:
+                key = value
+            dim_list.append('{}/dim{} = {}'.format(tile_name, num, key))
+
         return CRYSTFEL_PANEL_TEMPLATE.format(
-            name=name,
-            p=p,
-            min_ss=(a * self.ss_pixels),
-            max_ss=(((a + 1) * self.ss_pixels) - 1),
+            dims='\n'.join(dim_list),
+            name=tile_name,
+            min_ss=ss_dims[0],
+            max_ss=ss_dims[1],
+            min_fs=fs_dims[0],
+            max_fs=fs_dims[1],
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
             corner_x=c[0],
@@ -145,6 +155,8 @@ class DetectorGeometryBase:
     pixel_size = 0.0
     frag_ss_pixels = 0
     frag_fs_pixels = 0
+    n_modules = 0
+    n_tiles_per_module = 0
     expected_data_shape = (0, 0, 0)
     _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
     _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
@@ -204,6 +216,141 @@ class DetectorGeometryBase:
             ax.invert_xaxis()
 
         return ax
+
+    def _tile_dims(self, tileno):
+        """Implement in subclass: which part of module array each tile is.
+        """
+        raise NotImplementedError
+
+
+    @classmethod
+    def from_crystfel_geom(cls, filename):
+        """Read a CrystFEL format (.geom) geometry file.
+
+        Returns a new geometry object.
+        """
+        geom_dict = load_crystfel_geometry(filename)
+        modules = []
+        for p in range(cls.n_modules):
+            tiles = []
+            modules.append(tiles)
+            for a in range(cls.n_tiles_per_module):
+                d = geom_dict['panels']['p{}a{}'.format(p, a)]
+                tiles.append(GeometryFragment.from_panel_dict(d))
+        return cls(modules, filename=filename)
+
+    def _get_rigid_groups(self, nquads=4):
+        """Create rigid stings for rigid groups definiton."""
+
+        quads = ','.join(['q{}'.format(q) for q in range(nquads)])
+        modules = ','.join(['p{}'.format(p) for p in range(self.n_modules)])
+
+        prod = product(range(self.n_modules), range(self.n_tiles_per_module))
+        rigid_group = ['p{}a{}'.format(p, a) for (p, a) in prod]
+        rigid_string = '\n'
+
+        for nn, rigid_group_q in enumerate(np.array_split(rigid_group, nquads)):
+            rigid_string += 'rigid_group_q{} = {}\n'.format(nn, ','.join(rigid_group_q))
+        rigid_string += '\n'
+        for nn, rigid_group_p in enumerate(np.array_split(rigid_group, self.n_modules)):
+            rigid_string += 'rigid_group_p{} = {}\n'.format(nn, ','.join(rigid_group_p))
+
+        rigid_string += '\n'
+
+        rigid_string += 'rigid_group_collection_quadrants = {}\n'.format(quads)
+        rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
+        return rigid_string
+
+    def write_crystfel_geom(self, filename, *,
+                            data_path='/entry_1/instrument_1/detector_1/data',
+                            mask_path=None, dims=('frame', 'modno', 'ss', 'fs'),
+                            adu_per_ev=None, clen=None, photon_energy=None):
+        """Write this geometry to a CrystFEL format (.geom) geometry file.
+        Parameters
+        ----------
+        filename : str
+        filename of the geometry file
+
+        data_path  : str, default : /entry_1/instrument_1/detector_1/data
+            path to the group that contains the data array in the hdf5 file
+        mask_path : str
+            path to the group that contains the mask array in the hdf5 file
+
+        dims : collection, default : ('frame', 'modno', 'ss', 'fs')
+            Dimensions of the data. Extra dimensions, except for the defaults,
+            should be added by their index, e.g.
+            ('frame', 'modno', 0, 'ss', 'fs') for raw data.
+            Note: the dimensions must contain frame, modno, ss, fs.
+
+        adu_per_ev : float
+            ADU (analog digital units) per electron volt for the considered
+            detector.
+
+        clen : float
+            Distance between sample and detector in meters
+
+        photon_energy
+            Beam wave length in eV
+        """
+        from . import __version__
+
+        if adu_per_ev is None:
+            adu_per_ev_str = '; adu_per_eV = SET ME'
+            # TODO: adu_per_ev should be fixed for each detector, we should 
+            #       find out the values and set them.
+        else:
+            adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
+
+        if clen is None:
+            clen_str = '; clen = SET ME'
+        else:
+            clen_str = 'clen = {}'.format(clen)
+
+        if photon_energy is None:
+            photon_energy_str = '; photon_energy = SET ME'
+        else:
+            photon_energy_str = 'photon_energy = {}'.format(photon_energy)
+
+        # Get the frame dimension
+        tile_dims = {}
+
+        for nn, dim_name in enumerate(dims):
+            if dim_name == 'frame':
+                frame_dim = 'dim{} = %'.format(nn)
+            else:
+                tile_dims[nn] = dim_name
+        if frame_dim is None:
+            raise ValueError ('No frame dimension given')
+
+        panel_chunks = []
+        for p, module in enumerate(self.modules):
+            for a, fragment in enumerate(module):
+                ss_dims, fs_dims = self._tile_dims(a)
+                panel_chunks.append(fragment.to_crystfel_geom(p,
+                                                              a,
+                                                              ss_dims,
+                                                              fs_dims,
+                                                              tile_dims))
+        resolution = 1.0 / self.pixel_size  # Pixels per metre
+        paths = dict(data=data_path)
+        if mask_path:
+            paths['mask'] = mask_path
+        path_str = '\n'.join('{} = {} ;'.format(i,j) for i,j in paths.items())
+        with open(filename, 'w') as f:
+            f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
+                                                    paths=path_str,
+                                                    frame_dim=frame_dim,
+                                                    resolution=resolution,
+                                                    adu_per_ev=adu_per_ev_str,
+                                                    clen=clen_str,
+                                                    photon_energy=photon_energy_str))
+            rigid_groups = self._get_rigid_groups()
+            f.write(rigid_groups)
+            for chunk in panel_chunks:
+                f.write(chunk)
+
+        if self.filename == 'No file':
+            self.filename = filename
 
     def _snapped(self):
         """Snap geometry to a 2D pixel grid
@@ -369,6 +516,8 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
     frag_ss_pixels = 64
     frag_fs_pixels = 128
     expected_data_shape = (16, 512, 128)
+    n_modules = 16
+    n_tiles_per_module = 8
 
     @classmethod
     def from_quad_positions(cls, quad_pos, asic_gap=2, panel_gap=29,
@@ -420,38 +569,6 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 ))
         return cls(modules)
 
-    @classmethod
-    def from_crystfel_geom(cls, filename):
-        """Read a CrystFEL format (.geom) geometry file.
-
-        Returns a new geometry object.
-        """
-        geom_dict = load_crystfel_geometry(filename)
-        modules = []
-        for p in range(16):
-            tiles = []
-            modules.append(tiles)
-            for a in range(8):
-                d = geom_dict['panels']['p{}a{}'.format(p, a)]
-                tiles.append(GeometryFragment.from_panel_dict(d))
-        return cls(modules, filename=filename)
-
-    def write_crystfel_geom(self, filename):
-        """Write this geometry to a CrystFEL format (.geom) geometry file."""
-        from . import __version__
-
-        panel_chunks = []
-        for p, module in enumerate(self.modules):
-            for a, fragment in enumerate(module):
-                panel_chunks.append(fragment.to_crystfel_geom(p, a))
-
-        with open(filename, 'w') as f:
-            f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__))
-            for chunk in panel_chunks:
-                f.write(chunk)
-
-        if self.filename == 'No file':
-            self.filename = filename
 
     def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
@@ -656,6 +773,14 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
         return ss_slice, fs_slice
 
+    @classmethod
+    def _tile_dims(cls, tileno):
+        tile_offset = tileno * cls.frag_ss_pixels
+        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
+        fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
+        return ss_dims, fs_dims
+
+
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
 
@@ -771,44 +896,26 @@ CRYSTFEL_HEADER_TEMPLATE = """\
 ;
 ; See: http://www.desy.de/~twhite/crystfel/manual-crystfel_geometry.html
 
-dim0 = %
-res = 5000 ; 200 um pixels
+{paths}
+{frame_dim}
+res = {resolution} ; pixels per metre
 
-rigid_group_q0 = p0a0,p0a1,p0a2,p0a3,p0a4,p0a5,p0a6,p0a7,p1a0,p1a1,p1a2,p1a3,p1a4,p1a5,p1a6,p1a7,p2a0,p2a1,p2a2,p2a3,p2a4,p2a5,p2a6,p2a7,p3a0,p3a1,p3a2,p3a3,p3a4,p3a5,p3a6,p3a7
-rigid_group_q1 = p4a0,p4a1,p4a2,p4a3,p4a4,p4a5,p4a6,p4a7,p5a0,p5a1,p5a2,p5a3,p5a4,p5a5,p5a6,p5a7,p6a0,p6a1,p6a2,p6a3,p6a4,p6a5,p6a6,p6a7,p7a0,p7a1,p7a2,p7a3,p7a4,p7a5,p7a6,p7a7
-rigid_group_q2 = p8a0,p8a1,p8a2,p8a3,p8a4,p8a5,p8a6,p8a7,p9a0,p9a1,p9a2,p9a3,p9a4,p9a5,p9a6,p9a7,p10a0,p10a1,p10a2,p10a3,p10a4,p10a5,p10a6,p10a7,p11a0,p11a1,p11a2,p11a3,p11a4,p11a5,p11a6,p11a7
-rigid_group_q3 = p12a0,p12a1,p12a2,p12a3,p12a4,p12a5,p12a6,p12a7,p13a0,p13a1,p13a2,p13a3,p13a4,p13a5,p13a6,p13a7,p14a0,p14a1,p14a2,p14a3,p14a4,p14a5,p14a6,p14a7,p15a0,p15a1,p15a2,p15a3,p15a4,p15a5,p15a6,p15a7
+; Beam energy in eV
+{photon_energy}
 
-rigid_group_p0 = p0a0,p0a1,p0a2,p0a3,p0a4,p0a5,p0a6,p0a7
-rigid_group_p1 = p1a0,p1a1,p1a2,p1a3,p1a4,p1a5,p1a6,p1a7
-rigid_group_p2 = p2a0,p2a1,p2a2,p2a3,p2a4,p2a5,p2a6,p2a7
-rigid_group_p3 = p3a0,p3a1,p3a2,p3a3,p3a4,p3a5,p3a6,p3a7
-rigid_group_p4 = p4a0,p4a1,p4a2,p4a3,p4a4,p4a5,p4a6,p4a7
-rigid_group_p5 = p5a0,p5a1,p5a2,p5a3,p5a4,p5a5,p5a6,p5a7
-rigid_group_p6 = p6a0,p6a1,p6a2,p6a3,p6a4,p6a5,p6a6,p6a7
-rigid_group_p7 = p7a0,p7a1,p7a2,p7a3,p7a4,p7a5,p7a6,p7a7
-rigid_group_p8 = p8a0,p8a1,p8a2,p8a3,p8a4,p8a5,p8a6,p8a7
-rigid_group_p9 = p9a0,p9a1,p9a2,p9a3,p9a4,p9a5,p9a6,p9a7
-rigid_group_p10 = p10a0,p10a1,p10a2,p10a3,p10a4,p10a5,p10a6,p10a7
-rigid_group_p11 = p11a0,p11a1,p11a2,p11a3,p11a4,p11a5,p11a6,p11a7
-rigid_group_p12 = p12a0,p12a1,p12a2,p12a3,p12a4,p12a5,p12a6,p12a7
-rigid_group_p13 = p13a0,p13a1,p13a2,p13a3,p13a4,p13a5,p13a6,p13a7
-rigid_group_p14 = p14a0,p14a1,p14a2,p14a3,p14a4,p14a5,p14a6,p14a7
-rigid_group_p15 = p15a0,p15a1,p15a2,p15a3,p15a4,p15a5,p15a6,p15a7
+; Camera length, aka detector distance
+{clen}
 
-rigid_group_collection_quadrants = q0,q1,q2,q3
-rigid_group_collection_asics = p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15
-
+; Analogue Digital Units per eV
+{adu_per_ev}
 """
 
 
 CRYSTFEL_PANEL_TEMPLATE = """
-{name}/dim1 = {p}
-{name}/dim2 = ss
-{name}/dim3 = fs
-{name}/min_fs = 0
+{dims}
+{name}/min_fs = {min_fs}
 {name}/min_ss = {min_ss}
-{name}/max_fs = 127
+{name}/max_fs = {max_fs}
 {name}/max_ss = {max_ss}
 {name}/fs = {fs_vec}
 {name}/ss = {ss_vec}
@@ -830,6 +937,8 @@ class LPD_1MGeometry(DetectorGeometryBase):
     pixel_size = 5e-4  # 5e-4 metres == 0.5 mm
     frag_ss_pixels = 32
     frag_fs_pixels = 128
+    n_modules = 16
+    n_tiles_per_module = 16
     expected_data_shape = (16, 256, 256)
     _draw_first_px_on_tile = 8  # The first pixel in stored data is on tile 8
 
@@ -879,7 +988,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
         panels_across = [-1, -1, 0, 0]
         panels_up = [0, -1, -1, 0]
         modules = []
-        for p in range(16):
+        for p in range(cls.n_modules):
             quad = p // 4
             quad_corner_x = quad_pos[quad][0] * px_conversion
             quad_corner_y = quad_pos[quad][1] * px_conversion
@@ -894,7 +1003,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
             tiles = []
             modules.append(tiles)
 
-            for a in range(16):
+            for a in range(cls.n_tiles_per_module):
                 if a < 8:
                     up = -a
                     across = -1
@@ -954,7 +1063,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
                 mod_offset = mod_grp['Position'][:2]
 
                 tiles = []
-                for T in range(1, 17):
+                for T in range(1, cls.n_modules+1):
                     corner_pos = np.zeros(3)
                     tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
                     corner_pos[:2] = quad_pos + mod_offset + tile_offset
@@ -1050,6 +1159,20 @@ class LPD_1MGeometry(DetectorGeometryBase):
         """
         return super().to_distortion_array()  # Overridden only for docstring
 
+    @classmethod
+    def _tile_dims(cls, tileno):
+        if tileno < 8: # First half of module (0 <= t <=7)
+            fs_dims = 0, 127
+            tiles_up = 7 - tileno
+        else:
+            fs_dims = 128, 255
+            tiles_up = tileno - 8
+
+        tile_offset = tiles_up * 32
+        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
+        return ss_dims, fs_dims
+
+
 
 def invert_xfel_lpd_geom(path_in, path_out):
     """Invert the coordinates in an XFEL geometry file (HDF5)
@@ -1089,6 +1212,8 @@ class DSSC_Geometry(DetectorGeometryBase):
     pixel_size = 236e-6
     frag_ss_pixels = 128
     frag_fs_pixels = 256
+    n_modules = 16
+    n_tiles_per_module = 2
     expected_data_shape = (16, 128, 512)
     # This stretches the dimensions for the 'snapped' geometry so that its pixel
     # grid matches the aspect ratio of the detector pixels.
@@ -1226,6 +1351,14 @@ class DSSC_Geometry(DetectorGeometryBase):
         ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
         fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
         return ss_slice, fs_slice
+
+    @classmethod
+    def _tile_dims(cls, tileno):
+        tile_offset = tileno * cls.frag_fs_pixels
+        fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
+        ss_dims = 0, cls.frag_ss_pixels - 1# Every tile covers the full pixel range
+        return ss_dims, fs_dims
+
 
     def to_distortion_array(self):
         """Return distortion matrix for DSSC detector, suitable for pyFAI.
