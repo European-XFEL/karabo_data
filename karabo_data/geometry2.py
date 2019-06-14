@@ -278,9 +278,9 @@ class DetectorGeometryBase:
 
         dims : collection, default : ('frame', 'modno', 'ss', 'fs')
             Dimensions of the data. Extra dimensions, except for the defaults,
-            should be added by their index e.g ('frame', 'modno', 0, 'ss', 'fs)
-            for raw data. Note: the dimensions must contain frame, modno,
-            ss, fs.
+            should be added by their index, e.g.
+            ('frame', 'modno', 0, 'ss', 'fs') for raw data.
+            Note: the dimensions must contain frame, modno, ss, fs.
 
         adu_per_ev : float
             ADU (analog digital units) per electron volt for the considered
