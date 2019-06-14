@@ -277,40 +277,40 @@ class DetectorGeometryBase:
             path to the group that contains the mask array in the hdf5 file
 
         dims : collection, default : ('frame', 'modno', 'ss', 'fs')
-            Dimensions of the data. Extra dimensios, except for details are
-            added by thier index. The dimensions should contain frame, modno,
+            Dimensions of the data. Extra dimensions, except for the defaults,
+            should be added by therr index e.g ('frame', 'modno', 0, 'ss', 'fs)
+            for raw data. Note: the dimensions must contain frame, modno,
             ss, fs.
 
-        adu_per_ev : float, default : 0.0075
+        adu_per_ev : float
             ADU (analog digital units) per electron volt for the considered
             detector.
 
-        clen : float, default : 0.119
+        clen : float
             Distance between sample and detector in meters
 
-        photon_energy : int, default : 9800
+        photon_energy
             Beam wave length in eV
         """
         from . import __version__
 
         if adu_per_ev is None:
-            warnings.warn('adu_per_ev must be set; Setting to default value')
             adu_per_ev_str = '; adu_per_eV = SET ME'
             # TODO: adu_per_ev should be fixed for each detector, we should 
             #       find out the values and set them.
         else:
             adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
+
         if clen is None:
             clen_str = '; clen = SET ME'
-            warnings.warn('clen must be set; Setting to default value')
         else:
             clen_str = 'clen = {}'.format(clen)
+
         if photon_energy is None:
             photon_energy_str = '; photon_energy = SET ME'
-            warnings.warn('photon_energy must be set, setting to default value')
         else:
             photon_energy_str = 'photon_energy = {}'.format(photon_energy)
-        
+
         # Get the frame dimension
         tile_dims = {}
 
