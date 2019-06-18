@@ -71,6 +71,10 @@ which this geometry code can position independently.
 
    .. automethod:: from_h5_file_and_quad_positions
 
+   .. automethod:: from_crystfel_geom
+
+   .. automethod:: write_crystfel_geom
+
    .. automethod:: to_distortion_array
 
    .. automethod:: plot_data_fast
