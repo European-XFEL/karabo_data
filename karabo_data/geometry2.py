@@ -1390,8 +1390,9 @@ class DSSC_Geometry(DetectorGeometryBase):
 
         # Corners described clockwise from the top, assuming the reference point
         # for a pixel is outside it, aligned with the top point & left edge.
-        corner_ss_offsets = np.array([0.5, 1, 1, 0.5, 0, 0])
-        corner_fs_offsets = np.array([0, 0.25, 0.75, 1, 0.75, 0.25])
+        # The 4/3 extends the hexagons into the next row to correctly tessellate.
+        corner_ss_offsets = np.array([0, 0.25, 0.75, 1, 0.75, 0.25]) * 4 / 3
+        corner_fs_offsets = np.array([0.5, 1, 1, 0.5, 0, 0])
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
