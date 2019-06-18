@@ -1,5 +1,5 @@
-AGIPD & LPD Geometry
-====================
+AGIPD, LPD & DSSC Geometry
+==========================
 
 .. module:: karabo_data.geometry2
 
@@ -70,6 +70,45 @@ which this geometry code can position independently.
    .. automethod:: from_quad_positions
 
    .. automethod:: from_h5_file_and_quad_positions
+
+   .. automethod:: from_crystfel_geom
+
+   .. automethod:: write_crystfel_geom
+
+   .. automethod:: to_distortion_array
+
+   .. automethod:: plot_data_fast
+
+   .. automethod:: position_modules_fast
+
+   .. automethod:: inspect
+
+DSSC-1M
+-------
+
+DSSC-1M consists of 16 modules of 128×512 pixels each.
+Each module is further subdivided into 2 sensor tiles,
+which this geometry code can position independently.
+
+.. figure:: _static/dssc_layout.png
+
+   The approximate layout of DSSC-1M, in a front view (looking along the beam).
+
+The pixels in each DSSC module are tesselating hexagons.
+This geometry code does not yet handle this: it treats the pixels as
+rectangles to simplify processing.
+This is adequate for previewing detector images, but some pixels will be
+approximately half a pixel width from their true position.
+
+.. figure:: _static/dssc_hexes.png
+
+   Detail of hexagonal pixels in the corner of one DSSC module.
+
+.. autoclass:: DSSC_Geometry
+
+   .. automethod:: from_h5_file_and_quad_positions
+
+   .. automethod:: to_distortion_array
 
    .. automethod:: plot_data_fast
 

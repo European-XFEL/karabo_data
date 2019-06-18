@@ -1,13 +1,17 @@
-AGIPD & LPD data
-================
+AGIPD, LPD & DSSC data
+======================
 
 .. module:: karabo_data.components
 
-These data from AGIPD and LPD is spread out in separate files.
+These data from AGIPD, LPD and DSSC is spread out in separate files.
 ``karabo_data`` includes convenient interfaces to access this data,
 pulling together the separate modules into a single array.
 
 .. autoclass:: AGIPD1M
+
+   The methods of this class are identical to those of :class:`LPD1M`, below.
+
+.. autoclass:: DSSC
 
    The methods of this class are identical to those of :class:`LPD1M`, below.
 

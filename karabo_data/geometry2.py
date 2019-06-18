@@ -266,30 +266,29 @@ class DetectorGeometryBase:
                             mask_path=None, dims=('frame', 'modno', 'ss', 'fs'),
                             adu_per_ev=None, clen=None, photon_energy=None):
         """Write this geometry to a CrystFEL format (.geom) geometry file.
+
         Parameters
         ----------
+
         filename : str
-        filename of the geometry file
-
-        data_path  : str, default : /entry_1/instrument_1/detector_1/data
-            path to the group that contains the data array in the hdf5 file
+            Filename of the geometry file to write.
+        data_path : str
+            Path to the group that contains the data array in the hdf5 file.
+            Default: ``'/entry_1/instrument_1/detector_1/data'``.
         mask_path : str
-            path to the group that contains the mask array in the hdf5 file
-
-        dims : collection, default : ('frame', 'modno', 'ss', 'fs')
+            Path to the group that contains the mask array in the hdf5 file.
+        dims : tuple
             Dimensions of the data. Extra dimensions, except for the defaults,
             should be added by their index, e.g.
             ('frame', 'modno', 0, 'ss', 'fs') for raw data.
+            Default: ``('frame', 'modno', 'ss', 'fs')``.
             Note: the dimensions must contain frame, modno, ss, fs.
-
         adu_per_ev : float
             ADU (analog digital units) per electron volt for the considered
             detector.
-
         clen : float
             Distance between sample and detector in meters
-
-        photon_energy
+        photon_energy : float
             Beam wave length in eV
         """
         from . import __version__
