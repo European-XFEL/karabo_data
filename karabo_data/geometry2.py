@@ -1384,9 +1384,9 @@ class DSSC_Geometry(DetectorGeometryBase):
             indexing='ij'
         )
         # Every second line of pixels across the slow-scan direction is shifted
-        # half a pixel in the fast-scan direction so the hexagons tessalate.
-        # TODO: check we're shifting the right way once we know the pixel order
-        pixel_fs_index[1::2, :] += 0.5
+        # half a pixel against the fast-scan direction so the hexagons tessalate.
+        # TODO: double check this shifting is correct
+        pixel_fs_index[1::2, :] -= 0.5
 
         # Corners described clockwise from the top, assuming the reference point
         # for a pixel is outside it, aligned with the top point & left edge.
