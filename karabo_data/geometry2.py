@@ -1365,7 +1365,7 @@ class DSSC_Geometry(DetectorGeometryBase):
         Returns
         -------
         out: ndarray
-            Array of float 32 with shape (8192, 128, 6, 3).
+            Array of float 32 with shape (2048, 512, 6, 3).
             The dimensions mean:
 
             - 2048 = 16 modules * 128 pixels (slow scan axis)
