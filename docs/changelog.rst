@@ -1,6 +1,37 @@
 Release Notes
 =============
 
+0.5
+---
+
+Data access
+~~~~~~~~~~~
+
+- Create a virtual dataset for any single dataset with
+  :meth:`~.get_virtual_dataset` (:ghpull:`162`).
+  See :doc:`parallel_example` for how this can be useful.
+- Write a file with virtual datasets for all selected data with
+  :meth:`~.write_virtual` (:ghpull:`132`).
+- Data from the supported multi-module detectors (AGIPD, LPD & DSSC) can be
+  exposed in CXI format using a virtual dataset - see
+  :meth:`~.write_virtual_cxi` (:ghpull:`150`, :ghpull:`166`, :ghpull:`173`).
+- New class :class:`~.DSSC` for accessing DSSC data (:ghpull:`171`).
+- New function :func:`~.open_run` to access a run by proposal and run number
+  rather than path (:ghpull:`147`).
+- :func:`~.stack_detector_data` now allows input data where some sources don't
+  have the specified key (:ghpull:`141`).
+
+Detector geometry
+~~~~~~~~~~~~~~~~~
+
+- New class :class:`~.DSSC_Geometry` for handling DSSC detector geometry (:ghpull:`155`).
+- :class:`~.LPD_1MGeometry` can now read and write CrystFEL format
+  geometry files, and produce PyFAI distortion arrays (:ghpull:`168`, :ghpull:`129`).
+- :meth:`~.AGIPD_1MGeometry.write_crystfel_geom` (for AGIPD and LPD geometry)
+  now accepts various optional parameters for other details to be written into
+  the geometry file, such as the detector distance (``clen``) and the photon
+  energy (:ghpull:`168`).
+
 0.4
 ---
 
