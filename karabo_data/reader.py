@@ -30,6 +30,7 @@ from .exceptions import SourceNameError, PropertyNameError
 from .read_machinery import (
     DETECTOR_SOURCE_RE,
     DataChunk,
+    FilenameInfo,
     _SliceConstructable,
     _tid_to_slice_ix,
     union_selections,
