@@ -58,6 +58,10 @@ class FileWriter:
 
         return firsts, counts
 
+    def write_train_ids(self):
+        d = self.data
+        self.file.create_dataset('INDEX/trainId', data=d.train_ids, dtype='u8')
+
     def write_indexes(self):
         for groupname, (first, count) in self.indexes.items():
             self.file['INDEX/{}/first'.format(groupname)] = first
@@ -90,7 +94,7 @@ class FileWriter:
 
     def write(self):
         d = self.data
-        self.file.create_dataset('INDEX/trainId', data=d.train_ids, dtype='u8')
+        self.write_train_ids()
 
         for source in d.control_sources:
             for key in d.keys_for_source(source):
@@ -159,6 +163,7 @@ class VirtualFileWriter(FileWriter):
         self.file.create_virtual_dataset(path, layout)
 
         self._make_control_index(source, train_ids)
+        return path
 
     def add_instrument_dataset(self, source, key):
         layout, train_ids = self._assemble_data(source, key)
@@ -169,3 +174,4 @@ class VirtualFileWriter(FileWriter):
         self.file.create_virtual_dataset(path, layout)
 
         self._make_instrument_index(source, key, train_ids)
+        return path

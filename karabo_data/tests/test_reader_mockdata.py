@@ -1,9 +1,11 @@
 from itertools import islice
 
+import h5py
 import numpy as np
 import os
 import pandas as pd
 import pytest
+from testpath import assert_isfile
 from unittest import mock
 from xarray import DataArray
 
@@ -386,6 +388,35 @@ def test_run_get_array_multiple_per_train(mock_fxe_raw_run):
     assert isinstance(arr, DataArray)
     assert arr.shape == (256, 1, 10, 20)
     np.testing.assert_array_equal(arr.coords['trainId'], np.repeat([10000, 10001], 128))
+
+
+def test_run_get_virtual_dataset(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run)
+    ds = run.get_virtual_dataset('FXE_DET_LPD1M-1/DET/6CH0:xtdf', 'image.data')
+    assert isinstance(ds, h5py.Dataset)
+    assert ds.is_virtual
+    assert ds.shape == (61440, 1, 256, 256)
+
+    # Across two sequence files
+    ds = run.get_virtual_dataset(
+        'FXE_XAD_GEC/CAM/CAMERA:daqOutput', 'data.image.pixels'
+    )
+    assert isinstance(ds, h5py.Dataset)
+    assert ds.is_virtual
+    assert ds.shape == (480, 255, 1024)
+
+
+def test_run_get_virtual_dataset_filename(mock_fxe_raw_run, tmpdir):
+    run = RunDirectory(mock_fxe_raw_run)
+    path = str(tmpdir / 'test-vds.h5')
+    ds = run.get_virtual_dataset(
+        'FXE_DET_LPD1M-1/DET/6CH0:xtdf', 'image.data', filename=path
+    )
+    assert_isfile(path)
+    assert ds.file.filename == path
+    assert isinstance(ds, h5py.Dataset)
+    assert ds.is_virtual
+    assert ds.shape == (61440, 1, 256, 256)
 
 
 def test_select(mock_fxe_raw_run):

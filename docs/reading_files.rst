@@ -54,6 +54,10 @@ including the main detectors, record data more frequently.
 
    .. automethod:: get_array
 
+   .. automethod:: get_virtual_dataset
+
+      .. versionadded:: 0.5
+
    .. automethod:: select
 
    .. automethod:: deselect
