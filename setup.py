@@ -24,7 +24,7 @@ def find_version(*parts):
 setup(name="karabo_data",
       version=find_version("karabo_data", "__init__.py"),
       author="European XFEL GmbH",
-      author_email="cas-support@xfel.eu",
+      author_email="da-support@xfel.eu",
       maintainer="Thomas Michelat",
       url="https://github.com/European-XFEL/karabo_data",
       description="Tools to read and analyse data from European XFEL ",
