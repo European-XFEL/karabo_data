@@ -222,7 +222,6 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
-
     @classmethod
     def from_crystfel_geom(cls, filename):
         """Read a CrystFEL format (.geom) geometry file.
@@ -295,7 +294,7 @@ class DetectorGeometryBase:
 
         if adu_per_ev is None:
             adu_per_ev_str = '; adu_per_eV = SET ME'
-            # TODO: adu_per_ev should be fixed for each detector, we should 
+            # TODO: adu_per_ev should be fixed for each detector, we should
             #       find out the values and set them.
         else:
             adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
@@ -319,7 +318,7 @@ class DetectorGeometryBase:
             else:
                 tile_dims[nn] = dim_name
         if frame_dim is None:
-            raise ValueError ('No frame dimension given')
+            raise ValueError('No frame dimension given')
 
         panel_chunks = []
         for p, module in enumerate(self.modules):
@@ -334,7 +333,7 @@ class DetectorGeometryBase:
         paths = dict(data=data_path)
         if mask_path:
             paths['mask'] = mask_path
-        path_str = '\n'.join('{} = {} ;'.format(i,j) for i,j in paths.items())
+        path_str = '\n'.join('{} = {} ;'.format(i, j) for i, j in paths.items())
         with open(filename, 'w') as f:
             f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
                                                     paths=path_str,
@@ -568,7 +567,6 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 ))
         return cls(modules)
 
-
     def inspect(self, frontview=True):
         """Plot the 2D layout of this detector geometry.
 
@@ -776,9 +774,8 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
     def _tile_dims(cls, tileno):
         tile_offset = tileno * cls.frag_ss_pixels
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
-        fs_dims = 0, cls.frag_fs_pixels - 1 # Every tile covers the full pixel range
+        fs_dims = 0, cls.frag_fs_pixels - 1  # Every tile covers the full pixel range
         return ss_dims, fs_dims
-
 
     def to_distortion_array(self):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
@@ -1160,7 +1157,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
     @classmethod
     def _tile_dims(cls, tileno):
-        if tileno < 8: # First half of module (0 <= t <=7)
+        if tileno < 8:  # First half of module (0 <= t <=7)
             fs_dims = 0, 127
             tiles_up = 7 - tileno
         else:
@@ -1170,7 +1167,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
         tile_offset = tiles_up * 32
         ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
         return ss_dims, fs_dims
-
 
 
 def invert_xfel_lpd_geom(path_in, path_out):
@@ -1198,8 +1194,8 @@ def invert_xfel_lpd_geom(path_in, path_out):
                 fout[path] = -fin[path][:]
 
 
-class DSSC_Geometry(DetectorGeometryBase):
-    """Detector layout for DSSC
+class DSSC_1MGeometry(DetectorGeometryBase):
+    """Detector layout for DSSC-1M
 
     The coordinates used in this class are 3D (x, y, z), and represent multiples
     of the pixel size.
@@ -1272,8 +1268,6 @@ class DSSC_Geometry(DetectorGeometryBase):
 
                     # Convert units (mm) to pixels
                     corner_pos *= unit / cls.pixel_size
-
-
 
                     # Measuring in terms of the step within a row, the
                     # step to the next row of hexagons is 1.5/sqrt(3).
@@ -1355,9 +1349,8 @@ class DSSC_Geometry(DetectorGeometryBase):
     def _tile_dims(cls, tileno):
         tile_offset = tileno * cls.frag_fs_pixels
         fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
-        ss_dims = 0, cls.frag_ss_pixels - 1# Every tile covers the full pixel range
+        ss_dims = 0, cls.frag_ss_pixels - 1  # Every tile covers the full pixel range
         return ss_dims, fs_dims
-
 
     def to_distortion_array(self):
         """Return distortion matrix for DSSC detector, suitable for pyFAI.

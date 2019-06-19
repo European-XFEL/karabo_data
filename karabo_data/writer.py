@@ -108,6 +108,7 @@ class FileWriter:
         self.write_metadata()
         self.set_writer()
 
+
 class VirtualFileWriter(FileWriter):
     """Write virtual datasets in European XFEL format
 

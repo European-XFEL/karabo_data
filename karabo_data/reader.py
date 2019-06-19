@@ -30,7 +30,6 @@ from .exceptions import SourceNameError, PropertyNameError
 from .read_machinery import (
     DETECTOR_SOURCE_RE,
     DataChunk,
-    FilenameInfo,
     _SliceConstructable,
     _tid_to_slice_ix,
     union_selections,
@@ -873,7 +872,6 @@ class DataCollection:
                                 train_ids=file.train_ids[:0],
                                 counts=counts[:0],
                                 )
-
 
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:

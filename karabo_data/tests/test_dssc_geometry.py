@@ -3,7 +3,7 @@ from matplotlib.axes import Axes
 import numpy as np
 from os.path import abspath, dirname, join as pjoin
 
-from karabo_data.geometry2 import DSSC_Geometry
+from karabo_data.geometry2 import DSSC_1MGeometry
 
 tests_dir = dirname(abspath(__file__))
 sample_xfel_geom = pjoin(tests_dir, 'dssc_geo_june19.h5')
@@ -18,7 +18,7 @@ QUAD_POS = [
 
 
 def test_inspect():
-    geom = DSSC_Geometry.from_h5_file_and_quad_positions(
+    geom = DSSC_1MGeometry.from_h5_file_and_quad_positions(
         sample_xfel_geom, QUAD_POS
     )
     # Smoketest
@@ -27,7 +27,7 @@ def test_inspect():
 
 
 def test_snap_assemble_data():
-    geom = DSSC_Geometry.from_h5_file_and_quad_positions(
+    geom = DSSC_1MGeometry.from_h5_file_and_quad_positions(
         sample_xfel_geom, QUAD_POS
     )
 
@@ -39,7 +39,7 @@ def test_snap_assemble_data():
     assert img[50, 50] == 0
 
 def test_to_distortion_array():
-    geom = DSSC_Geometry.from_h5_file_and_quad_positions(
+    geom = DSSC_1MGeometry.from_h5_file_and_quad_positions(
         sample_xfel_geom, QUAD_POS
     )
     # Smoketest
