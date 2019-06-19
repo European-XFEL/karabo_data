@@ -44,12 +44,8 @@ setup(name="karabo_data",
           ],
       },
       install_requires=[
-          'cfelpyutils',
+          'cfelpyutils>=0.92',
           'fabio',
-          # cfelpyutils 0.91 requires future but doesn't specify it.
-          # We can remove this when it's fixed in cfelpyutils.
-          # https://github.com/ondateam/cfelpyutils/pull/3
-          'future',
           'h5py>=2.7.1',
           'karabo-bridge',
           'matplotlib',
@@ -83,9 +79,9 @@ setup(name="karabo_data",
           'License :: OSI Approved :: BSD License',
           'Operating System :: POSIX :: Linux',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
           'Topic :: Scientific/Engineering :: Information Analysis',
           'Topic :: Scientific/Engineering :: Physics',
       ]
