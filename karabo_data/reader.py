@@ -25,7 +25,7 @@ import sys
 from warnings import warn
 import xarray
 
-from .exceptions import SourceNameError, PropertyNameError
+from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
     DETECTOR_SOURCE_RE,
     DataChunk,
@@ -375,7 +375,7 @@ class DataCollection:
             if `train_id` is not found in the run.
         """
         if train_id not in self.train_ids:
-            raise KeyError(train_id)
+            raise TrainIDError(train_id)
 
         if devices is not None:
             return self.select(devices).train_from_id(train_id)
