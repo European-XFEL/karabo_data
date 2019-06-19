@@ -19,3 +19,11 @@ class PropertyNameError(KeyError):
 
     def __str__(self):
         return "No property {!r} for source {!r}".format(self.prop, self.source)
+
+
+class TrainIDError(KeyError):
+    def __init__(self, train_id):
+        self.train_id = train_id
+
+    def __str__(self):
+        return "Train ID {!r} not found in this data".format(self.train_id)
