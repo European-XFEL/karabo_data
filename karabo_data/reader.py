@@ -17,6 +17,7 @@ from glob import glob
 import h5py
 import logging
 import numpy as np
+import os
 import os.path as osp
 import pandas as pd
 import re
