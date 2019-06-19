@@ -874,7 +874,6 @@ class DataCollection:
                                 counts=counts[:0],
                                 )
 
-
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:
             ixs = (f.train_ids == train_id).nonzero()[0]

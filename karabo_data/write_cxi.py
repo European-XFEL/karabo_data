@@ -5,6 +5,7 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
+
 class VirtualCXIWriter:
     """Machinery to write a CXI file containing virtual datasets.
 
@@ -185,7 +186,6 @@ class VirtualCXIWriter:
             cellids = f.create_virtual_dataset('entry_1/cellId',
                                                layouts['cellId'])
             cellids.attrs['axes'] = 'experiment_identifier:module_identifier'
-
 
             dgrp = f.create_group('entry_1/instrument_1/detector_1')
             if len(layouts['data'].shape) == 4:
