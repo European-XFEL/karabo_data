@@ -33,7 +33,7 @@ setup(name="karabo_data",
       license="BSD-3-Clause",
       packages=find_packages(),
       package_data={
-          'karabo_data.tests': ['lpd_mar_18.h5'],
+          'karabo_data.tests': ['dssc_geo_june19.h5', 'lpd_mar_18.h5'],
       },
       entry_points={
           "console_scripts": [
