@@ -117,8 +117,8 @@ def test_data_coords_to_physical():
     resx, resy, resz = res.T
 
     np.testing.assert_allclose(resz, 0)
-    np.testing.assert_allclose(resy, 625)
+    np.testing.assert_allclose(resy, 625 * geom.pixel_size)
 
     assert (np.diff(resx) > 0).all()   # Monotonically increasing
-    np.testing.assert_allclose(resx[0], -525)
-    assert -50 < resx[-1] < 50
+    np.testing.assert_allclose(resx[0], -525 * geom.pixel_size)
+    assert -0.01 < resx[-1] < 0.01

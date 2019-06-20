@@ -572,7 +572,7 @@ class DetectorGeometryBase:
         of the first pixel.
 
         Returns an array of similar shape with an extra dimension of length 3,
-        for (x, y, z) coordinates in pixel units.
+        for (x, y, z) coordinates in metres.
         """
         assert module_no.shape == slow_scan.shape == fast_scan.shape
 
@@ -580,10 +580,15 @@ class DetectorGeometryBase:
         # So we assemble arrays of the corner position and step vectors for all
         # tiles, and then use numpy indexing to select the relevant ones for
         # each set of coordinates.
-        tiles_corner_pos = np.stack([t.corner_pos
-                                     for m in self.modules for t in m])
-        tiles_ss_vec = np.stack([t.ss_vec for m in self.modules for t in m])
-        tiles_fs_vec = np.stack([t.fs_vec for m in self.modules for t in m])
+        tiles_corner_pos = np.stack([
+            t.corner_pos for m in self.modules for t in m
+        ]) * self.pixel_size
+        tiles_ss_vec = np.stack([
+            t.ss_vec for m in self.modules for t in m
+        ]) * self.pixel_size
+        tiles_fs_vec = np.stack([
+            t.fs_vec for m in self.modules for t in m
+        ]) * self.pixel_size
 
         # Convert coordinates within each module to coordinates in a tile
         tilenos, tile_ss, tile_fs = self._module_coords_to_tile(slow_scan, fast_scan)
