@@ -1265,6 +1265,19 @@ class LPD_1MGeometry(DetectorGeometryBase):
         ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
         return ss_slice, fs_slice
 
+    @classmethod
+    def _module_coords_to_tile(cls, slow_scan, fast_scan):
+        tiles_across, tile_fs = np.divmod(fast_scan, cls.frag_fs_pixels)
+        tiles_up, tile_ss = np.divmod(slow_scan, cls.frag_ss_pixels)
+
+        # Each tiles_across is 0 or 1. To avoid iterating over the array with a
+        # conditional, multiply the number we want by 1 and the other by 0.
+        tileno = (
+            (1 - tiles_across) * (7 - tiles_up)  # tileno 0-7
+            + tiles_across * (tiles_up + 8)      # tileno 8-15
+        )
+        return tileno.astype(np.int16), tile_ss, tile_fs
+
     def to_distortion_array(self):
         """Return distortion matrix for LPD detector, suitable for pyFAI.
 

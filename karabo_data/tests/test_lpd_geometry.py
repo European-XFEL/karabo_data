@@ -82,6 +82,34 @@ def test_to_distortion_array():
     assert 0.0 <= distortion[..., 1].min() < 0.01
     assert 0.0 <= distortion[..., 2].min() < 0.01
 
+def test_data_coords_to_physical():
+    geom = LPD_1MGeometry.from_quad_positions(
+        [(11.4, 299), (-11.5, 8), (254.5, -16), (278.5, 275)]
+    )
+
+    module_no = np.zeros(16, dtype=np.int16)
+    # Points near the centre of each tile
+    slow_scan = np.tile(np.linspace(16, 240, num=8, dtype=np.float32), 2)
+    fast_scan = np.array([64, 192], dtype=np.float32).repeat(8)
+
+    tileno, tile_ss, tile_fs = geom._module_coords_to_tile(slow_scan, fast_scan)
+    np.testing.assert_allclose(tileno,
+                       [7, 6, 5, 4, 3, 2, 1, 0, 8, 9, 10, 11, 12, 13, 14, 15])
+    np.testing.assert_allclose(tile_ss, 16)
+    np.testing.assert_allclose(tile_fs, 64)
+
+    res = geom.data_coords_to_physical(module_no, slow_scan, fast_scan)
+
+    assert res.shape == (16, 3)
+
+    resx, resy, resz = res.T
+
+    np.testing.assert_allclose(resz, 0)
+
+    assert (np.diff(resy[:8]) > 0).all()  # T1-T8 Monotonically increasing
+    assert (np.diff(resy[8:]) > 0).all()  # T9-T16 Monotonically increasing
+    assert -0.128 > resx.max() > resx.min() > -0.280
+
 def test_invert_xfel_lpd_geom(tmpdir):
     src_file = pjoin(tests_dir, 'lpd_mar_18.h5')
     dst_file = pjoin(str(tmpdir), 'lpd_inverted.h5')
