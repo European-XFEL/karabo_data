@@ -96,10 +96,10 @@ def test_get_pixel_positions():
     px = pixelpos[..., 0]
     py = pixelpos[..., 1]
 
-    assert -550 < px.min() < -500
-    assert  550 > px.max() >  500
-    assert -650 < py.min() < -600
-    assert  650 > py.max() >  600
+    assert -0.12 < px.min() < -0.1
+    assert  0.12 > px.max() > 0.1
+    assert -0.14 < py.min() < -0.12
+    assert  0.14 > py.max() >  0.12
 
 def test_data_coords_to_physical():
     geom = AGIPD_1MGeometry.from_quad_positions(

@@ -504,11 +504,10 @@ class DetectorGeometryBase:
         raise NotImplementedError
 
     def get_pixel_positions(self, centre=True):
-        """Get the coordinates of each pixel in the detector
+        """Get the physical coordinates of each pixel in the detector
 
         The output is an array with shape like the data, with an extra dimension
-        of length 3 to hold (x, y, z) coordinates. Coordinates are in pixel
-        units from the detector centre.
+        of length 3 to hold (x, y, z) coordinates. Coordinates are in metres.
 
         If centre=True, the coordinates are calculated for the centre of each
         pixel. If not, the coordinates are for the first corner of the pixel
@@ -529,9 +528,9 @@ class DetectorGeometryBase:
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
+                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
                 # Calculate coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
