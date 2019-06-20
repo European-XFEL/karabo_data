@@ -62,7 +62,7 @@ class GeometryFragment:
             + (0.5 * self.fs_vec * self.fs_pixels)
         )
 
-    def to_crystfel_geom(self, p, a, ss_dims, fs_dims, dims):
+    def to_crystfel_geom(self, p, a, ss_slice, fs_slice, dims):
         tile_name = 'p{}a{}'.format(p, a)
         c = self.corner_pos
         dim_list = []
@@ -76,10 +76,10 @@ class GeometryFragment:
         return CRYSTFEL_PANEL_TEMPLATE.format(
             dims='\n'.join(dim_list),
             name=tile_name,
-            min_ss=ss_dims[0],
-            max_ss=ss_dims[1],
-            min_fs=fs_dims[0],
-            max_fs=fs_dims[1],
+            min_ss=ss_slice.start,
+            max_ss=ss_slice.stop - 1,
+            min_fs=fs_slice.start,
+            max_fs=fs_slice.stop - 1,
             ss_vec=_crystfel_format_vec(self.ss_vec),
             fs_vec=_crystfel_format_vec(self.fs_vec),
             corner_x=c[0],
@@ -217,11 +217,6 @@ class DetectorGeometryBase:
 
         return ax
 
-    def _tile_dims(self, tileno):
-        """Implement in subclass: which part of module array each tile is.
-        """
-        raise NotImplementedError
-
     @classmethod
     def from_crystfel_geom(cls, filename):
         """Read a CrystFEL format (.geom) geometry file.
@@ -323,12 +318,10 @@ class DetectorGeometryBase:
         panel_chunks = []
         for p, module in enumerate(self.modules):
             for a, fragment in enumerate(module):
-                ss_dims, fs_dims = self._tile_dims(a)
-                panel_chunks.append(fragment.to_crystfel_geom(p,
-                                                              a,
-                                                              ss_dims,
-                                                              fs_dims,
-                                                              tile_dims))
+                ss_slice, fs_slice = self._tile_slice(a)
+                panel_chunks.append(fragment.to_crystfel_geom(
+                    p, a, ss_slice, fs_slice, tile_dims
+                ))
         resolution = 1.0 / self.pixel_size  # Pixels per metre
         paths = dict(data=data_path)
         if mask_path:
@@ -880,19 +873,12 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, tileno):
-        tile_offset = tileno * cls.frag_ss_pixels
-        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
-        fs_dims = 0, cls.frag_fs_pixels - 1  # Every tile covers the full pixel range
-        return ss_dims, fs_dims
-
-    @classmethod
     def _tile_slice(cls, tileno):
         # Which part of the array is this tile?
         # tileno = 0 to 7
         tile_offset = tileno * cls.frag_ss_pixels
         ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
+        fs_slice = slice(0, cls.frag_fs_pixels)  # Every tile covers the full 128 pixels
         return ss_slice, fs_slice
 
     @classmethod
@@ -1291,19 +1277,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
         """
         return super().to_distortion_array()  # Overridden only for docstring
 
-    @classmethod
-    def _tile_dims(cls, tileno):
-        if tileno < 8:  # First half of module (0 <= t <=7)
-            fs_dims = 0, 127
-            tiles_up = 7 - tileno
-        else:
-            fs_dims = 128, 255
-            tiles_up = tileno - 8
-
-        tile_offset = tiles_up * 32
-        ss_dims = tile_offset, tile_offset + cls.frag_ss_pixels - 1
-        return ss_dims, fs_dims
-
 
 def invert_xfel_lpd_geom(path_in, path_out):
     """Invert the coordinates in an XFEL geometry file (HDF5)
@@ -1482,11 +1455,11 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         return ss_slice, fs_slice
 
     @classmethod
-    def _tile_dims(cls, tileno):
+    def _tile_slice(cls, tileno):
         tile_offset = tileno * cls.frag_fs_pixels
-        fs_dims = tile_offset, tile_offset + cls.frag_fs_pixels - 1
-        ss_dims = 0, cls.frag_ss_pixels - 1  # Every tile covers the full pixel range
-        return ss_dims, fs_dims
+        fs_slice = slice(tile_offset, tile_offset + cls.frag_fs_pixels)
+        ss_slice = slice(0, cls.frag_ss_pixels)  # Every tile covers the full pixel range
+        return ss_slice, fs_slice
 
     def to_distortion_array(self):
         """Return distortion matrix for DSSC detector, suitable for pyFAI.
