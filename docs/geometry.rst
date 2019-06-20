@@ -112,7 +112,7 @@ approximately half a pixel width from their true position.
 
    Detail of hexagonal pixels in the corner of one DSSC module.
 
-.. autoclass:: DSSC_Geometry
+.. autoclass:: DSSC_1MGeometry
 
    .. automethod:: from_h5_file_and_quad_positions
 

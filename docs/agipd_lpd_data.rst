@@ -11,7 +11,7 @@ pulling together the separate modules into a single array.
 
    The methods of this class are identical to those of :class:`LPD1M`, below.
 
-.. autoclass:: DSSC
+.. autoclass:: DSSC1M
 
    The methods of this class are identical to those of :class:`LPD1M`, below.
 
