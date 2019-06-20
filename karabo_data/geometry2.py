@@ -503,6 +503,11 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
+    @classmethod
+    def _adjust_pixel_coords(cls, ss_coords, fs_coords):
+        """Called by get_pixel_positions; overridden by DSSC"""
+        pass
+
     def get_pixel_positions(self, centre=True):
         """Get the physical coordinates of each pixel in the detector
 
@@ -513,14 +518,18 @@ class DetectorGeometryBase:
         pixel. If not, the coordinates are for the first corner of the pixel
         (the one nearest the [0, 0] corner of the tile in data space).
         """
-        out = np.zeros(self.expected_data_shape + (3,), dtype=np.float32)
+        out = np.zeros(self.expected_data_shape + (3,), dtype=np.float64)
 
         # Prepare some arrays to use inside the loop
         pixel_ss_coord, pixel_fs_coord = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
-            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
+            np.arange(0, self.frag_ss_pixels, dtype=np.float64),
+            np.arange(0, self.frag_fs_pixels, dtype=np.float64),
             indexing='ij'
         )
+
+        # This is where the DSSC subclass shifts odd rows by half a pixel
+        self._adjust_pixel_coords(pixel_ss_coord, pixel_fs_coord)
+
         if centre:
             # A pixel is from n to n+1 in each axis, so centres are at n+0.5.
             pixel_ss_coord += 0.5
@@ -1567,3 +1576,8 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         distortion[..., 1:] -= min_yx
 
         return distortion
+
+    @classmethod
+    def _adjust_pixel_coords(cls, ss_coords, fs_coords):
+        """Shift odd-numbered rows by half a pixel."""
+        fs_coords[1::2] -= 0.5
