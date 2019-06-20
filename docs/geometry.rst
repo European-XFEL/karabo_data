@@ -116,6 +116,8 @@ approximately half a pixel width from their true position.
 
    .. automethod:: from_h5_file_and_quad_positions
 
+   .. automethod:: get_pixel_positions
+
    .. automethod:: to_distortion_array
 
    .. automethod:: plot_data_fast
