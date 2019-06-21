@@ -1441,3 +1441,12 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         distortion[..., 1:] -= min_yx
 
         return distortion
+
+
+class DSSC_Geometry(DSSC_1MGeometry):
+    """DEPRECATED: Use DSSC_1MGeometry instead"""
+    def __init__(self, modules, filename='No file'):
+        super().__init__(modules, filename)
+        warnings.warn(
+            "DSSC_Geometry has been renamed to DSSC_1MGeometry.", stacklevel=2
+        )
