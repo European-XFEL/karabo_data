@@ -505,9 +505,12 @@ class DetectorGeometryBase:
         raise NotImplementedError
 
     @classmethod
-    def _adjust_pixel_coords(cls, ss_coords, fs_coords):
+    def _adjust_pixel_coords(cls, ss_coords, fs_coords, centre):
         """Called by get_pixel_positions; overridden by DSSC"""
-        pass
+        if centre:
+            # A pixel is from n to n+1 in each axis, so centres are at n+0.5.
+            ss_coords += 0.5
+            fs_coords += 0.5
 
     def get_pixel_positions(self, centre=True):
         """Get the physical coordinates of each pixel in the detector
@@ -528,13 +531,9 @@ class DetectorGeometryBase:
             indexing='ij'
         )
 
-        # This is where the DSSC subclass shifts odd rows by half a pixel
-        self._adjust_pixel_coords(pixel_ss_coord, pixel_fs_coord)
-
-        if centre:
-            # A pixel is from n to n+1 in each axis, so centres are at n+0.5.
-            pixel_ss_coord += 0.5
-            pixel_fs_coord += 0.5
+        # Shift coordinates from corner to centre if requested.
+        # This is also where the DSSC subclass shifts odd rows by half a pixel
+        self._adjust_pixel_coords(pixel_ss_coord, pixel_fs_coord, centre)
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
@@ -1603,6 +1602,12 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         return distortion
 
     @classmethod
-    def _adjust_pixel_coords(cls, ss_coords, fs_coords):
-        """Shift odd-numbered rows by half a pixel."""
+    def _adjust_pixel_coords(cls, ss_coords, fs_coords, centre):
+        # Shift odd-numbered rows by half a pixel.
         fs_coords[1::2] -= 0.5
+        if centre:
+            # Vertical (slow scan) centre is 2/3 of the way to the start of the
+            # next row of hexagons, because the tessellating pixels extend
+            # beyond the start of the next row.
+            ss_coords += 2/3
+            fs_coords += 0.5
