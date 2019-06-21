@@ -457,7 +457,7 @@ class DetectorGeometryBase:
                 )
                 pixel_corner1_z = (
                         corner_z
-                        + pixel_ss_index * ss_unit_z +
+                        + pixel_ss_index * ss_unit_z
                         + pixel_fs_index * fs_unit_z
                 )
 
@@ -556,7 +556,7 @@ class DetectorGeometryBase:
                 )
                 pixels_z = (
                         corner_z
-                        + pixel_ss_coord * ss_unit_z +
+                        + pixel_ss_coord * ss_unit_z
                         + pixel_fs_coord * fs_unit_z
                 )
 
@@ -1565,7 +1565,7 @@ class DSSC_1MGeometry(DetectorGeometryBase):
                 )
                 pixel_corner1_z = (
                         corner_z
-                        + pixel_ss_index * ss_unit_z +
+                        + pixel_ss_index * ss_unit_z
                         + pixel_fs_index * fs_unit_z
                 )
 
