@@ -307,6 +307,7 @@ class DetectorGeometryBase:
         # Get the frame dimension
         tile_dims = {}
 
+        frame_dim = None
         for nn, dim_name in enumerate(dims):
             if dim_name == 'frame':
                 frame_dim = 'dim{} = %'.format(nn)
