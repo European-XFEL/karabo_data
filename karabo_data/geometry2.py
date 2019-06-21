@@ -421,7 +421,7 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
-    def to_distortion_array(self):
+    def to_distortion_array(self, allow_negative_xy=False):
         """Generate a distortion array for pyFAI from this geometry.
         """
         nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
@@ -487,9 +487,10 @@ class DetectorGeometryBase:
                 distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
                 distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
 
-        # Shift the x & y origin from the centre to the corner
-        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
-        distortion[..., 1:] -= min_yx
+        if not allow_negative_xy:
+            # Shift the x & y origin from the centre to the corner
+            min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+            distortion[..., 1:] -= min_yx
 
         return distortion
 
@@ -899,8 +900,15 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         tileno, tile_ss = np.divmod(slow_scan, cls.frag_ss_pixels)
         return tileno.astype(np.int16), tile_ss, fast_scan
 
-    def to_distortion_array(self):
+    def to_distortion_array(self, allow_negative_xy=False):
         """Return distortion matrix for AGIPD detector, suitable for pyFAI.
+
+        Parameters
+        ----------
+
+        allow_negative_xy: bool
+          If False (default), shift the origin so no x or y coordinates are
+          negative. If True, the origin is the detector centre.
 
         Returns
         -------
@@ -913,7 +921,8 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
             - 4 corners of each pixel
             - 3 numbers for z, y, x
         """
-        return super().to_distortion_array()  # Overridden only for docstring
+        # Overridden only for docstring
+        return super().to_distortion_array(allow_negative_xy)
 
 
 class SnappedGeometry:
@@ -1287,8 +1296,15 @@ class LPD_1MGeometry(DetectorGeometryBase):
         )
         return tileno.astype(np.int16), tile_ss, tile_fs
 
-    def to_distortion_array(self):
+    def to_distortion_array(self, allow_negative_xy=False):
         """Return distortion matrix for LPD detector, suitable for pyFAI.
+
+        Parameters
+        ----------
+
+        allow_negative_xy: bool
+          If False (default), shift the origin so no x or y coordinates are
+          negative. If True, the origin is the detector centre.
 
         Returns
         -------
@@ -1301,7 +1317,8 @@ class LPD_1MGeometry(DetectorGeometryBase):
             - 4 corners of each pixel
             - 3 numbers for z, y, x
         """
-        return super().to_distortion_array()  # Overridden only for docstring
+        # Overridden only for docstring
+        return super().to_distortion_array(allow_negative_xy)
 
 
 def invert_xfel_lpd_geom(path_in, path_out):
@@ -1487,8 +1504,15 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         ss_slice = slice(0, cls.frag_ss_pixels)  # Every tile covers the full pixel range
         return ss_slice, fs_slice
 
-    def to_distortion_array(self):
+    def to_distortion_array(self, allow_negative_xy=False):
         """Return distortion matrix for DSSC detector, suitable for pyFAI.
+
+        Parameters
+        ----------
+
+        allow_negative_xy: bool
+          If False (default), shift the origin so no x or y coordinates are
+          negative. If True, the origin is the detector centre.
 
         Returns
         -------
@@ -1571,9 +1595,10 @@ class DSSC_1MGeometry(DetectorGeometryBase):
                 distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
                 distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
 
-        # Shift the x & y origin from the centre to the corner
-        min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
-        distortion[..., 1:] -= min_yx
+        if not allow_negative_xy:
+            # Shift the x & y origin from the centre to the corner
+            min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
+            distortion[..., 1:] -= min_yx
 
         return distortion
 
