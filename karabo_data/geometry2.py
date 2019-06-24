@@ -570,8 +570,13 @@ class DetectorGeometryBase:
 
         return out
 
-    def data_coords_to_physical(self, module_no, slow_scan, fast_scan):
-        """Convert coordinates in data space to physical space
+    def data_coords_to_positions(self, module_no, slow_scan, fast_scan):
+        """Convert data array coordinates to physical positions
+
+        Data array coordinates are how you might refer to a pixel in an array
+        of detector data: module number, and indices in the slow-scan and
+        fast-scan directions. But coordinates in the two pixel dimensions aren't
+        necessarily integers, e.g. if they refer to the centre of a peak.
 
         module_no, fast_scan and slow_scan should all be numpy arrays of the
         same shape. module_no should hold integers, starting from 0,
