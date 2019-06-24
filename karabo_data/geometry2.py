@@ -1621,3 +1621,11 @@ class DSSC_1MGeometry(DetectorGeometryBase):
             # beyond the start of the next row.
             ss_coords += 2/3
             fs_coords += 0.5
+
+class DSSC_Geometry(DSSC_1MGeometry):
+    """DEPRECATED: Use DSSC_1MGeometry instead"""
+    def __init__(self, modules, filename='No file'):
+        super().__init__(modules, filename)
+        warnings.warn(
+            "DSSC_Geometry has been renamed to DSSC_1MGeometry.", stacklevel=2
+        )
