@@ -101,7 +101,7 @@ def test_get_pixel_positions():
     assert -0.14 < py.min() < -0.12
     assert  0.14 > py.max() >  0.12
 
-def test_data_coords_to_physical():
+def test_data_coords_to_positions():
     geom = AGIPD_1MGeometry.from_quad_positions(
         quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
     )
@@ -110,7 +110,7 @@ def test_data_coords_to_physical():
     slow_scan = np.linspace(0, 500, num=16, dtype=np.float32)
     fast_scan = np.zeros(16, dtype=np.float32)
 
-    res = geom.data_coords_to_physical(module_no, slow_scan, fast_scan)
+    res = geom.data_coords_to_positions(module_no, slow_scan, fast_scan)
 
     assert res.shape == (16, 3)
 

@@ -56,7 +56,7 @@ but this geometry code works with a position for each tile.
 
    .. automethod:: compare
 
-   .. automethod:: data_coords_to_physical
+   .. automethod:: data_coords_to_positions
 
 LPD-1M
 ------
@@ -89,7 +89,7 @@ which this geometry code can position independently.
 
    .. automethod:: inspect
 
-   .. automethod:: data_coords_to_physical
+   .. automethod:: data_coords_to_positions
 
 DSSC-1M
 -------

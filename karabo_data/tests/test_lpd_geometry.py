@@ -82,7 +82,7 @@ def test_to_distortion_array():
     assert 0.0 <= distortion[..., 1].min() < 0.01
     assert 0.0 <= distortion[..., 2].min() < 0.01
 
-def test_data_coords_to_physical():
+def test_data_coords_to_positions():
     geom = LPD_1MGeometry.from_quad_positions(
         [(11.4, 299), (-11.5, 8), (254.5, -16), (278.5, 275)]
     )
@@ -98,7 +98,7 @@ def test_data_coords_to_physical():
     np.testing.assert_allclose(tile_ss, 16)
     np.testing.assert_allclose(tile_fs, 64)
 
-    res = geom.data_coords_to_physical(module_no, slow_scan, fast_scan)
+    res = geom.data_coords_to_positions(module_no, slow_scan, fast_scan)
 
     assert res.shape == (16, 3)
 
