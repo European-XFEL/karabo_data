@@ -588,6 +588,10 @@ class DetectorGeometryBase:
 
         Returns an array of similar shape with an extra dimension of length 3,
         for (x, y, z) coordinates in metres.
+
+        .. seealso::
+
+           :doc:`agipd_geometry` demonstrates using this method.
         """
         assert module_no.shape == slow_scan.shape == fast_scan.shape
 
