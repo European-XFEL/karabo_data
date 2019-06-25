@@ -114,7 +114,7 @@ class DeviceBase:
 
 vlen_bytes = h5py.special_dtype(vlen=bytes)
 
-def write_metadata(h5file, data_sources, chunksize=16):
+def write_metadata(h5file, data_sources, chunksize=16, format_version='0.5'):
     N = len(data_sources)
     if N % chunksize:
         N += chunksize - (N % chunksize)
@@ -122,15 +122,23 @@ def write_metadata(h5file, data_sources, chunksize=16):
     root = [ds.split('/', 1)[0] for ds in data_sources]
     devices = [ds.split('/', 1)[1] for ds in data_sources]
 
-    sources_ds = h5file.create_dataset('METADATA/dataSourceId', (N,),
+    if format_version == '0.5':
+        data_sources_grp = h5file.create_group('METADATA')
+    else:
+        data_sources_grp = h5file.create_group('METADATA/dataSources')
+
+    sources_ds = data_sources_grp.create_dataset('dataSourceId', (N,),
                                        dtype=vlen_bytes, maxshape=(None,))
     sources_ds[:len(data_sources)] = data_sources
-    root_ds = h5file.create_dataset('METADATA/root', (N,),
+    root_ds = data_sources_grp.create_dataset('root', (N,),
                                     dtype=vlen_bytes, maxshape=(None,))
     root_ds[:len(data_sources)] = root
-    devices_ds = h5file.create_dataset('METADATA/deviceId', (N,),
+    devices_ds = data_sources_grp.create_dataset('deviceId', (N,),
                                        dtype=vlen_bytes, maxshape=(None,))
     devices_ds[:len(data_sources)] = devices
+
+    if format_version != '0.5':
+        h5file['METADATA/dataFormatVersion'] = [format_version.encode('ascii')]
 
 def write_train_ids(f, path, N, first=10000, chunksize=16):
     """Make a dataset of fake train IDs at the given path

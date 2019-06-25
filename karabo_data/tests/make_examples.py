@@ -161,7 +161,7 @@ def make_fxe_da_file(path):
         GECCamera('FXE_XAD_GEC/CAM/CAMERA'),
     ], ntrains=400, chunksize=200)
 
-def make_sa3_da_file(path):
+def make_sa3_da_file(path, format_version='0.5'):
     """Make the structure of a file with non-detector data from SASE3 tunnel
 
     Based on .../SA3/201830/p900026/r0317/RAW-R0317-DA01-S00000.h5
@@ -196,7 +196,7 @@ def make_sa3_da_file(path):
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/FILTER'),
         IMGFELMotor('SA3_XTD10_IMGFEL/MOTOR/SCREEN'),
         MPOD('SA3_XTD10_MCP/MCPS/MPOD'),
-    ], ntrains=500, chunksize=50)
+    ], ntrains=500, chunksize=50, format_version=format_version)
 
 def make_data_file_bad_device_name(path):
     """Not all devices have the Karabo standard A/B/C naming convention"""
