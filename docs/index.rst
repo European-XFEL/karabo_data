@@ -37,6 +37,7 @@ Contents:
    agipd_geometry
    dssc_geometry
    xpd_examples
+   xpd_examples2
    parallel_example
 
 .. toctree::
