@@ -7,6 +7,8 @@ Release Notes
 Data access
 ~~~~~~~~~~~
 
+- New method :meth:`~.get_data_counts` to find how many data points were
+  recorded in each train for a given source and key.
 - Create a virtual dataset for any single dataset with
   :meth:`~.get_virtual_dataset` (:ghpull:`162`).
   See :doc:`parallel_example` for how this can be useful.
