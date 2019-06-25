@@ -62,6 +62,7 @@ setup(name="karabo_data",
               'sphinx',
               'nbsphinx',
               'ipython',  # For nbsphinx syntax highlighting
+              'sphinxcontrib_github_alt',
           ],
           'test': [
               'pytest',
