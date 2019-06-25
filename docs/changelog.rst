@@ -22,6 +22,7 @@ Data access
   rather than path (:ghpull:`147`).
 - :func:`~.stack_detector_data` now allows input data where some sources don't
   have the specified key (:ghpull:`141`).
+- Files in the new ``1.0`` data format can now be opened (:ghpull:`182`).
 
 Detector geometry
 ~~~~~~~~~~~~~~~~~
