@@ -24,6 +24,7 @@ Contents:
    streaming
    validation
    geometry
+   cli
    data_format
 
 .. toctree::
@@ -34,8 +35,10 @@ Contents:
    apply_geometry
    examine_geometry
    agipd_geometry
+   dssc_geometry
    xpd_examples
    xpd_examples2
+   parallel_example
 
 .. toctree::
    :caption: Development

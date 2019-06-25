@@ -14,7 +14,7 @@ from .exceptions import SourceNameError
 
 log = logging.getLogger(__name__)
 
-DETECTOR_NAMES = {'AGIPD', 'LPD'}
+DETECTOR_NAMES = {'AGIPD', 'DSSC', 'LPD'}
 DETECTOR_SOURCE_RE = re.compile(r'(.+)/DET/(\d+)CH')
 
 DATA_ROOT_DIR = '/gpfs/exfel/exp'

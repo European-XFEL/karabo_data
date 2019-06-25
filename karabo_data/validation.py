@@ -6,7 +6,7 @@ import numpy as np
 import os
 import sys
 
-from .reader import DataCollection, RunDirectory, H5File, FileAccess
+from .reader import DataCollection, H5File, FileAccess
 
 
 class ValidationError(Exception):

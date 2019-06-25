@@ -33,7 +33,11 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'nbsphinx',
+    'sphinxcontrib_github_alt',
 ]
+
+# For :ghissue: and :ghpull: links.
+github_project_url = "https://github.com/European-XFEL/karabo_data/"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

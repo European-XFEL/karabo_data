@@ -22,10 +22,11 @@ import os.path as osp
 import pandas as pd
 import re
 import sys
+import tempfile
 from warnings import warn
 import xarray
 
-from .exceptions import SourceNameError, PropertyNameError
+from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
     DETECTOR_SOURCE_RE,
     DataChunk,
@@ -78,13 +79,28 @@ class FileAccess:
     def __init__(self, file):
         self.file = file
         self.filename = file.filename
+
+        version_ds = file.get('METADATA/dataFormatVersion')
+        if version_ds is not None:
+            self.format_version = version_ds[0].decode('ascii')
+        else:
+            # The first version of the file format had no version number.
+            # Numbering started at 1.0, so we call the first version 0.5.
+            self.format_version = '0.5'
+
         tid_data = file['INDEX/trainId'][:]
         self.train_ids = tid_data[tid_data != 0]
 
         self.control_sources = set()
         self.instrument_sources = set()
 
-        for source in file['METADATA/dataSourceId'][:]:
+        # The list of data sources moved in file format 1.0
+        if self.format_version == '0.5':
+            data_sources_path = 'METADATA/dataSourceId'
+        else:
+            data_sources_path = 'METADATA/dataSources/dataSourceId'
+
+        for source in file[data_sources_path][:]:
             if not source:
                 continue
             source = source.decode()
@@ -375,7 +391,7 @@ class DataCollection:
             if `train_id` is not found in the run.
         """
         if train_id not in self.train_ids:
-            raise KeyError(train_id)
+            raise TrainIDError(train_id)
 
         if devices is not None:
             return self.select(devices).train_from_id(train_id)
@@ -437,6 +453,27 @@ class DataCollection:
         """
         train_id = self.train_ids[train_index]
         return self.train_from_id(int(train_id), devices=devices)
+
+    def get_data_counts(self, source, key):
+        """Get a count of data points in each train
+
+        Returns a pandas series with an index of train IDs.
+        """
+        self._check_field(source, key)
+        seq_series = []
+
+        for f in self._source_index[source]:
+            if source in self.control_sources:
+                counts = np.ones(f.train_ids, dtype=np.uint64)
+            else:
+                group = key.partition('.')[0]
+                _, counts = f.get_index(source, group)
+            seq_series.append(pd.Series(counts, index=f.train_ids))
+
+        ser = pd.concat(sorted(seq_series, key=lambda s: s.index[0]))
+        # Select out only the train IDs of interest
+        train_ids = ser.index.intersection(self.train_ids)
+        return ser.loc[train_ids]
 
     def get_series(self, source, key):
         """Return a pandas Series for a particular data field.
@@ -852,7 +889,6 @@ class DataCollection:
                                 counts=counts[:0],
                                 )
 
-
     def _find_data(self, source, train_id) -> (FileAccess, int):
         for f in self._source_index[source]:
             ixs = (f.train_ids == train_id).nonzero()[0]
@@ -993,6 +1029,50 @@ class DataCollection:
         """
         from .writer import VirtualFileWriter
         VirtualFileWriter(filename, self).write()
+
+    def get_virtual_dataset(self, source, key, filename=None):
+        """Create an HDF5 virtual dataset for a given source & key
+
+        A dataset looks like a multidimensional array, but the data is loaded
+        on-demand when you access it. So it's suitable as an
+        interface to data which is too big to load entirely into memory.
+
+        This returns an h5py.Dataset object. This exists in a real file as a
+        'virtual dataset', a collection of links pointing to the data in real
+        datasets. If *filename* is passed, the file is written at that path,
+        overwriting if it already exists. Otherwise, it uses a new temp file.
+
+        To access the dataset from other worker processes, give them the name
+        of the created file along with the path to the dataset inside it
+        (accessible as ``ds.name``). They will need at least HDF5 1.10 to access
+        the virtual dataset, and they must be on a system with access to the
+        original data files, as the virtual dataset points to those.
+        """
+        self._check_field(source, key)
+
+        from .writer import VirtualFileWriter
+
+        if filename is None:
+            # Make a temp file to hold the virtual dataset.
+            fd, filename = tempfile.mkstemp(suffix='-karabo-data-vds.h5')
+            os.close(fd)
+
+        vfw = VirtualFileWriter(filename, self)
+
+        vfw.write_train_ids()
+
+        if source in self.control_sources:
+            ds_path = vfw.add_control_dataset(source, key)
+        else:
+            ds_path = vfw.add_instrument_dataset(source, key)
+
+        vfw.write_indexes()
+        vfw.write_metadata()
+        vfw.set_writer()
+        vfw.file.close()  # Close the file for writing and reopen read-only
+
+        f = h5py.File(filename, 'r')
+        return f[ds_path]
 
 
 class TrainIterator:

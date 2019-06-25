@@ -1,3 +1,5 @@
+
+from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from matplotlib.axes import Axes
 import numpy as np
 
@@ -22,22 +24,30 @@ def test_write_read_crystfel_file(tmpdir):
         quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
     )
     path = str(tmpdir / 'test.geom')
-    geom.write_crystfel_geom(path)
-
-    # We need to add some experiment details before cfelpyutils will read the
-    # file
-    with open(path, 'r') as f:
-        contents = f.read()
-    with open(path, 'w') as f:
-        f.write('clen = 0.119\n')
-        f.write('adu_per_eV = 0.0075\n')
-        f.write(contents)
+    geom.write_crystfel_geom(filename=path, photon_energy=9000,
+                             adu_per_ev=0.0075, clen=0.2)
 
     loaded = AGIPD_1MGeometry.from_crystfel_geom(path)
     np.testing.assert_allclose(
         loaded.modules[0][0].corner_pos, geom.modules[0][0].corner_pos
     )
     np.testing.assert_allclose(loaded.modules[0][0].fs_vec, geom.modules[0][0].fs_vec)
+
+    # Load the geometry file with cfelpyutils and test the ridget groups
+    geom_dict = load_crystfel_geometry(path)
+    quad_gr0 = ['p0a0', 'p0a1', 'p0a2', 'p0a3', 'p0a4', 'p0a5', 'p0a6', 'p0a7',
+               'p1a0', 'p1a1', 'p1a2', 'p1a3', 'p1a4', 'p1a5', 'p1a6', 'p1a7',
+               'p2a0', 'p2a1', 'p2a2', 'p2a3', 'p2a4', 'p2a5', 'p2a6', 'p2a7',
+               'p3a0', 'p3a1', 'p3a2', 'p3a3', 'p3a4', 'p3a5', 'p3a6', 'p3a7']
+    assert geom_dict['rigid_groups']['p0'] == quad_gr0[:8]
+    assert geom_dict['rigid_groups']['p3'] == quad_gr0[-8:]
+    assert geom_dict['rigid_groups']['q0'] == quad_gr0
+    assert geom_dict['panels']['p0a0']['res'] == 5000  # 5000 pixels/metre
+    p3a7 = geom_dict['panels']['p3a7']
+    assert p3a7['min_ss'] == 448
+    assert p3a7['max_ss'] == 511
+    assert p3a7['min_fs'] == 0
+    assert p3a7['max_fs'] == 127
 
 
 def test_inspect():
@@ -75,3 +85,40 @@ def test_to_distortion_array():
     assert 0.20 < distortion[..., 2].max() < 0.30
     assert 0.0 <= distortion[..., 1].min() < 0.01
     assert 0.0 <= distortion[..., 2].min() < 0.01
+
+def test_get_pixel_positions():
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+
+    pixelpos = geom.get_pixel_positions()
+    assert pixelpos.shape == (16, 512, 128, 3)
+    px = pixelpos[..., 0]
+    py = pixelpos[..., 1]
+
+    assert -0.12 < px.min() < -0.1
+    assert  0.12 > px.max() > 0.1
+    assert -0.14 < py.min() < -0.12
+    assert  0.14 > py.max() >  0.12
+
+def test_data_coords_to_positions():
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+
+    module_no = np.zeros(16, dtype=np.int16)
+    slow_scan = np.linspace(0, 500, num=16, dtype=np.float32)
+    fast_scan = np.zeros(16, dtype=np.float32)
+
+    res = geom.data_coords_to_positions(module_no, slow_scan, fast_scan)
+
+    assert res.shape == (16, 3)
+
+    resx, resy, resz = res.T
+
+    np.testing.assert_allclose(resz, 0)
+    np.testing.assert_allclose(resy, 625 * geom.pixel_size)
+
+    assert (np.diff(resx) > 0).all()   # Monotonically increasing
+    np.testing.assert_allclose(resx[0], -525 * geom.pixel_size)
+    assert -0.01 < resx[-1] < 0.01
