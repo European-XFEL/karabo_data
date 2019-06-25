@@ -1,7 +1,8 @@
 import h5py
 from .base import write_train_ids, write_metadata
 
-def write_file(filename, devices, ntrains, firsttrain=10000, chunksize=200):
+def write_file(filename, devices, ntrains, firsttrain=10000, chunksize=200,
+               format_version='0.5'):
     f = h5py.File(filename, 'w')
     f.create_group('RUN')  # Add this, even if it's left empty
 
@@ -16,4 +17,5 @@ def write_file(filename, devices, ntrains, firsttrain=10000, chunksize=200):
         dev.write_control(f)
         dev.write_instrument(f)
         data_sources.extend(dev.datasource_ids())
-    write_metadata(f, data_sources, chunksize=chunksize)
+    write_metadata(f, data_sources, chunksize=chunksize,
+                   format_version=format_version)
