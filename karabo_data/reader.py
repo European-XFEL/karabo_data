@@ -79,13 +79,28 @@ class FileAccess:
     def __init__(self, file):
         self.file = file
         self.filename = file.filename
+
+        version_ds = file.get('METADATA/dataFormatVersion')
+        if version_ds is not None:
+            self.format_version = version_ds[0].decode('ascii')
+        else:
+            # The first version of the file format had no version number.
+            # Numbering started at 1.0, so we call the first version 0.5.
+            self.format_version = '0.5'
+
         tid_data = file['INDEX/trainId'][:]
         self.train_ids = tid_data[tid_data != 0]
 
         self.control_sources = set()
         self.instrument_sources = set()
 
-        for source in file['METADATA/dataSourceId'][:]:
+        # The list of data sources moved in file format 1.0
+        if self.format_version == '0.5':
+            data_sources_path = 'METADATA/dataSourceId'
+        else:
+            data_sources_path = 'METADATA/dataSources/dataSourceId'
+
+        for source in file[data_sources_path][:]:
             if not source:
                 continue
             source = source.decode()
