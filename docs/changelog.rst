@@ -31,6 +31,11 @@ Detector geometry
   now accepts various optional parameters for other details to be written into
   the geometry file, such as the detector distance (``clen``) and the photon
   energy (:ghpull:`168`).
+- New method :meth:`~.AGIPD_1MGeometry.get_pixel_positions` to get the physical
+  position of every pixel in a detector, for all of AGIPD, LPD and DSSC
+  (:ghpull:`142`).
+- New method :meth:`~.AGIPD_1MGeometry.data_coords_to_positions` to convert data
+  array coordinates to physical positions, for AGIPD and LPD (:ghpull:`142`).
 
 0.4
 ---
