@@ -216,7 +216,7 @@ class ZMQStreamer:
         self._buffer.put(self._serialize(data, metadata))
 
 
-def serve_files(path, port, **kwargs):
+def serve_files(path, port, source_glob='*', key_glob='*', **kwargs):
     """Stream data from files through a TCP socket.
 
     Parameters
@@ -225,11 +225,18 @@ def serve_files(path, port, **kwargs):
         Path to the HDF5 file or file folder.
     port: int
         Local TCP port to bind socket to.
+    source_glob: str
+        Only stream sources matching this glob pattern.
+        Streaming data selectively is more efficient than streaming everything.
+    key_glob: str
+        Only stream keys matching this glob pattern in the selected sources.
     """
     if osp.isdir(path):
         data = RunDirectory(path)
     else:
         data = H5File(path)
+
+    data = data.select(source_glob, key_glob)
 
     streamer = ZMQStreamer(port, **kwargs)
     streamer.start()
@@ -243,6 +250,14 @@ def main(argv=None):
     ap = ArgumentParser(prog="karabo-bridge-serve-files")
     ap.add_argument("path", help="Path of a file or run directory to serve")
     ap.add_argument("port", help="TCP port to run server on")
+    ap.add_argument(
+        "--source", help="Stream only matching sources ('*' is a wildcard)",
+        default='*',
+    )
+    ap.add_argument(
+        "--key", help="Stream only matching keys ('*' is a wildcard)",
+        default='*',
+    )
     args = ap.parse_args(argv)
 
     serve_files(args.path, args.port)
