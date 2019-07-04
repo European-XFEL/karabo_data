@@ -429,38 +429,27 @@ class DetectorGeometryBase:
         distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 4, 3),
                               dtype=np.float32)
 
-        # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels),
-            np.arange(0, self.frag_fs_pixels),
-            indexing='ij'
+        pixpos = self.get_pixel_positions(centre=False).reshape(
+            (nmods * mod_px_ss, mod_px_fs, 3)
         )
+        px, py, pz = np.moveaxis(pixpos, -1, 0)
+
         corner_ss_offsets = np.array([0, 1, 1, 0])
         corner_fs_offsets = np.array([0, 0, 1, 1])
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
                 ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
                 fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
-                # Calculate coordinates of each pixel's first corner
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Get coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
-                pixel_corner1_x = (
-                        corner_x
-                        + pixel_ss_index * ss_unit_x
-                        + pixel_fs_index * fs_unit_x
-                )
-                pixel_corner1_y = (
-                        corner_y
-                        + pixel_ss_index * ss_unit_y
-                        + pixel_fs_index * fs_unit_y
-                )
-                pixel_corner1_z = (
-                        corner_z
-                        + pixel_ss_index * ss_unit_z
-                        + pixel_fs_index * fs_unit_z
-                )
+                pixel_corner1_x = px[tile_ss_slice,  tile_fs_slice]
+                pixel_corner1_y = py[tile_ss_slice,  tile_fs_slice]
+                pixel_corner1_z = pz[tile_ss_slice,  tile_fs_slice]
 
                 # Calculate corner coordinates for each pixel
                 # 3D arrays, shape: (64, 128, 4)
@@ -479,9 +468,6 @@ class DetectorGeometryBase:
                         + corner_ss_offsets * ss_unit_z
                         + corner_fs_offsets * fs_unit_z
                 )
-
-                # Which part of the array is this tile?
-                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
 
                 # Insert the data into the array
                 distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
@@ -1538,15 +1524,10 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 6, 3),
                               dtype=np.float32)
 
-        # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
-            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
-            indexing='ij'
+        pixpos = self.get_pixel_positions(centre=False).reshape(
+            (nmods * mod_px_ss, mod_px_fs, 3)
         )
-        # Every second line of pixels across the slow-scan direction is shifted
-        # half a pixel against the fast-scan direction so the hexagons tessalate.
-        pixel_fs_index[1::2, :] -= 0.5
+        px, py, pz = np.moveaxis(pixpos, -1, 0)
 
         # Corners described clockwise from the top, assuming the reference point
         # for a pixel is outside it, aligned with the top point & left edge.
@@ -1556,30 +1537,20 @@ class DSSC_1MGeometry(DetectorGeometryBase):
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
                 ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
                 fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
-                # Calculate coordinates of each pixel's first corner
-                # 2D arrays, shape: (64, 128)
-                pixel_corner1_x = (
-                        corner_x
-                        + pixel_ss_index * ss_unit_x
-                        + pixel_fs_index * fs_unit_x
-                )
-                pixel_corner1_y = (
-                        corner_y
-                        + pixel_ss_index * ss_unit_y
-                        + pixel_fs_index * fs_unit_y
-                )
-                pixel_corner1_z = (
-                        corner_z
-                        + pixel_ss_index * ss_unit_z
-                        + pixel_fs_index * fs_unit_z
-                )
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Get coordinates of each pixel's first corner
+                # 2D arrays, shape: (128, 256)
+                pixel_corner1_x = px[tile_ss_slice, tile_fs_slice]
+                pixel_corner1_y = py[tile_ss_slice, tile_fs_slice]
+                pixel_corner1_z = pz[tile_ss_slice, tile_fs_slice]
 
                 # Calculate corner coordinates for each pixel
-                # 3D arrays, shape: (64, 128, 4)
+                # 3D arrays, shape: (128, 256, 6)
                 corners_x = (
                         pixel_corner1_x[:, :, np.newaxis]
                         + corner_ss_offsets * ss_unit_x
