@@ -418,9 +418,18 @@ class DetectorGeometryBase:
 
     @classmethod
     def _distortion_array_slice(cls, m, t):
-        """Implement in subclass: which part of distortion array each tile is.
+        """Which part of distortion array each tile is.
         """
-        raise NotImplementedError
+        # _tile_slice gives the slice for the tile within its module.
+        # The distortion array joins the modules along the slow-scan axis, so
+        # we need to offset the slow-scan slice to land in the correct module.
+        ss_slice_inmod, fs_slice = cls._tile_slice(t)
+        mod_px_ss = cls.expected_data_shape[1]
+        mod_offset = m * mod_px_ss
+        ss_slice = slice(
+            ss_slice_inmod.start + mod_offset, ss_slice_inmod.stop + mod_offset
+        )
+        return ss_slice, fs_slice
 
     def to_distortion_array(self, allow_negative_xy=False):
         """Generate a distortion array for pyFAI from this geometry.
@@ -481,7 +490,8 @@ class DetectorGeometryBase:
 
         return distortion
 
-    def _tile_slice(self, tileno):
+    @classmethod
+    def _tile_slice(cls, tileno):
         """Implement in subclass: which part of module array each tile is.
         """
         raise NotImplementedError
@@ -872,16 +882,6 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return np.split(module_data, 8, axis=-2)
 
     @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # m = 0 to 15,  t = 0 to 7
-        module_offset = m * 512
-        tile_offset = module_offset + (t * cls.frag_ss_pixels)
-        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
-        return ss_slice, fs_slice
-
-    @classmethod
     def _tile_slice(cls, tileno):
         # Which part of the array is this tile?
         # tileno = 0 to 7
@@ -1250,22 +1250,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
         return np.split(half1, 8, axis=-2)[::-1] + np.split(half2, 8, axis=-2)
 
     @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # The distortion array for LPD is 4096 x 256, with modules stacked
-        # along their slow-scan axis, Q1M1 (m=0) to Q4M4 (m=15)
-        module_offset = m * 256
-        if t < 8:  # First half of module (0 <= t <= 7)
-            fs_slice = slice(0, 128)
-            tiles_up = 7 - t
-        else:      # Second half of module (8 <= t <= 15)
-            fs_slice = slice(128, 256)
-            tiles_up = t - 8
-        tile_offset = module_offset + (tiles_up * 32)
-        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        return ss_slice, fs_slice
-
-    @classmethod
     def _tile_slice(cls, tileno):
         # Which part of the array is this tile?
         if tileno < 8:  # First half of module (0 <= t <= 7)
@@ -1483,14 +1467,6 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         # on the detector looks like a circle on screen.
         ax.set_aspect(204/236.)
         return ax
-
-    @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # m = 0 to 15,  t = 0 to 1
-        ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
-        fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
-        return ss_slice, fs_slice
 
     @classmethod
     def _tile_slice(cls, tileno):
