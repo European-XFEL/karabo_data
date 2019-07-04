@@ -159,6 +159,10 @@ class DetectorGeometryBase:
     n_tiles_per_module = 0
     expected_data_shape = (0, 0, 0)
     _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
+    _pixel_corners = np.array([  # pixel units; overridden for DSSC
+        [0, 1, 1, 0],  # slow-scan
+        [0, 0, 1, 1]   # fast-scan
+    ])
     _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
 
     def __init__(self, modules, filename='No file'):
@@ -418,49 +422,48 @@ class DetectorGeometryBase:
 
     @classmethod
     def _distortion_array_slice(cls, m, t):
-        """Implement in subclass: which part of distortion array each tile is.
+        """Which part of distortion array each tile is.
         """
-        raise NotImplementedError
+        # _tile_slice gives the slice for the tile within its module.
+        # The distortion array joins the modules along the slow-scan axis, so
+        # we need to offset the slow-scan slice to land in the correct module.
+        ss_slice_inmod, fs_slice = cls._tile_slice(t)
+        mod_px_ss = cls.expected_data_shape[1]
+        mod_offset = m * mod_px_ss
+        ss_slice = slice(
+            ss_slice_inmod.start + mod_offset, ss_slice_inmod.stop + mod_offset
+        )
+        return ss_slice, fs_slice
 
     def to_distortion_array(self, allow_negative_xy=False):
         """Generate a distortion array for pyFAI from this geometry.
         """
         nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
-        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 4, 3),
+        ncorners = self._pixel_corners.shape[1]
+        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, ncorners, 3),
                               dtype=np.float32)
 
-        # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels),
-            np.arange(0, self.frag_fs_pixels),
-            indexing='ij'
+        pixpos = self.get_pixel_positions(centre=False).reshape(
+            (nmods * mod_px_ss, mod_px_fs, 3)
         )
-        corner_ss_offsets = np.array([0, 1, 1, 0])
-        corner_fs_offsets = np.array([0, 0, 1, 1])
+        px, py, pz = np.moveaxis(pixpos, -1, 0)
+
+        corner_ss_offsets = self._pixel_corners[0]
+        corner_fs_offsets = self._pixel_corners[1]
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
                 ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
                 fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
 
-                # Calculate coordinates of each pixel's first corner
+                # Which part of the array is this tile?
+                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
+
+                # Get coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
-                pixel_corner1_x = (
-                        corner_x
-                        + pixel_ss_index * ss_unit_x
-                        + pixel_fs_index * fs_unit_x
-                )
-                pixel_corner1_y = (
-                        corner_y
-                        + pixel_ss_index * ss_unit_y
-                        + pixel_fs_index * fs_unit_y
-                )
-                pixel_corner1_z = (
-                        corner_z
-                        + pixel_ss_index * ss_unit_z
-                        + pixel_fs_index * fs_unit_z
-                )
+                pixel_corner1_x = px[tile_ss_slice,  tile_fs_slice]
+                pixel_corner1_y = py[tile_ss_slice,  tile_fs_slice]
+                pixel_corner1_z = pz[tile_ss_slice,  tile_fs_slice]
 
                 # Calculate corner coordinates for each pixel
                 # 3D arrays, shape: (64, 128, 4)
@@ -480,9 +483,6 @@ class DetectorGeometryBase:
                         + corner_fs_offsets * fs_unit_z
                 )
 
-                # Which part of the array is this tile?
-                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
-
                 # Insert the data into the array
                 distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
                 distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
@@ -495,7 +495,8 @@ class DetectorGeometryBase:
 
         return distortion
 
-    def _tile_slice(self, tileno):
+    @classmethod
+    def _tile_slice(cls, tileno):
         """Implement in subclass: which part of module array each tile is.
         """
         raise NotImplementedError
@@ -886,16 +887,6 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         return np.split(module_data, 8, axis=-2)
 
     @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # m = 0 to 15,  t = 0 to 7
-        module_offset = m * 512
-        tile_offset = module_offset + (t * cls.frag_ss_pixels)
-        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        fs_slice = slice(None, None)  # Every tile covers the full 128 pixels
-        return ss_slice, fs_slice
-
-    @classmethod
     def _tile_slice(cls, tileno):
         # Which part of the array is this tile?
         # tileno = 0 to 7
@@ -1264,22 +1255,6 @@ class LPD_1MGeometry(DetectorGeometryBase):
         return np.split(half1, 8, axis=-2)[::-1] + np.split(half2, 8, axis=-2)
 
     @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # The distortion array for LPD is 4096 x 256, with modules stacked
-        # along their slow-scan axis, Q1M1 (m=0) to Q4M4 (m=15)
-        module_offset = m * 256
-        if t < 8:  # First half of module (0 <= t <= 7)
-            fs_slice = slice(0, 128)
-            tiles_up = 7 - t
-        else:      # Second half of module (8 <= t <= 15)
-            fs_slice = slice(128, 256)
-            tiles_up = t - 8
-        tile_offset = module_offset + (tiles_up * 32)
-        ss_slice = slice(tile_offset, tile_offset + cls.frag_ss_pixels)
-        return ss_slice, fs_slice
-
-    @classmethod
     def _tile_slice(cls, tileno):
         # Which part of the array is this tile?
         if tileno < 8:  # First half of module (0 <= t <= 7)
@@ -1374,6 +1349,15 @@ class DSSC_1MGeometry(DetectorGeometryBase):
     # This stretches the dimensions for the 'snapped' geometry so that its pixel
     # grid matches the aspect ratio of the detector pixels.
     _pixel_shape = np.array([1., 1.5/np.sqrt(3)])
+
+    # Pixel corners described clockwise from the top, assuming the reference
+    # point for a pixel is outside it, aligned with the top point & left edge.
+    # The unit is the width of a pixel, 236 μm.
+    # The 4/3 extends the hexagons into the next row to correctly tessellate.
+    _pixel_corners = np.stack([
+        (np.array([0, 0.25, 0.75, 1, 0.75, 0.25]) * 4 / 3),
+        [0.5, 1, 1, 0.5, 0, 0]
+    ])
 
     @classmethod
     def from_h5_file_and_quad_positions(cls, path, positions, unit=1e-3):
@@ -1499,14 +1483,6 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         return ax
 
     @classmethod
-    def _distortion_array_slice(cls, m, t):
-        # Which part of the array is this tile?
-        # m = 0 to 15,  t = 0 to 1
-        ss_slice = slice(m * cls.frag_ss_pixels, (m + 1) * cls.frag_ss_pixels)
-        fs_slice = slice(t * cls.frag_fs_pixels, (t + 1) * cls.frag_fs_pixels)
-        return ss_slice, fs_slice
-
-    @classmethod
     def _tile_slice(cls, tileno):
         tile_offset = tileno * cls.frag_fs_pixels
         fs_slice = slice(tile_offset, tile_offset + cls.frag_fs_pixels)
@@ -1534,82 +1510,8 @@ class DSSC_1MGeometry(DetectorGeometryBase):
             - 6 corners of each pixel
             - 3 numbers for z, y, x
         """
-        nmods, mod_px_ss, mod_px_fs = self.expected_data_shape
-        distortion = np.zeros((nmods * mod_px_ss, mod_px_fs, 6, 3),
-                              dtype=np.float32)
-
-        # Prepare some arrays to use inside the loop
-        pixel_ss_index, pixel_fs_index = np.meshgrid(
-            np.arange(0, self.frag_ss_pixels, dtype=np.float32),
-            np.arange(0, self.frag_fs_pixels, dtype=np.float32),
-            indexing='ij'
-        )
-        # Every second line of pixels across the slow-scan direction is shifted
-        # half a pixel against the fast-scan direction so the hexagons tessalate.
-        pixel_fs_index[1::2, :] -= 0.5
-
-        # Corners described clockwise from the top, assuming the reference point
-        # for a pixel is outside it, aligned with the top point & left edge.
-        # The 4/3 extends the hexagons into the next row to correctly tessellate.
-        corner_ss_offsets = np.array([0, 0.25, 0.75, 1, 0.75, 0.25]) * 4 / 3
-        corner_fs_offsets = np.array([0.5, 1, 1, 0.5, 0, 0])
-
-        for m, mod in enumerate(self.modules, start=0):
-            for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
-
-                # Calculate coordinates of each pixel's first corner
-                # 2D arrays, shape: (64, 128)
-                pixel_corner1_x = (
-                        corner_x
-                        + pixel_ss_index * ss_unit_x
-                        + pixel_fs_index * fs_unit_x
-                )
-                pixel_corner1_y = (
-                        corner_y
-                        + pixel_ss_index * ss_unit_y
-                        + pixel_fs_index * fs_unit_y
-                )
-                pixel_corner1_z = (
-                        corner_z
-                        + pixel_ss_index * ss_unit_z
-                        + pixel_fs_index * fs_unit_z
-                )
-
-                # Calculate corner coordinates for each pixel
-                # 3D arrays, shape: (64, 128, 4)
-                corners_x = (
-                        pixel_corner1_x[:, :, np.newaxis]
-                        + corner_ss_offsets * ss_unit_x
-                        + corner_fs_offsets * fs_unit_x
-                )
-                corners_y = (
-                        pixel_corner1_y[:, :, np.newaxis]
-                        + corner_ss_offsets * ss_unit_y
-                        + corner_fs_offsets * fs_unit_y
-                )
-                corners_z = (
-                        pixel_corner1_z[:, :, np.newaxis]
-                        + corner_ss_offsets * ss_unit_z
-                        + corner_fs_offsets * fs_unit_z
-                )
-
-                # Which part of the array is this tile?
-                tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
-
-                # Insert the data into the array
-                distortion[tile_ss_slice, tile_fs_slice, :, 0] = corners_z
-                distortion[tile_ss_slice, tile_fs_slice, :, 1] = corners_y
-                distortion[tile_ss_slice, tile_fs_slice, :, 2] = corners_x
-
-        if not allow_negative_xy:
-            # Shift the x & y origin from the centre to the corner
-            min_yx = distortion[..., 1:].min(axis=(0, 1, 2))
-            distortion[..., 1:] -= min_yx
-
-        return distortion
+        # Overridden only for docstring
+        return super().to_distortion_array(allow_negative_xy=allow_negative_xy)
 
     @classmethod
     def _adjust_pixel_coords(cls, ss_coords, fs_coords, centre):
