@@ -371,7 +371,25 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
-    def position_modules_fast(self, data):
+    def output_array_for_position_fast(self, extra_shape=()):
+        """Make an empty output array to use with position_modules_fast
+
+        You can speed up assembling images by reusing the same output array:
+        call this once, and then pass the array as the ``out=`` parameter to
+        :meth:`position_modules_fast()`. By default, it allocates a new array on
+        each call, which can be slow.
+
+        Parameters
+        ----------
+
+        extra_shape : tuple, optional
+          By default, a 2D output array is generated, to assemble a single
+          detector image. If you are assembling multiple pulses at once, pass
+          ``extra_shape=(nframes,)`` to get a 3D output array.
+        """
+        return self._snapped().make_output_array(extra_shape=extra_shape)
+
+    def position_modules_fast(self, data, out=None):
         """Assemble data from this detector according to where the pixels are.
 
         This approximates the geometry to align all pixels to a 2D grid.
@@ -382,6 +400,15 @@ class DetectorGeometryBase:
         data : ndarray
           The last three dimensions should match the modules, then the
           slow scan and fast scan pixel dimensions.
+        out : ndarray, optional
+          An output array to assemble the image into. By default, a new
+          array is allocated. Use :meth:`output_array_for_position_fast` to
+          create a suitable array.
+          If an array is passed in, it must match the dtype of the data and the
+          shape of the array that would have been allocated.
+          Parts of the array not covered by detector tiles are not overwritten.
+          In general, you can reuse an output array if you are assembling
+          similar pulses or pulse trains with the same geometry.
 
         Returns
         -------
@@ -391,11 +418,11 @@ class DetectorGeometryBase:
         centre : ndarray
           (y, x) pixel location of the detector centre in this geometry.
         """
-        return self._snapped().position_modules(data)
+        return self._snapped().position_modules(data, out=out)
 
-    def position_all_modules(self, data):
+    def position_all_modules(self, data, out=None):
         """Deprecated alias for :meth:`position_modules_fast`"""
-        return self.position_modules_fast(data)
+        return self.position_modules_fast(data, out=out)
 
     def plot_data_fast(self, data, axis_units='px', frontview=True):
         """Plot data from the detector using this geometry.
@@ -935,24 +962,35 @@ class SnappedGeometry:
     def __init__(self, modules, geom: DetectorGeometryBase):
         self.modules = modules
         self.geom = geom
+        self.size_yx, self.centre = self._get_dimensions()
 
-    def position_modules(self, data):
+    def make_output_array(self, extra_shape=(), dtype=np.float32):
+        """Make an output array for self.position_modules()
+        """
+        shape = extra_shape + self.size_yx
+        return np.full(shape, np.nan, dtype=dtype)
+
+    def position_modules(self, data, out=None):
         """Implementation for position_modules_fast
         """
         assert data.shape[-3:] == self.geom.expected_data_shape
-        size_yx, centre = self._get_dimensions()
-        out = np.full(data.shape[:-3] + size_yx, np.nan, dtype=data.dtype)
+        if out is None:
+            out = self.make_output_array(data.shape[:-3], data.dtype)
+        else:
+            assert out.shape == data.shape[:-3] + self.size_yx
+            assert out.dtype == data.dtype
+
         for i, module in enumerate(self.modules):
             mod_data = data[..., i, :, :]
             tiles_data = self.geom.split_tiles(mod_data)
             for j, tile in enumerate(module):
                 tile_data = tiles_data[j]
                 # Offset by centre to make all coordinates positive
-                y, x = tile.corner_idx + centre
+                y, x = tile.corner_idx + self.centre
                 h, w = tile.pixel_dims
                 out[..., y : y + h, x : x + w] = tile.transform(tile_data)
 
-        return out, centre
+        return out, self.centre
 
     def _get_dimensions(self):
         """Calculate appropriate array dimensions for assembling data.

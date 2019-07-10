@@ -50,6 +50,8 @@ but this geometry code works with a position for each tile.
 
    .. automethod:: position_modules_fast
 
+   .. automethod:: output_array_for_position_fast
+
    .. automethod:: position_modules_interpolate
 
    .. automethod:: inspect
@@ -87,6 +89,8 @@ which this geometry code can position independently.
 
    .. automethod:: position_modules_fast
 
+   .. automethod:: output_array_for_position_fast
+
    .. automethod:: inspect
 
    .. automethod:: data_coords_to_positions
@@ -123,5 +127,7 @@ approximately half a pixel width from their true position.
    .. automethod:: plot_data_fast
 
    .. automethod:: position_modules_fast
+
+   .. automethod:: output_array_for_position_fast
 
    .. automethod:: inspect
