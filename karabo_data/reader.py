@@ -1171,7 +1171,7 @@ def RunDirectory(path):
     path: str
         Path to the run directory containing HDF5 files.
     """
-    files = list(filter(h5py.is_hdf5, glob(osp.join(path, '*.h5'))))
+    files = glob(osp.join(path, '*.h5'))
     if not files:
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
