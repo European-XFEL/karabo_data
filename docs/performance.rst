@@ -19,7 +19,7 @@ at once, which saves memory for big data but is slower to process.
 Machines in the Maxwell cluster have hundreds of gigabytes of RAM, so it's
 practical to load many kinds of data completely into memory.
 However, data for a full run from megahertz detectors such as AGIPD, LPD or DSSC
-can easily be too be too much.
+can easily be too much.
 
 The command ``free -h`` will show the amount of memory on any Linux machine.
 
