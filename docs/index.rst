@@ -26,6 +26,7 @@ Contents:
    geometry
    cli
    data_format
+   performance
 
 .. toctree::
    :caption: Examples
