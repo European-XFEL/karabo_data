@@ -1,5 +1,7 @@
 """Write geometry in CrystFEL format.
 """
+from itertools import product
+import numpy as np
 
 HEADER_TEMPLATE = """\
 ; AGIPD-1M geometry file written by karabo_data {version}
@@ -145,7 +147,29 @@ def write_crystfel_geom(self, filename, *,
             clen=clen_str,
             photon_energy=photon_energy_str
         ))
-        rigid_groups = self._get_rigid_groups()
+        rigid_groups = get_rigid_groups(self)
         f.write(rigid_groups)
         for chunk in panel_chunks:
             f.write(chunk)
+
+def get_rigid_groups(geom, nquads=4):
+    """Create string for rigid groups definition."""
+
+    quads = ','.join(['q{}'.format(q) for q in range(nquads)])
+    modules = ','.join(['p{}'.format(p) for p in range(geom.n_modules)])
+
+    prod = product(range(geom.n_modules), range(geom.n_tiles_per_module))
+    rigid_group = ['p{}a{}'.format(p, a) for (p, a) in prod]
+    rigid_string = '\n'
+
+    for nn, rigid_group_q in enumerate(np.array_split(rigid_group, nquads)):
+        rigid_string += 'rigid_group_q{} = {}\n'.format(nn, ','.join(rigid_group_q))
+    rigid_string += '\n'
+    for nn, rigid_group_p in enumerate(np.array_split(rigid_group, geom.n_modules)):
+        rigid_string += 'rigid_group_p{} = {}\n'.format(nn, ','.join(rigid_group_p))
+
+    rigid_string += '\n'
+
+    rigid_string += 'rigid_group_collection_quadrants = {}\n'.format(quads)
+    rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
+    return rigid_string
