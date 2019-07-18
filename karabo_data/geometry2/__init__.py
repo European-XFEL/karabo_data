@@ -205,28 +205,6 @@ class DetectorGeometryBase:
                 tiles.append(GeometryFragment.from_panel_dict(d))
         return cls(modules, filename=filename)
 
-    def _get_rigid_groups(self, nquads=4):
-        """Create rigid stings for rigid groups definiton."""
-
-        quads = ','.join(['q{}'.format(q) for q in range(nquads)])
-        modules = ','.join(['p{}'.format(p) for p in range(self.n_modules)])
-
-        prod = product(range(self.n_modules), range(self.n_tiles_per_module))
-        rigid_group = ['p{}a{}'.format(p, a) for (p, a) in prod]
-        rigid_string = '\n'
-
-        for nn, rigid_group_q in enumerate(np.array_split(rigid_group, nquads)):
-            rigid_string += 'rigid_group_q{} = {}\n'.format(nn, ','.join(rigid_group_q))
-        rigid_string += '\n'
-        for nn, rigid_group_p in enumerate(np.array_split(rigid_group, self.n_modules)):
-            rigid_string += 'rigid_group_p{} = {}\n'.format(nn, ','.join(rigid_group_p))
-
-        rigid_string += '\n'
-
-        rigid_string += 'rigid_group_collection_quadrants = {}\n'.format(quads)
-        rigid_string += 'rigid_group_collection_asics = {}\n\n'.format(modules)
-        return rigid_string
-
     def write_crystfel_geom(self, filename, *,
                             data_path='/entry_1/instrument_1/detector_1/data',
                             mask_path=None, dims=('frame', 'modno', 'ss', 'fs'),
