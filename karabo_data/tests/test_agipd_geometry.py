@@ -1,5 +1,6 @@
 
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
+from itertools import product
 from matplotlib.axes import Axes
 import numpy as np
 
@@ -33,12 +34,11 @@ def test_write_read_crystfel_file(tmpdir):
     )
     np.testing.assert_allclose(loaded.modules[0][0].fs_vec, geom.modules[0][0].fs_vec)
 
-    # Load the geometry file with cfelpyutils and test the ridget groups
+    # Load the geometry file with cfelpyutils and test the rigid groups
     geom_dict = load_crystfel_geometry(path)
-    quad_gr0 = ['p0a0', 'p0a1', 'p0a2', 'p0a3', 'p0a4', 'p0a5', 'p0a6', 'p0a7',
-               'p1a0', 'p1a1', 'p1a2', 'p1a3', 'p1a4', 'p1a5', 'p1a6', 'p1a7',
-               'p2a0', 'p2a1', 'p2a2', 'p2a3', 'p2a4', 'p2a5', 'p2a6', 'p2a7',
-               'p3a0', 'p3a1', 'p3a2', 'p3a3', 'p3a4', 'p3a5', 'p3a6', 'p3a7']
+    quad_gr0 = [  # 1st quadrant: p0a0 ... p3a7
+        'p{}a{}'.format(p, a) for p, a in product(range(4), range(8))
+    ]
     assert geom_dict['rigid_groups']['p0'] == quad_gr0[:8]
     assert geom_dict['rigid_groups']['p3'] == quad_gr0[-8:]
     assert geom_dict['rigid_groups']['q0'] == quad_gr0
@@ -46,6 +46,31 @@ def test_write_read_crystfel_file(tmpdir):
     p3a7 = geom_dict['panels']['p3a7']
     assert p3a7['min_ss'] == 448
     assert p3a7['max_ss'] == 511
+    assert p3a7['min_fs'] == 0
+    assert p3a7['max_fs'] == 127
+
+
+def test_write_read_crystfel_file_2d(tmpdir):
+    geom = AGIPD_1MGeometry.from_quad_positions(
+        quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
+    )
+    path = str(tmpdir / 'test.geom')
+    geom.write_crystfel_geom(filename=path, dims=('frame', 'ss', 'fs'),
+                             adu_per_ev=0.0075, clen=0.2)
+
+    loaded = AGIPD_1MGeometry.from_crystfel_geom(path)
+    np.testing.assert_allclose(
+        loaded.modules[0][0].corner_pos, geom.modules[0][0].corner_pos
+    )
+    np.testing.assert_allclose(loaded.modules[0][0].fs_vec, geom.modules[0][0].fs_vec)
+
+    # Load the geometry file with cfelpyutils and check some values
+    geom_dict = load_crystfel_geometry(path)
+
+    p3a7 = geom_dict['panels']['p3a7']
+    assert p3a7['dim_structure'] == ['%', 'ss', 'fs']
+    assert p3a7['min_ss'] == (3 * 512) + 448
+    assert p3a7['max_ss'] == (3 * 512) + 511
     assert p3a7['min_fs'] == 0
     assert p3a7['max_fs'] == 127
 

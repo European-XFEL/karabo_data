@@ -7,16 +7,9 @@ import numpy as np
 from scipy.ndimage import affine_transform
 import warnings
 
+from .crystfel_fmt import write_crystfel_geom
+
 __all__ = ['AGIPD_1MGeometry', 'LPD_1MGeometry']
-
-
-def _crystfel_format_vec(vec):
-    """Convert an array of 3 numbers to CrystFEL format like "+1.0x -0.1y"
-    """
-    s = '{:+}x {:+}y'.format(*vec[:2])
-    if vec[2] != 0:
-        s += ' {:+}z'.format(vec[2])
-    return s
 
 
 class GeometryFragment:
@@ -60,31 +53,6 @@ class GeometryFragment:
             self.corner_pos
             + (0.5 * self.ss_vec * self.ss_pixels)
             + (0.5 * self.fs_vec * self.fs_pixels)
-        )
-
-    def to_crystfel_geom(self, p, a, ss_slice, fs_slice, dims):
-        tile_name = 'p{}a{}'.format(p, a)
-        c = self.corner_pos
-        dim_list = []
-        for num, value in dims.items():
-            if value == 'modno':
-                key = p
-            else:
-                key = value
-            dim_list.append('{}/dim{} = {}'.format(tile_name, num, key))
-
-        return CRYSTFEL_PANEL_TEMPLATE.format(
-            dims='\n'.join(dim_list),
-            name=tile_name,
-            min_ss=ss_slice.start,
-            max_ss=ss_slice.stop - 1,
-            min_fs=fs_slice.start,
-            max_fs=fs_slice.stop - 1,
-            ss_vec=_crystfel_format_vec(self.ss_vec),
-            fs_vec=_crystfel_format_vec(self.fs_vec),
-            corner_x=c[0],
-            corner_y=c[1],
-            coffset=c[2],
         )
 
     def snap(self, px_shape=np.array([1., 1.])):
@@ -280,7 +248,7 @@ class DetectorGeometryBase:
             should be added by their index, e.g.
             ('frame', 'modno', 0, 'ss', 'fs') for raw data.
             Default: ``('frame', 'modno', 'ss', 'fs')``.
-            Note: the dimensions must contain frame, modno, ss, fs.
+            Note: the dimensions must contain frame, ss, fs.
         adu_per_ev : float
             ADU (analog digital units) per electron volt for the considered
             detector.
@@ -289,61 +257,10 @@ class DetectorGeometryBase:
         photon_energy : float
             Beam wave length in eV
         """
-        from . import __version__
-
-        if adu_per_ev is None:
-            adu_per_ev_str = '; adu_per_eV = SET ME'
-            # TODO: adu_per_ev should be fixed for each detector, we should
-            #       find out the values and set them.
-        else:
-            adu_per_ev_str = 'adu_per_eV = {}'.format(adu_per_ev)
-
-        if clen is None:
-            clen_str = '; clen = SET ME'
-        else:
-            clen_str = 'clen = {}'.format(clen)
-
-        if photon_energy is None:
-            photon_energy_str = '; photon_energy = SET ME'
-        else:
-            photon_energy_str = 'photon_energy = {}'.format(photon_energy)
-
-        # Get the frame dimension
-        tile_dims = {}
-
-        frame_dim = None
-        for nn, dim_name in enumerate(dims):
-            if dim_name == 'frame':
-                frame_dim = 'dim{} = %'.format(nn)
-            else:
-                tile_dims[nn] = dim_name
-        if frame_dim is None:
-            raise ValueError('No frame dimension given')
-
-        panel_chunks = []
-        for p, module in enumerate(self.modules):
-            for a, fragment in enumerate(module):
-                ss_slice, fs_slice = self._tile_slice(a)
-                panel_chunks.append(fragment.to_crystfel_geom(
-                    p, a, ss_slice, fs_slice, tile_dims
-                ))
-        resolution = 1.0 / self.pixel_size  # Pixels per metre
-        paths = dict(data=data_path)
-        if mask_path:
-            paths['mask'] = mask_path
-        path_str = '\n'.join('{} = {} ;'.format(i, j) for i, j in paths.items())
-        with open(filename, 'w') as f:
-            f.write(CRYSTFEL_HEADER_TEMPLATE.format(version=__version__,
-                                                    paths=path_str,
-                                                    frame_dim=frame_dim,
-                                                    resolution=resolution,
-                                                    adu_per_ev=adu_per_ev_str,
-                                                    clen=clen_str,
-                                                    photon_energy=photon_energy_str))
-            rigid_groups = self._get_rigid_groups()
-            f.write(rigid_groups)
-            for chunk in panel_chunks:
-                f.write(chunk)
+        write_crystfel_geom(
+            self, filename, data_path=data_path, mask_path=mask_path, dims=dims,
+            adu_per_ev=adu_per_ev, clen=clen, photon_energy=photon_energy,
+        )
 
         if self.filename == 'No file':
             self.filename = filename
@@ -1049,45 +966,6 @@ class SnappedGeometry:
         ax.hlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         ax.vlines(0, -cross_size, +cross_size, colors='w', linewidths=1)
         return ax
-
-
-CRYSTFEL_HEADER_TEMPLATE = """\
-; AGIPD-1M geometry file written by karabo_data {version}
-; You may need to edit this file to add:
-; - data and mask locations in the file
-; - mask_good & mask_bad values to interpret the mask
-; - adu_per_eV & photon_energy
-; - clen (detector distance)
-;
-; See: http://www.desy.de/~twhite/crystfel/manual-crystfel_geometry.html
-
-{paths}
-{frame_dim}
-res = {resolution} ; pixels per metre
-
-; Beam energy in eV
-{photon_energy}
-
-; Camera length, aka detector distance
-{clen}
-
-; Analogue Digital Units per eV
-{adu_per_ev}
-"""
-
-
-CRYSTFEL_PANEL_TEMPLATE = """
-{dims}
-{name}/min_fs = {min_fs}
-{name}/min_ss = {min_ss}
-{name}/max_fs = {max_fs}
-{name}/max_ss = {max_ss}
-{name}/fs = {fs_vec}
-{name}/ss = {ss_vec}
-{name}/corner_x = {corner_x}
-{name}/corner_y = {corner_y}
-{name}/coffset = {coffset}
-"""
 
 
 class LPD_1MGeometry(DetectorGeometryBase):
