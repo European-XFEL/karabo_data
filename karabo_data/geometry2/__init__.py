@@ -145,7 +145,16 @@ class DetectorGeometryBase:
         self.filename = filename
         self._snapped_cache = None
 
-    def inspect(self, frontview=True):
+    def _get_plot_scale_factor(self, axis_units):
+        if axis_units == 'm':
+            return 1
+        elif axis_units == 'px':
+            return 1 / self.pixel_size
+        else:
+            raise ValueError("axis_units must be 'px' or 'm', not {!r}"
+                             .format(axis_units))
+
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Figure object.
@@ -153,6 +162,8 @@ class DetectorGeometryBase:
         import matplotlib.pyplot as plt
         from matplotlib.collections import PatchCollection, LineCollection
         from matplotlib.patches import Polygon
+
+        scale = self._get_plot_scale_factor(axis_units)
 
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
@@ -162,12 +173,12 @@ class DetectorGeometryBase:
         for module in self.modules:
             for t, fragment in enumerate(module, start=1):
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
-                rects.append(Polygon(corners))
+                rects.append(Polygon(corners * scale))
 
                 if t == self._draw_first_px_on_tile:
                     # Find the ends of the first row in reading order
-                    c1 = fragment.corner_pos
-                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels)
+                    c1 = fragment.corner_pos * scale
+                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels * scale)
                     first_rows.append((c1[:2], c2[:2]))
 
         # Add tile shapes
@@ -184,15 +195,17 @@ class DetectorGeometryBase:
         ))
         ax.legend()
 
+        cross_size = 0.02 * scale
+
         # Draw cross in the centre.
-        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
-        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+        ax.hlines(0, -cross_size, +cross_size, colors='0.75', linewidths=2)
+        ax.vlines(0, -cross_size, +cross_size, colors='0.75', linewidths=2)
 
         if frontview:
             ax.invert_xaxis()
 
-        ax.set_xlabel('metres')
-        ax.set_ylabel('metres')
+        ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
+        ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
 
         return ax
 
@@ -627,7 +640,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
                 ))
         return cls(modules)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -635,22 +648,25 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[4].centre()
+            cx, cy, _ = module[4].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [0, 7]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')
@@ -1127,7 +1143,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
         return cls(modules, filename=path)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -1135,22 +1151,25 @@ class LPD_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[0].centre()
+            cx, cy, _ = module[0].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [7, 8, 15]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')
@@ -1349,7 +1368,7 @@ class DSSC_1MGeometry(DetectorGeometryBase):
 
         return cls(modules, filename=path)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -1357,22 +1376,25 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[0].centre()
+            cx, cy, _ = module[0].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [1]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')
