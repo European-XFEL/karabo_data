@@ -248,7 +248,7 @@ class DetectorGeometryBase:
             should be added by their index, e.g.
             ('frame', 'modno', 0, 'ss', 'fs') for raw data.
             Default: ``('frame', 'modno', 'ss', 'fs')``.
-            Note: the dimensions must contain frame, modno, ss, fs.
+            Note: the dimensions must contain frame, ss, fs.
         adu_per_ev : float
             ADU (analog digital units) per electron volt for the considered
             detector.

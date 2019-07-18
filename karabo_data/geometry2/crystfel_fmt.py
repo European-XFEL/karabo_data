@@ -1,4 +1,4 @@
-"""Read and write geometry in CrystFEL format.
+"""Write geometry in CrystFEL format.
 """
 
 HEADER_TEMPLATE = """\
@@ -115,6 +115,15 @@ def write_crystfel_geom(self, filename, *,
     for p, module in enumerate(self.modules):
         for a, fragment in enumerate(module):
             ss_slice, fs_slice = self._tile_slice(a)
+            if 'modno' not in dims:
+                # If we don't have a modno dimension, assume modules are
+                # concatenated along the slow-scan dim, e.g. AGIPD (8192, 128)
+                module_offset = p * self.expected_data_shape[1]
+                ss_slice = slice(
+                    ss_slice.start + module_offset,
+                    ss_slice.stop + module_offset
+                )
+
             panel_chunks.append(frag_to_crystfel(
                 fragment, p, a, ss_slice, fs_slice, tile_dims
             ))
