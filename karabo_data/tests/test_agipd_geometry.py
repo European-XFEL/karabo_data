@@ -68,6 +68,7 @@ def test_write_read_crystfel_file_2d(tmpdir):
     geom_dict = load_crystfel_geometry(path)
 
     p3a7 = geom_dict['panels']['p3a7']
+    assert p3a7['dim_structure'] == ['%', 'ss', 'fs']
     assert p3a7['min_ss'] == (3 * 512) + 448
     assert p3a7['max_ss'] == (3 * 512) + 511
     assert p3a7['min_fs'] == 0
