@@ -289,7 +289,7 @@ class DetectorGeometryBase:
         photon_energy : float
             Beam wave length in eV
         """
-        from . import __version__
+        from .. import __version__
 
         if adu_per_ev is None:
             adu_per_ev_str = '; adu_per_eV = SET ME'
