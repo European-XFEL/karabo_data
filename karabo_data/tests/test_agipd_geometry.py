@@ -1,5 +1,6 @@
 
 from cfelpyutils.crystfel_utils import load_crystfel_geometry
+from itertools import product
 from matplotlib.axes import Axes
 import numpy as np
 
@@ -35,10 +36,9 @@ def test_write_read_crystfel_file(tmpdir):
 
     # Load the geometry file with cfelpyutils and test the rigid groups
     geom_dict = load_crystfel_geometry(path)
-    quad_gr0 = ['p0a0', 'p0a1', 'p0a2', 'p0a3', 'p0a4', 'p0a5', 'p0a6', 'p0a7',
-               'p1a0', 'p1a1', 'p1a2', 'p1a3', 'p1a4', 'p1a5', 'p1a6', 'p1a7',
-               'p2a0', 'p2a1', 'p2a2', 'p2a3', 'p2a4', 'p2a5', 'p2a6', 'p2a7',
-               'p3a0', 'p3a1', 'p3a2', 'p3a3', 'p3a4', 'p3a5', 'p3a6', 'p3a7']
+    quad_gr0 = [  # 1st quadrant: p0a0 ... p3a7
+        'p{}a{}'.format(p, a) for p, a in product(range(4), range(8))
+    ]
     assert geom_dict['rigid_groups']['p0'] == quad_gr0[:8]
     assert geom_dict['rigid_groups']['p3'] == quad_gr0[-8:]
     assert geom_dict['rigid_groups']['q0'] == quad_gr0
