@@ -577,6 +577,11 @@ def test_stack_detector_data_virtual(mock_fxe_raw_run):
     assert (pulse[7] == 22).all()
     assert (pulse[5] == 22).all()
 
+    pulse_arr = pulse.asarray()
+    assert pulse_arr.shape == (16, 256, 256)
+    assert pulse_arr.max() == 22
+    assert pulse_arr.min() == 0
+
 
 def test_stack_detector_data_wrong_pulses(mock_fxe_raw_run):
     test_run = RunDirectory(mock_fxe_raw_run)

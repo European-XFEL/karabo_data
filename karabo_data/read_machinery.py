@@ -266,3 +266,14 @@ class VirtualStack:
         new_mod_shape = list(new_data.values())[0].shape
         return VirtualStack(new_data, self._nmodules, new_mod_shape, self.dtype,
                             self._fillvalue)
+
+    def asarray(self):
+        """Copy this data into a real numpy array
+
+        Don't do this until necessary - the point of using VirtualStack is to
+        avoid copying the data unnecessarily.
+        """
+        arr = np.full(self.shape, self._fillvalue, dtype=self.dtype)
+        for modno, data in self._data.items():
+            arr[..., modno, :, :] = data
+        return arr
