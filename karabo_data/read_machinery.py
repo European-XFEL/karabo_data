@@ -210,8 +210,8 @@ def find_proposal(propno):
 class VirtualStack:
     """'Virtual' array for stacking detector data with modules on axis -3
 
-    Access is limited to a single module at a time, but this is enough to
-    assemble detector images.
+    Access is limited to either a single module at a time or all modules
+    together, but this is enough to assemble detector images.
     """
     def __init__(self, data, nmodules, mod_shape, dtype, fillvalue):
         self._nmodules = nmodules
@@ -224,6 +224,9 @@ class VirtualStack:
 
     # Multidimensional slicing
     def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            item = (item,)
+
         missing_dims = self.ndim - len(item)
         if Ellipsis in item:
             ix = item.index(Ellipsis)
@@ -233,19 +236,33 @@ class VirtualStack:
             item = item + (slice(None, None),) * missing_dims
 
         modno = item[-3]
-        if not isinstance(modno, int):
-            raise Exception("VirtualStack only supports slicing a single module")
+        mod_slices = item[:-3] + item[-2:]
 
-        if modno < 0:
-            modno += self._nmodules
+        if isinstance(modno, int):
+            if modno < 0:
+                modno += self._nmodules
+            return self._get_single_mod(modno, mod_slices)
+        elif modno == slice(None, None):
+            return self._get_all_mods(mod_slices)
+        else:
+            raise Exception(
+                "VirtualStack can only slice a single module or all modules"
+            )
 
+    def _get_single_mod(self, modno, mod_slices):
         try:
-            mod_data  =self._data[modno]
+            mod_data = self._data[modno]
         except KeyError:
             if modno > self._nmodules:
                 raise IndexError(modno)
             mod_data = np.full(self._mod_shape, self._fillvalue, self.dtype)
 
         # Now slice the module data as requested
-        mod_slice = item[:-3] + item[-2:]
-        return mod_data[mod_slice]
+        return mod_data[mod_slices]
+
+    def _get_all_mods(self, mod_slices):
+        new_data = {modno: self._get_single_mod(modno, mod_slices)
+                    for modno in self._data}
+        new_mod_shape = list(new_data.values())[0].shape
+        return VirtualStack(new_data, self._nmodules, new_mod_shape, self.dtype,
+                            self._fillvalue)

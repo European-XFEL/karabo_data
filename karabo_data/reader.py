@@ -1291,7 +1291,7 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
     if not train:
         raise ValueError("No data")
 
-    dtypes, shapes, skip = set(), set(), set()
+    dtypes, shapes, empty_mods = set(), set(), set()
     modno_arrays = {}
     for device in train:
         det_mod_match = re.search(r'/DET/(\d+)CH', device)
@@ -1313,7 +1313,9 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
         s1, s2, *_ = sorted(shapes)
         if len(shapes) > 2 or (s1[0] != 0) or (s1[1:] != s2[1:]):
             raise ValueError("Arrays have mismatched shapes: {}".format(shapes))
-        skip = {n for n, a in modno_arrays.items() if a.shape == s1}
+        empty_mods = {n for n, a in modno_arrays.items() if a.shape == s1}
+        for modno in empty_mods:
+            del modno_arrays[modno]
         shapes.remove(s1)
     if max(modno_arrays) >= modules:
         raise IndexError("Module {} is out of range for a detector with {} modules"
@@ -1327,8 +1329,6 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
     else:
         combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
         for modno, array in modno_arrays.items():
-            if modno in skip:
-                continue
             combined[modno] = array
 
         return np.moveaxis(combined, 0, axis)

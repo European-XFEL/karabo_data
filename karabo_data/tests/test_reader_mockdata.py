@@ -569,6 +569,14 @@ def test_stack_detector_data_virtual(mock_fxe_raw_run):
     assert (comb[:, :, 7] == 22).all()  # Key missing
     assert (comb[:, :, 5] == 22).all()  # Empty array
 
+    # Slice across all modules
+    pulse = comb[0, 0]
+    assert pulse.shape == (16, 256, 256)
+    assert not (pulse[0] == 22).any()
+    assert (pulse[3] == 22).all()
+    assert (pulse[7] == 22).all()
+    assert (pulse[5] == 22).all()
+
 
 def test_stack_detector_data_wrong_pulses(mock_fxe_raw_run):
     test_run = RunDirectory(mock_fxe_raw_run)
