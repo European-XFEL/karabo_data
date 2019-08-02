@@ -20,8 +20,7 @@ class GeometryFragment:
     the slow scan dimension and fs_pixels in the fast scan dimension.
     ss_vec and fs_vec are vectors for a step of one pixel in each dimension.
 
-    The coordinates in this class are (x, y, z), in pixel units, so the
-    magnitude of fs_vec and ss_vec should be 1.
+    The coordinates in this class are (x, y, z), in metres.
     """
 
     def __init__(self, corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels):
@@ -33,9 +32,10 @@ class GeometryFragment:
 
     @classmethod
     def from_panel_dict(cls, d):
-        corner_pos = np.array([d['cnx'], d['cny'], d['coffset']])
-        ss_vec = np.array([d['ssx'], d['ssy'], d['ssz']])
-        fs_vec = np.array([d['fsx'], d['fsy'], d['fsz']])
+        res = d['res']
+        corner_pos = np.array([d['cnx'], d['cny'], d['coffset']]) / res
+        ss_vec = np.array([d['ssx'], d['ssy'], d['ssz']]) / res
+        fs_vec = np.array([d['fsx'], d['fsy'], d['fsz']]) / res
         ss_pixels = d['max_ss'] - d['min_ss'] + 1
         fs_pixels = d['max_fs'] - d['min_fs'] + 1
         return cls(corner_pos, ss_vec, fs_vec, ss_pixels, fs_pixels)
@@ -55,7 +55,7 @@ class GeometryFragment:
             + (0.5 * self.fs_vec * self.fs_pixels)
         )
 
-    def snap(self, px_shape=np.array([1., 1.])):
+    def snap(self, px_shape):
         # Round positions and vectors to integers, drop z dimension
         corner_pos = np.around(self.corner_pos[:2] / px_shape).astype(np.int32)
         ss_vec = np.around(self.ss_vec[:2] / px_shape).astype(np.int32)
@@ -126,12 +126,16 @@ class DetectorGeometryBase:
     n_modules = 0
     n_tiles_per_module = 0
     expected_data_shape = (0, 0, 0)
-    _pixel_shape = np.array([1., 1.])  # Overridden for DSSC
     _pixel_corners = np.array([  # pixel units; overridden for DSSC
         [0, 1, 1, 0],  # slow-scan
         [0, 0, 1, 1]   # fast-scan
     ])
     _draw_first_px_on_tile = 1  # Tile num of 1st pixel - overridden for LPD
+
+    @property
+    def _pixel_shape(self):
+        """Pixel (x, y) shape. Overridden for DSSC."""
+        return np.array([1., 1.], dtype=np.float64) * self.pixel_size
 
     def __init__(self, modules, filename='No file'):
         # List of lists (1 per module) of fragments (1 per tile)
@@ -141,7 +145,16 @@ class DetectorGeometryBase:
         self.filename = filename
         self._snapped_cache = None
 
-    def inspect(self, frontview=True):
+    def _get_plot_scale_factor(self, axis_units):
+        if axis_units == 'm':
+            return 1
+        elif axis_units == 'px':
+            return 1 / self.pixel_size
+        else:
+            raise ValueError("axis_units must be 'px' or 'm', not {!r}"
+                             .format(axis_units))
+
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Figure object.
@@ -149,6 +162,8 @@ class DetectorGeometryBase:
         import matplotlib.pyplot as plt
         from matplotlib.collections import PatchCollection, LineCollection
         from matplotlib.patches import Polygon
+
+        scale = self._get_plot_scale_factor(axis_units)
 
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(1, 1, 1)
@@ -158,12 +173,12 @@ class DetectorGeometryBase:
         for module in self.modules:
             for t, fragment in enumerate(module, start=1):
                 corners = fragment.corners()[:, :2]  # Drop the Z dimension
-                rects.append(Polygon(corners))
+                rects.append(Polygon(corners * scale))
 
                 if t == self._draw_first_px_on_tile:
                     # Find the ends of the first row in reading order
-                    c1 = fragment.corner_pos
-                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels)
+                    c1 = fragment.corner_pos * scale
+                    c2 = c1 + (fragment.fs_vec * fragment.fs_pixels * scale)
                     first_rows.append((c1[:2], c2[:2]))
 
         # Add tile shapes
@@ -180,12 +195,17 @@ class DetectorGeometryBase:
         ))
         ax.legend()
 
+        cross_size = 0.02 * scale
+
         # Draw cross in the centre.
-        ax.hlines(0, -100, +100, colors='0.75', linewidths=2)
-        ax.vlines(0, -100, +100, colors='0.75', linewidths=2)
+        ax.hlines(0, -cross_size, +cross_size, colors='0.75', linewidths=2)
+        ax.vlines(0, -cross_size, +cross_size, colors='0.75', linewidths=2)
 
         if frontview:
             ax.invert_xaxis()
+
+        ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
+        ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
 
         return ax
 
@@ -375,8 +395,8 @@ class DetectorGeometryBase:
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
 
                 # Which part of the array is this tile?
                 tile_ss_slice, tile_fs_slice = self._distortion_array_slice(m, t)
@@ -461,9 +481,9 @@ class DetectorGeometryBase:
 
         for m, mod in enumerate(self.modules, start=0):
             for t, tile in enumerate(mod, start=0):
-                corner_x, corner_y, corner_z = tile.corner_pos * self.pixel_size
-                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec * self.pixel_size
-                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec * self.pixel_size
+                corner_x, corner_y, corner_z = tile.corner_pos
+                ss_unit_x, ss_unit_y, ss_unit_z = tile.ss_vec
+                fs_unit_x, fs_unit_y, fs_unit_z = tile.fs_vec
 
                 # Calculate coordinates of each pixel's first corner
                 # 2D arrays, shape: (64, 128)
@@ -524,13 +544,13 @@ class DetectorGeometryBase:
         # each set of coordinates.
         tiles_corner_pos = np.stack([
             t.corner_pos for m in self.modules for t in m
-        ]) * self.pixel_size
+        ])
         tiles_ss_vec = np.stack([
             t.ss_vec for m in self.modules for t in m
-        ]) * self.pixel_size
+        ])
         tiles_fs_vec = np.stack([
             t.fs_vec for m in self.modules for t in m
-        ]) * self.pixel_size
+        ])
 
         # Convert coordinates within each module to coordinates in a tile
         tilenos, tile_ss, tile_fs = self._module_coords_to_tile(slow_scan, fast_scan)
@@ -552,8 +572,7 @@ class DetectorGeometryBase:
 class AGIPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for AGIPD-1M
 
-    The coordinates used in this class are 3D (x, y, z), and represent multiples
-    of the pixel size.
+    The coordinates used in this class are 3D (x, y, z), and represent metres.
 
     You won't normally instantiate this class directly:
     use one of the constructor class methods to create or load a geometry.
@@ -584,9 +603,15 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         as the length of the unit in metres.
         E.g. ``unit=1e-3`` means the coordinates are in millimetres.
         """
-        px_conversion = unit / cls.pixel_size
-        asic_gap *= px_conversion
-        panel_gap *= px_conversion
+        asic_gap_px = asic_gap * unit / cls.pixel_size
+        panel_gap_px = panel_gap * unit / cls.pixel_size
+
+        # How much space one tile takes up, including the gaps
+        # separating it from its neighbour.
+        # In the y dimension, 128 px + gap between modules
+        module_height = (cls.frag_fs_pixels + panel_gap_px) * cls.pixel_size
+        # In x, 64 px + gap between tiles (asics)
+        tile_width = (cls.frag_ss_pixels + asic_gap_px) * cls.pixel_size
 
         quads_x_orientation = [1, 1, -1, -1]
         quads_y_orientation = [-1, -1, 1, 1]
@@ -597,25 +622,25 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
             x_orient = quads_x_orientation[quad]
             y_orient = quads_y_orientation[quad]
             p_in_quad = p % 4
-            corner_y = (quad_corner[1] * px_conversion)\
-                       - (p_in_quad * (cls.frag_fs_pixels + panel_gap))
+            corner_y = (quad_corner[1] * unit)\
+                       - (p_in_quad * module_height)
 
             tiles = []
             modules.append(tiles)
 
             for a in range(8):
-                corner_x = (quad_corner[0] * px_conversion)\
-                           + x_orient * (cls.frag_ss_pixels + asic_gap) * a
+                corner_x = (quad_corner[0] * unit)\
+                           + x_orient * tile_width * a
                 tiles.append(GeometryFragment(
                     corner_pos=np.array([corner_x, corner_y, 0.]),
-                    ss_vec=np.array([x_orient, 0, 0]),
-                    fs_vec=np.array([0, y_orient, 0]),
+                    ss_vec=np.array([x_orient, 0, 0]) * unit,
+                    fs_vec=np.array([0, y_orient, 0]) * unit,
                     ss_pixels=cls.frag_ss_pixels,
                     fs_pixels=cls.frag_fs_pixels,
                 ))
         return cls(modules)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -623,22 +648,25 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[4].centre()
+            cx, cy, _ = module[4].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [0, 7]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')
@@ -792,7 +820,7 @@ class AGIPD_1MGeometry(DetectorGeometryBase):
         for module in self.modules:
             for tile in module:
                 corners.append(tile.corners())
-        corners = np.concatenate(corners)[:, :2]
+        corners = np.concatenate(corners)[:, :2] / self._pixel_shape
 
         # Find extremes, add 1 px margin to allow for rounding errors
         min_xy = corners.min(axis=0).astype(int) - 1
@@ -949,8 +977,7 @@ class SnappedGeometry:
 class LPD_1MGeometry(DetectorGeometryBase):
     """Detector layout for LPD-1M
 
-    The coordinates used in this class are 3D (x, y, z), and represent multiples
-    of the pixel size.
+    The coordinates used in this class are 3D (x, y, z), and represent metres.
 
     You won't normally instantiate this class directly:
     use one of the constructor class methods to create or load a geometry.
@@ -1000,19 +1027,24 @@ class LPD_1MGeometry(DetectorGeometryBase):
         # How much space one panel/module takes up, including the 'panel gap'
         # separating it from its neighbour.
         # In the x dimension, we have only one asic gap (down the centre)
-        panel_width = 256 + asic_gap_px + panel_gap_px
+        panel_width = (256 + asic_gap_px + panel_gap_px) * cls.pixel_size
         # In y, we have 7 gaps between the 8 ASICs in each column.
-        panel_height = 256 + (7 * asic_gap_px) + panel_gap_px
+        panel_height = (256 + (7 * asic_gap_px) + panel_gap_px) * cls.pixel_size
 
-        tile_size = np.array([cls.frag_fs_pixels, cls.frag_ss_pixels, 0])
+        # How much space does one tile take up, including gaps to its neighbours?
+        tile_width = (cls.frag_fs_pixels + asic_gap_px) * cls.pixel_size
+        tile_height = (cls.frag_ss_pixels + asic_gap_px) * cls.pixel_size
+
+        # Size of a tile from corner to corner, excluding gaps
+        tile_size = np.array([cls.frag_fs_pixels, cls.frag_ss_pixels, 0]) * cls.pixel_size
 
         panels_across = [-1, -1, 0, 0]
         panels_up = [0, -1, -1, 0]
         modules = []
         for p in range(cls.n_modules):
             quad = p // 4
-            quad_corner_x = quad_pos[quad][0] * px_conversion
-            quad_corner_y = quad_pos[quad][1] * px_conversion
+            quad_corner_x = quad_pos[quad][0] * unit
+            quad_corner_y = quad_pos[quad][1] * unit
 
             p_in_quad = p % 4
             # Top beam-left corner of panel
@@ -1034,15 +1066,15 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
                 tile_last_corner = (
                     np.array([panel_corner_x, panel_corner_y, 0.0])
-                    + np.array([across, 0, 0]) * (cls.frag_fs_pixels + asic_gap_px)
-                    + np.array([0, up, 0]) * (cls.frag_ss_pixels + asic_gap_px)
+                    + np.array([across, 0, 0]) * tile_width
+                    + np.array([0, up, 0]) * tile_height
                 )
                 tile_first_corner = tile_last_corner - tile_size
 
                 tiles.append(GeometryFragment(
                     corner_pos=tile_first_corner,
-                    ss_vec=np.array([0, 1, 0]),
-                    fs_vec=np.array([1, 0, 0]),
+                    ss_vec=np.array([0, 1, 0]) * cls.pixel_size,
+                    fs_vec=np.array([1, 0, 0]) * cls.pixel_size,
                     ss_pixels=cls.frag_ss_pixels,
                     fs_pixels=cls.frag_fs_pixels,
                 ))
@@ -1089,12 +1121,13 @@ class LPD_1MGeometry(DetectorGeometryBase):
                     tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
                     corner_pos[:2] = quad_pos + mod_offset + tile_offset
 
-                    # Convert units (mm) to pixels
-                    corner_pos *= unit / cls.pixel_size
+                    # Convert units (mm) to metres
+                    corner_pos *= unit
 
                     # LPD geometry is measured to the last pixel of each tile.
                     # Subtract tile dimensions for the position of 1st pixel.
-                    ss_vec, fs_vec = np.array([0, 1, 0]), np.array([1, 0, 0])
+                    ss_vec = np.array([0, 1, 0]) * cls.pixel_size
+                    fs_vec = np.array([1, 0, 0]) * cls.pixel_size
                     first_px_pos = (corner_pos
                                     - (ss_vec * cls.frag_ss_pixels)
                                     - (fs_vec * cls.frag_fs_pixels))
@@ -1110,7 +1143,7 @@ class LPD_1MGeometry(DetectorGeometryBase):
 
         return cls(modules, filename=path)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -1118,22 +1151,25 @@ class LPD_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[0].centre()
+            cx, cy, _ = module[0].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [7, 8, 15]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')
@@ -1227,8 +1263,7 @@ def invert_xfel_lpd_geom(path_in, path_out):
 class DSSC_1MGeometry(DetectorGeometryBase):
     """Detector layout for DSSC-1M
 
-    The coordinates used in this class are 3D (x, y, z), and represent multiples
-    of the pixel size.
+    The coordinates used in this class are 3D (x, y, z), and represent metres.
 
     You won't normally instantiate this class directly:
     use one of the constructor class methods to create or load a geometry.
@@ -1242,7 +1277,7 @@ class DSSC_1MGeometry(DetectorGeometryBase):
     expected_data_shape = (16, 128, 512)
     # This stretches the dimensions for the 'snapped' geometry so that its pixel
     # grid matches the aspect ratio of the detector pixels.
-    _pixel_shape = np.array([1., 1.5/np.sqrt(3)])
+    _pixel_shape = np.array([1., 1.5/np.sqrt(3)], dtype=np.float64) * pixel_size
 
     # Pixel corners described clockwise from the top, assuming the reference
     # point for a pixel is outside it, aligned with the top point & left edge.
@@ -1305,13 +1340,13 @@ class DSSC_1MGeometry(DetectorGeometryBase):
                     tile_offset = mod_grp['T{:02}/Position'.format(T)][:2]
                     corner_pos[:2] = quad_pos + mod_offset + tile_offset
 
-                    # Convert units (mm) to pixels
-                    corner_pos *= unit / cls.pixel_size
+                    # Convert units (mm) to metres
+                    corner_pos *= unit
 
                     # Measuring in terms of the step within a row, the
                     # step to the next row of hexagons is 1.5/sqrt(3).
-                    ss_vec = np.array([0, y_orient * 1.5/np.sqrt(3), 0])
-                    fs_vec = np.array([x_orient, 0, 0])
+                    ss_vec = np.array([0, y_orient, 0]) * cls.pixel_size * 1.5/np.sqrt(3)
+                    fs_vec = np.array([x_orient, 0, 0]) * cls.pixel_size
 
                     # Corner position is measured at low-x, low-y corner (bottom
                     # right as plotted). We want the position of the corner
@@ -1333,7 +1368,7 @@ class DSSC_1MGeometry(DetectorGeometryBase):
 
         return cls(modules, filename=path)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='px', frontview=True):
         """Plot the 2D layout of this detector geometry.
 
         Returns a matplotlib Axes object.
@@ -1341,22 +1376,25 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         Parameters
         ----------
 
+        axis_units : str
+          Show the detector scale in pixels ('px') or metres ('m').
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
         """
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
+        scale = self._get_plot_scale_factor(axis_units)
 
         # Label modules and tiles
         for ch, module in enumerate(self.modules):
             s = 'Q{Q}M{M}'.format(Q=(ch // 4) + 1, M=(ch % 4) + 1)
-            cx, cy, _ = module[0].centre()
+            cx, cy, _ = module[0].centre() * scale
             ax.text(cx, cy, s, fontweight='bold',
                     verticalalignment='center',
                     horizontalalignment='center')
 
             for t in [1]:
-                cx, cy, _ = module[t].centre()
+                cx, cy, _ = module[t].centre() * scale
                 ax.text(cx, cy, 'T{}'.format(t + 1),
                         verticalalignment='center',
                         horizontalalignment='center')

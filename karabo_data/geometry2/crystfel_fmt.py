@@ -51,9 +51,9 @@ def _crystfel_format_vec(vec):
     return s
 
 
-def frag_to_crystfel(fragment, p, a, ss_slice, fs_slice, dims):
+def frag_to_crystfel(fragment, p, a, ss_slice, fs_slice, dims, pixel_size):
     tile_name = 'p{}a{}'.format(p, a)
-    c = fragment.corner_pos
+    c = fragment.corner_pos / pixel_size
     dim_list = []
     for num, value in dims.items():
         if value == 'modno':
@@ -69,8 +69,8 @@ def frag_to_crystfel(fragment, p, a, ss_slice, fs_slice, dims):
         max_ss=ss_slice.stop - 1,
         min_fs=fs_slice.start,
         max_fs=fs_slice.stop - 1,
-        ss_vec=_crystfel_format_vec(fragment.ss_vec),
-        fs_vec=_crystfel_format_vec(fragment.fs_vec),
+        ss_vec=_crystfel_format_vec(fragment.ss_vec / pixel_size),
+        fs_vec=_crystfel_format_vec(fragment.fs_vec/ pixel_size),
         corner_x=c[0],
         corner_y=c[1],
         coffset=c[2],
@@ -127,7 +127,7 @@ def write_crystfel_geom(self, filename, *,
                 )
 
             panel_chunks.append(frag_to_crystfel(
-                fragment, p, a, ss_slice, fs_slice, tile_dims
+                fragment, p, a, ss_slice, fs_slice, tile_dims, self.pixel_size
             ))
 
     resolution = 1.0 / self.pixel_size  # Pixels per metre
