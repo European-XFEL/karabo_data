@@ -205,3 +205,47 @@ def find_proposal(propno):
         return d
 
     raise Exception("Couldn't find proposal dir for {!r}".format(propno))
+
+
+class VirtualStack:
+    """'Virtual' array for stacking detector data with modules on axis -3
+
+    Access is limited to a single module at a time, but this is enough to
+    assemble detector images.
+    """
+    def __init__(self, data, nmodules, mod_shape, dtype, fillvalue):
+        self._nmodules = nmodules
+        self._data = data  # {modno: array}
+        self.dtype = dtype
+        self._fillvalue = fillvalue
+        self._mod_shape = mod_shape
+        self.ndim = len(mod_shape) + 1
+        self.shape = mod_shape[:-2] + (nmodules,) + mod_shape[-2:]
+
+    # Multidimensional slicing
+    def __getitem__(self, item):
+        missing_dims = self.ndim - len(item)
+        if Ellipsis in item:
+            ix = item.index(Ellipsis)
+            missing_dims += 1
+            item = item[:ix] + (slice(None, None),) * missing_dims + item[ix+1:]
+        else:
+            item = item + (slice(None, None),) * missing_dims
+
+        modno = item[-3]
+        if not isinstance(modno, int):
+            raise Exception("VirtualStack only supports slicing a single module")
+
+        if modno < 0:
+            modno += self._nmodules
+
+        try:
+            mod_data  =self._data[modno]
+        except KeyError:
+            if modno > self._nmodules:
+                raise IndexError(modno)
+            mod_data = np.full(self._mod_shape, self._fillvalue, self.dtype)
+
+        # Now slice the module data as requested
+        mod_slice = item[:-3] + item[-2:]
+        return mod_data[mod_slice]

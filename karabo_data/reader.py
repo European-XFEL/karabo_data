@@ -1260,8 +1260,8 @@ def stack_data(train, data, axis=-3, xcept=()):
     return np.stack(ordered_arrays, axis=axis)
 
 
-def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=(),
-                        fillvalue=np.nan):
+def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
+                        virtual=False):
     """Stack data from detector modules in a train.
 
     Parameters
@@ -1274,37 +1274,26 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=(),
         Array axis on which you wish to stack (default is -3).
     modules: int
         Number of modules composing a detector (default is 16).
-    only: str
-        Deprecated: Only use devices in train containing this substring.
-    xcept: list
-        Deprecated: list of devices to ignore, if you have recorded slow data
-        with detector data in the same run).
     fillvalue: number
         Value to use in place of data for missing modules. The default is nan
         (not a number) for floating-point data, and 0 for integers.
+    virtual: bool
+        If True, avoid copying the data by making a 'virtual' stack.
+        This is limited compared to a real array, but sufficient for passing
+        to the geometry machinery to assemble images.
 
     Returns
     -------
     combined: numpy.array
         Stacked data for requested data path.
     """
-    if xcept:
-        warn("xcept= parameter is deprecated, use data.select() or "
-             "data.deselect() instead before getting a dict.",
-             UserWarning, stacklevel=2)
-    if only:
-        warn("only= parameter is deprecated, use data.select() or "
-             "data.deselect() instead before getting a dict.",
-             UserWarning, stacklevel=2)
 
-    devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
-
-    if not devices:
-        raise ValueError("No data after filtering by 'only' and 'xcept' arguments.")
+    if not train:
+        raise ValueError("No data")
 
     dtypes, shapes, skip = set(), set(), set()
     modno_arrays = {}
-    for device in devices:
+    for device in train:
         det_mod_match = re.search(r'/DET/(\d+)CH', device)
         if not det_mod_match:
             raise ValueError("Non-detector source: {}".format(device))
@@ -1332,10 +1321,14 @@ def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=(),
 
     dtype = dtypes.pop()
     shape = shapes.pop()
-    combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
-    for modno, array in modno_arrays.items():
-        if modno in skip:
-            continue
-        combined[modno] = array
+    if virtual:
+        from .read_machinery import VirtualStack
+        return VirtualStack(modno_arrays, modules, shape, dtype, fillvalue)
+    else:
+        combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
+        for modno, array in modno_arrays.items():
+            if modno in skip:
+                continue
+            combined[modno] = array
 
-    return np.moveaxis(combined, 0, axis)
+        return np.moveaxis(combined, 0, axis)
