@@ -222,6 +222,11 @@ class VirtualStack:
         self.ndim = len(mod_shape) + 1
         self.shape = mod_shape[:-2] + (nmodules,) + mod_shape[-2:]
 
+    def __repr__(self):
+        return "<VirtualStack (shape={}, {}/{} modules, dtype={})>".format(
+            self.shape, len(self._data), self._nmodules, self.dtype,
+        )
+
     # Multidimensional slicing
     def __getitem__(self, item):
         if not isinstance(item, tuple):
