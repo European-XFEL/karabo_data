@@ -33,7 +33,7 @@ You should have received a copy of the 3-Clause BSD License along with this
 program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 
 from .reader import *
