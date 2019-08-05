@@ -1463,3 +1463,82 @@ class DSSC_Geometry(DSSC_1MGeometry):
         warnings.warn(
             "DSSC_Geometry has been renamed to DSSC_1MGeometry.", stacklevel=2
         )
+
+
+class JF_500KGeometry(DetectorGeometryBase):
+    """Detector layout for Jungfrau-500K,
+       which is a single panel of 2 x 4 ASIC tiles.
+       The ss/fs assignment is the other way around as for AGIPD:
+       y = ss
+       x = fs
+       shape = (ss, fs) = (y, x)
+    """
+    pixel_size = 7.5e-5   # 7.5e-5 metres = 75 micrometer = 0.075 mm
+    frag_ss_pixels = 256  # pixels along slow scan axis within tile
+    frag_fs_pixels = 256  # pixels along fast scan axis within tile
+    expected_data_shape = (1, 512, 1024)
+
+    @classmethod
+    def from_origin(cls, origin_pos=(0,0), asic_gap=2, unit=pixel_size):
+
+        px_conversion = unit / cls.pixel_size
+        asic_gap *= px_conversion
+        x_orient = 1
+        y_orient = 1
+        modules = []
+        tiles = []
+        for a in range(8):
+            row = a // 4     # 0, 1
+            column = a % 4   # 0, 1, 2, 3
+            corner_y = (origin_pos[1] * px_conversion)\
+                       + (cls.frag_fs_pixels + asic_gap) * row
+            corner_x = (origin_pos[0] * px_conversion)\
+                       + (cls.frag_ss_pixels + asic_gap) * column
+            tiles.append(GeometryFragment(
+                corner_pos=np.array([corner_x, corner_y, 0.]),
+                fs_vec=np.array([x_orient, 0, 0]),
+                ss_vec=np.array([0, y_orient, 0]),
+                ss_pixels=cls.frag_ss_pixels,
+                fs_pixels=cls.frag_fs_pixels,
+            ))
+        modules.append(tiles)
+        return cls(modules)
+
+    def inspect(self, frontview=True):
+
+        tiles = self.modules[0]
+        ax = super().inspect(frontview=frontview)
+
+        # Label tiles in the module: A0 to A8
+        for t, tile in enumerate(tiles):
+            s = 'A{T}'.format(T=t)
+            cx, cy, _ = tile.centre()
+            ax.text(cx, cy, s, fontweight='bold',
+                    verticalalignment='center',
+                    horizontalalignment='center')
+
+        ax.set_title('Jungfrau-500K detector geometry ({})'.format(self.filename))
+        return ax
+
+    @staticmethod
+    def split_tiles(module_data):
+        row1, row2 = np.split(module_data, 2, axis=-2)
+        return np.split(row1, 4, axis=-1) + np.split(row2, 4, axis=-1)
+
+
+class JF_1MGeometry(DetectorGeometryBase):
+    """Detector layout for Jungfrau-1M,
+       which is assumed two panels of 2 x 4 ASIC tiles,
+       stacked at the long (4-tile) edge.
+       The ss/fs assignment is the other way around as for AGIPD:
+       y = ss
+       x = fs
+       shape = (ss, fs) = (y, x)
+    """
+    pixel_size = 7.5e-5   # 7.5e-5 metres = 75 micrometer = 0.075 mm
+    frag_ss_pixels = 256  # pixels along slow scan axis within tile
+    frag_fs_pixels = 256  # pixels along fast scan axis within tile
+    expected_data_shape = (2, 512, 1024)
+
+    # TBD: add inter-module gap parameter; check methods for consequences of extra dim
+
