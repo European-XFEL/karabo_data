@@ -286,7 +286,7 @@ class DetectorGeometryBase:
         """
         raise NotImplementedError
 
-    def output_array_for_position_fast(self, extra_shape=()):
+    def output_array_for_position_fast(self, extra_shape=(), dtype=np.float32):
         """Make an empty output array to use with position_modules_fast
 
         You can speed up assembling images by reusing the same output array:
@@ -301,8 +301,10 @@ class DetectorGeometryBase:
           By default, a 2D output array is generated, to assemble a single
           detector image. If you are assembling multiple pulses at once, pass
           ``extra_shape=(nframes,)`` to get a 3D output array.
+        dtype : optional (Default: np.float32)
         """
-        return self._snapped().make_output_array(extra_shape=extra_shape)
+        return self._snapped().make_output_array(extra_shape=extra_shape,
+                                                 dtype=dtype)
 
     def position_modules_fast(self, data, out=None):
         """Assemble data from this detector according to where the pixels are.
