@@ -9,6 +9,8 @@ from karabo_data import RunDirectory
 from karabo_data.components import AGIPD1M, LPD1M
 from karabo_data.exceptions import SourceNameError
 
+log = logging.getLogger(__name__)
+
 
 def _get_detector(data, min_modules):
     for cls in (AGIPD1M, LPD1M):
@@ -65,6 +67,7 @@ def main(argv=None):
     if not os.access(out_dir, os.W_OK):
         sys.exit("ERROR: Don't have write access to {}".format(out_dir))
 
+    log.info("Reading run directory %s", run_dir)
     run = RunDirectory(run_dir)
     det = _get_detector(run, args.min_modules)
     if det is None:
