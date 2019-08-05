@@ -1,6 +1,32 @@
 Release Notes
 =============
 
+0.6
+---
+
+Data access
+~~~~~~~~~~~
+
+- The :ref:`cmd-serve-files` command now takes ``--source`` and ``--key``
+  options to select data to stream. They can be used with exact source names
+  or with glob-style patterns, e.g. ``--source '*/DET/*'`` (:ghpull:`183`).
+- Skip checking that ``.h5`` files in a run directory are HDF5 before trying to
+  open them (:ghpull:`187`). The error is still handled if they are not.
+
+Detector geometry
+~~~~~~~~~~~~~~~~~
+
+- Assembling detector data into images can now reuse an output array - see
+  :meth:`~.AGIPD_1MGeometry.position_modules_fast` and
+  :meth:`~.AGIPD_1MGeometry.output_array_for_position_fast` (:ghpull:`186`).
+- CrystFEL format geometry files can now be written for 2D input arrays with the
+  modules arranged along the slow-scan axis, as used by OnDA (:ghpull:`191`).
+  To do this, pass ``dims=('frame', 'ss', 'fs')`` to
+  :meth:`~.AGIPD_1MGeometry.write_crystfel_geom`.
+- The geometry code has been reworked to use metres internally (:ghpull:`193`),
+  along with other refactorings in :ghpull:`184` and :ghpull:`192`.
+  These changes should not affect the public API.
+
 0.5
 ---
 

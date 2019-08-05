@@ -31,6 +31,8 @@ Check the structure of an EuXFEL run or HDF5 file:
 If it finds problems with the data, the program will produce a list of them and
 exit with status 1.
 
+.. _cmd-serve-files:
+
 ``karabo-bridge-serve-files``
 -----------------------------
 
