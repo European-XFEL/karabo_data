@@ -30,6 +30,6 @@ pulling together the separate modules into a single array.
 If you get data for a train from the main :class:`DataCollection` interface,
 there is also another way to combine detector modules from AGIPD or LPD:
 
-.. currentmodule:: karabo_data.reader
+.. currentmodule:: karabo_data
 
 .. autofunction:: stack_detector_data
