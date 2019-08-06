@@ -1504,10 +1504,10 @@ class JF_500KGeometry(DetectorGeometryBase):
         modules.append(tiles)
         return cls(modules)
 
-    def inspect(self, frontview=True):
+    def inspect(self, axis_units='m', frontview=True):
 
         tiles = self.modules[0]
-        ax = super().inspect(frontview=frontview)
+        ax = super().inspect(axis_units=axis_units, frontview=frontview)
 
         # Label tiles in the module: A0 to A8
         for t, tile in enumerate(tiles):
