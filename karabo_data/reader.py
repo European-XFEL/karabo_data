@@ -1291,6 +1291,9 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
     if not train:
         raise ValueError("No data")
 
+    if virtual and (axis != -3):
+        raise ValueError("With virtual=True, axis must have default value")
+
     dtypes, shapes, empty_mods = set(), set(), set()
     modno_arrays = {}
     for device in train:
