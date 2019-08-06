@@ -1490,9 +1490,9 @@ class JF_500KGeometry(DetectorGeometryBase):
         for a in range(8):
             row = a // 4     # 0, 1
             column = a % 4   # 0, 1, 2, 3
-            corner_y = (origin_pos[1] * px_conversion)\
+            corner_y = (origin_pos[1] * unit)\
                        + (cls.frag_fs_pixels + asic_gap) * row
-            corner_x = (origin_pos[0] * px_conversion)\
+            corner_x = (origin_pos[0] * unit)\
                        + (cls.frag_ss_pixels + asic_gap) * column
             tiles.append(GeometryFragment(
                 corner_pos=np.array([corner_x, corner_y, 0.]),
