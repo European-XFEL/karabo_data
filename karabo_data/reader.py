@@ -36,6 +36,7 @@ from .read_machinery import (
     union_selections,
     contiguous_regions,
     find_proposal,
+    VirtualStack,
 )
 
 __all__ = [
@@ -1291,9 +1292,6 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
     if not train:
         raise ValueError("No data")
 
-    if virtual and (axis != -3):
-        raise ValueError("With virtual=True, axis must have default value")
-
     dtypes, shapes, empty_mods = set(), set(), set()
     modno_arrays = {}
     for device in train:
@@ -1326,12 +1324,10 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
 
     dtype = dtypes.pop()
     shape = shapes.pop()
+    stack = VirtualStack(
+        modno_arrays, modules, shape, dtype, fillvalue, stack_axis=axis
+    )
     if virtual:
-        from .read_machinery import VirtualStack
-        return VirtualStack(modno_arrays, modules, shape, dtype, fillvalue)
-    else:
-        combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
-        for modno, array in modno_arrays.items():
-            combined[modno] = array
+        return stack
 
-        return np.moveaxis(combined, 0, axis)
+    return stack.asarray()

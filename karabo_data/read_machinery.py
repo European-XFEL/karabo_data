@@ -213,14 +213,19 @@ class VirtualStack:
     Access is limited to either a single module at a time or all modules
     together, but this is enough to assemble detector images.
     """
-    def __init__(self, data, nmodules, mod_shape, dtype, fillvalue):
+    def __init__(self, data, nmodules, mod_shape, dtype, fillvalue,
+                 stack_axis=-3):
         self._nmodules = nmodules
         self._data = data  # {modno: array}
         self.dtype = dtype
         self._fillvalue = fillvalue
         self._mod_shape = mod_shape
         self.ndim = len(mod_shape) + 1
-        self.shape = mod_shape[:-2] + (nmodules,) + mod_shape[-2:]
+        self._stack_axis = stack_axis
+        if self._stack_axis < 0:
+            self._stack_axis += self.ndim
+        sax = self._stack_axis
+        self.shape = mod_shape[:sax] + (nmodules,) + mod_shape[sax:]
 
     def __repr__(self):
         return "<VirtualStack (shape={}, {}/{} modules, dtype={})>".format(
@@ -240,8 +245,8 @@ class VirtualStack:
         else:
             item = item + (slice(None, None),) * missing_dims
 
-        modno = item[-3]
-        mod_slices = item[:-3] + item[-2:]
+        modno = item[self._stack_axis]
+        mod_slices = item[:self._stack_axis] + item[self._stack_axis+1:]
 
         if isinstance(modno, int):
             if modno < 0:
@@ -278,7 +283,8 @@ class VirtualStack:
         Don't do this until necessary - the point of using VirtualStack is to
         avoid copying the data unnecessarily.
         """
-        arr = np.full(self.shape, self._fillvalue, dtype=self.dtype)
+        start_shape = (self._nmodules,) + self._mod_shape
+        arr = np.full(start_shape, self._fillvalue, dtype=self.dtype)
         for modno, data in self._data.items():
-            arr[..., modno, :, :] = data
-        return arr
+            arr[modno] = data
+        return np.moveaxis(arr, 0, self._stack_axis)
