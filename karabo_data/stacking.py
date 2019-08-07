@@ -181,7 +181,7 @@ class VirtualStack:
         try:
             mod_data = self._data[modno]
         except KeyError:
-            if modno > self._nmodules:
+            if modno >= self._nmodules:
                 raise IndexError(modno)
             mod_data = np.full(self._mod_shape, self._fillvalue, self.dtype)
 
