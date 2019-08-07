@@ -184,6 +184,7 @@ class VirtualStack:
             if modno >= self._nmodules:
                 raise IndexError(modno)
             mod_data = np.full(self._mod_shape, self._fillvalue, self.dtype)
+            self._data[modno] = mod_data
 
         # Now slice the module data as requested
         return mod_data[mod_slices]
