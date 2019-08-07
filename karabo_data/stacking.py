@@ -151,20 +151,20 @@ class VirtualStack:
         )
 
     # Multidimensional slicing
-    def __getitem__(self, item):
-        if not isinstance(item, tuple):
-            item = (item,)
+    def __getitem__(self, slices):
+        if not isinstance(slices, tuple):
+            slices = (slices,)
 
-        missing_dims = self.ndim - len(item)
-        if Ellipsis in item:
-            ix = item.index(Ellipsis)
+        missing_dims = self.ndim - len(slices)
+        if Ellipsis in slices:
+            ix = slices.index(Ellipsis)
             missing_dims += 1
-            item = item[:ix] + (slice(None, None),) * missing_dims + item[ix+1:]
+            slices = slices[:ix] + (slice(None, None),) * missing_dims + slices[ix + 1:]
         else:
-            item = item + (slice(None, None),) * missing_dims
+            slices = slices + (slice(None, None),) * missing_dims
 
-        modno = item[self._stack_axis]
-        mod_slices = item[:self._stack_axis] + item[self._stack_axis+1:]
+        modno = slices[self._stack_axis]
+        mod_slices = slices[:self._stack_axis] + slices[self._stack_axis + 1:]
 
         if isinstance(modno, int):
             if modno < 0:
