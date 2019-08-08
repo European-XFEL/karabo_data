@@ -903,7 +903,9 @@ class SnappedGeometry:
             out = self.make_output_array(data.shape[:-3], data.dtype)
         else:
             assert out.shape == data.shape[:-3] + self.size_yx
-            assert out.dtype == data.dtype
+            if not np.can_cast(data.dtype, out.dtype, casting='safe'):
+                raise TypeError("{} cannot be safely cast to {}".
+                                format(data.dtype, out.dtype))
 
         for i, module in enumerate(self.modules):
             mod_data = data[..., i, :, :]
