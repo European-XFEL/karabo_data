@@ -3,21 +3,40 @@ from cfelpyutils.crystfel_utils import load_crystfel_geometry
 from itertools import product
 from matplotlib.axes import Axes
 import numpy as np
+import pytest
 
 from karabo_data.geometry2 import AGIPD_1MGeometry
 
 
 def test_snap_assemble_data():
+
+    def check_result(img, centre):
+        assert img.shape == (1256, 1092)
+        assert tuple(centre) == (631, 550)
+        assert np.isnan(img[0, 0])
+        assert img[50, 50] == 0
+
     geom = AGIPD_1MGeometry.from_quad_positions(
         quad_pos=[(-525, 625), (-550, -10), (520, -160), (542.5, 475)]
     )
 
     stacked_data = np.zeros((16, 512, 128))
     img, centre = geom.position_modules_fast(stacked_data)
-    assert img.shape == (1256, 1092)
-    assert tuple(centre) == (631, 550)
-    assert np.isnan(img[0, 0])
-    assert img[50, 50] == 0
+    check_result(img, centre)
+
+    # test unsafe cast with output array
+    stacked_data = np.zeros((16, 512, 128), dtype=np.float64)
+    out = geom.output_array_for_position_fast(dtype=np.float32)
+    with pytest.raises(TypeError):
+        img, centre = geom.position_modules_fast(stacked_data, out=out)
+
+    # test safe cast with output array
+    stacked_data = np.zeros((16, 512, 128), dtype=np.uint16)
+    out = geom.output_array_for_position_fast(dtype=np.float32)
+    img, centre = geom.position_modules_fast(stacked_data, out=out)
+    check_result(img, centre)
+    check_result(out, centre)
+    assert img.dtype == out.dtype == np.float32
 
 
 def test_write_read_crystfel_file(tmpdir):
