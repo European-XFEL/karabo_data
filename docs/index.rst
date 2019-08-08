@@ -2,17 +2,17 @@ Karabo Python data tools
 ========================
 
 **karabo_data** is a Python library for accessing and working with data
-produced at `European XFEL <https://www.xfel.eu/>`_. To install it on
-the Maxwell cluster::
+produced at `European XFEL <https://www.xfel.eu/>`_.
+It is available on our Anaconda installation on the Maxwell cluster::
 
-    module load anaconda/3
-    pip install --user karabo_data
+    module load exfel exfel_anaconda3
 
-If this causes problems for Jupyter, you may need to upgrade
-``ipykernel`` to fix them::
+You can also install it `from PyPI <https://pypi.org/project/karabo-data/>`__
+to use in other environments with Python 3.5 or later::
 
-    pip install --user --upgrade ipykernel
+    pip install karabo_data
 
+If you get a permissions error, add the ``--user`` flag to that command.
 
 Contents:
 
