@@ -54,7 +54,7 @@ def stack_data(train, data, axis=-3, xcept=()):
 
 
 def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
-                        virtual=False):
+                        real_array=True):
     """Stack data from detector modules in a train.
 
     Parameters
@@ -70,10 +70,11 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
     fillvalue: number
         Value to use in place of data for missing modules. The default is nan
         (not a number) for floating-point data, and 0 for integers.
-    virtual: bool
-        If True, avoid copying the data by making a 'virtual' stack.
-        This is limited compared to a real array, but sufficient for passing
-        to the geometry machinery to assemble images.
+    real_array: bool
+        If True (default), copy the data together into a real numpy array.
+        If False, avoid copying the data and return a limited array-like wrapper
+        around the existing arrays. This is sufficient for assembling images
+        using detector geometry, and allows better performance.
 
     Returns
     -------
@@ -116,17 +117,17 @@ def stack_detector_data(train, data, axis=-3, modules=16, fillvalue=np.nan,
 
     dtype = dtypes.pop()
     shape = shapes.pop()
-    stack = VirtualStack(
+    stack = StackView(
         modno_arrays, modules, shape, dtype, fillvalue, stack_axis=axis
     )
-    if virtual:
-        return stack
+    if real_array:
+        return stack.asarray()
 
-    return stack.asarray()
+    return stack
 
 
-class VirtualStack:
-    """'Virtual' array for stacking detector data from several modules.
+class StackView:
+    """Limited array-like object holding detector data from several modules.
 
     Access is limited to either a single module at a time or all modules
     together, but this is enough to assemble detector images.
@@ -193,8 +194,8 @@ class VirtualStack:
         new_data = {modno: self._get_single_mod(modno, mod_slices)
                     for modno in self._data}
         new_mod_shape = list(new_data.values())[0].shape
-        return VirtualStack(new_data, self._nmodules, new_mod_shape, self.dtype,
-                            self._fillvalue)
+        return StackView(new_data, self._nmodules, new_mod_shape, self.dtype,
+                         self._fillvalue)
 
     def asarray(self):
         """Copy this data into a real numpy array

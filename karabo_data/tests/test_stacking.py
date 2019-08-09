@@ -42,7 +42,7 @@ def test_stack_detector_data_missing(mock_fxe_raw_run):
     assert (comb[:, :, 5] == 22).all()  # Empty array
 
 
-def test_stack_detector_data_virtual(mock_fxe_raw_run):
+def test_stack_detector_data_stackview(mock_fxe_raw_run):
     test_run = RunDirectory(mock_fxe_raw_run)
     tid, data = test_run.train_from_id(10000, devices=[('*/DET/*', 'image.data')])
 
@@ -56,7 +56,7 @@ def test_stack_detector_data_virtual(mock_fxe_raw_run):
     for module in missing:
         data[module]['image.data'] = np.zeros((0, 1, 256, 256), dtype=np.uint16)
 
-    comb = stack_detector_data(data, 'image.data', fillvalue=22, virtual=True)
+    comb = stack_detector_data(data, 'image.data', fillvalue=22, real_array=False)
     assert comb.shape == (128, 1, 16, 256, 256)
 
     assert not (comb[:, :, 0] == 22).any()  # Control
