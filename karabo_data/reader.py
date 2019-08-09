@@ -330,8 +330,8 @@ class DataCollection:
         ::
 
             run = Run('/path/to/my/run/r0123')
-            for train_id, data in run.trains():
-                value = data['device']['parameter']
+            for train_id, data in run.select("*/DET/*", "image.data").trains():
+                mod0 = data["FXE_DET_LPD1M-1/DET/0CH0:xtdf"]["image.data"]
 
         Parameters
         ----------
@@ -366,7 +366,7 @@ class DataCollection:
         return iter(TrainIterator(dc, require_all=require_all))
 
     def train_from_id(self, train_id, devices=None):
-        """Get Train data for specified train ID.
+        """Get train data for specified train ID.
 
         Parameters
         ----------
@@ -478,6 +478,12 @@ class DataCollection:
     def get_series(self, source, key):
         """Return a pandas Series for a particular data field.
 
+        ::
+
+            run.get_series("SA1_XTD2_XGM/XGM/DOOCS", "beamPosition.ixPos")
+
+        This only works for 1-dimensional data.
+
         Parameters
         ----------
 
@@ -542,6 +548,16 @@ class DataCollection:
     def get_dataframe(self, fields=None, *, timestamps=False):
         """Return a pandas dataframe for given data fields.
 
+        ::
+
+            df = run.get_dataframe(fields=[
+                ("*_XGM/*", "*.i[xy]Pos"),
+                ("*_XGM/*", "*.photonFlux")
+            ])
+
+        This links together multiple 1-dimensional datasets as columns in a
+        table.
+
         Parameters
         ----------
         fields : dict or list, optional
@@ -566,7 +582,12 @@ class DataCollection:
     def get_array(self, source, key, extra_dims=None, roi=by_index[...]):
         """Return a labelled array for a particular data field.
 
-        The first axis of the returned data will be the train IDs.
+        ::
+
+            run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
+
+        This should work for any data.
+        The first axis of the returned data will be labelled with the train IDs.
 
         Parameters
         ----------
@@ -1020,8 +1041,7 @@ class DataCollection:
         This is *not* the same as `building virtual datasets to combine
         multi-module detector data
         <https://in.xfel.eu/readthedocs/docs/data-analysis-user-documentation/en/latest/datafiles.html#combining-detector-data-from-multiple-modules>`__.
-        That more complex operation will be integrated into karabo_data in the
-        future.
+        See :doc:`agipd_lpd_data` for that.
 
         Creating and reading virtual datasets requires HDF5 version 1.10.
 
@@ -1148,6 +1168,10 @@ class TrainIterator:
 def H5File(path):
     """Open a single HDF5 file generated at European XFEL.
 
+    ::
+
+        file = H5File("RAW-R0017-DA01-S00000.h5")
+
     Returns a :class:`DataCollection` object.
 
     Parameters
@@ -1160,6 +1184,10 @@ def H5File(path):
 
 def RunDirectory(path):
     """Open data files from a 'run' at European XFEL.
+
+    ::
+
+        run = RunDirectory("/gpfs/exfel/exp/XMPL/201750/p700000/raw/r0001")
 
     A 'run' is a directory containing a number of HDF5 files with data from the
     same time period.
@@ -1184,6 +1212,10 @@ RunHandler = RunDirectory
 
 def open_run(proposal, run, data='raw'):
     """Access EuXFEL data on the Maxwell cluster by proposal and run number.
+
+    ::
+
+        run = open_run(proposal=700000, run=1)
 
     Returns a :class:`DataCollection` object.
 
