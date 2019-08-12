@@ -1,10 +1,13 @@
 Reading data files
 ==================
 
-Data is available in *trains*, which arrive ten times per second.
-Each train has a unique train ID, which is used to match up corresponding data
-stored separately. Many data sources will make one reading per train, but some,
-including the main detectors, record data more frequently.
+Opening files
+-------------
+
+You will normally access data from a run, which is stored as a directory
+containing HDF5 files. You can open a run using :func:`RunDirectory` with the
+path of the directory, or using :func:`open_run` with the proposal number and
+run number to look up the standard data paths on the Maxwell cluster.
 
 .. module:: karabo_data
 
@@ -14,24 +17,41 @@ including the main detectors, record data more frequently.
 
    .. versionadded:: 0.5
 
+You can also open a single file. The methods described below all work for either
+a run or a single file.
+
 .. autofunction:: H5File
 
-.. autoclass:: DataCollection
+Data structure
+--------------
+
+A run (or file) contains data from various *sources*, each of which has *keys*.
+For instance, ``SA1_XTD2_XGM/XGM/DOOCS`` is one source, for an 'XGM' device
+which monitors the beam, and its keys include ``beamPosition.ixPos`` and
+``beamPosition.iyPos``.
+
+European XFEL produces ten *pulse trains* per second, each of which can contain
+up to 2700 X-ray pulses. Each pulse train has a unique train ID, which is used
+to refer to all data associated with that 0.1 second window.
+
+.. class:: DataCollection
 
    .. attribute:: train_ids
 
-      A list of the train IDs for which there is any data in this run.
+      A list of the train IDs included in this data.
       The data recorded may not be the same for each train.
 
    .. attribute:: control_sources
 
       A set of the control source names in this data, in the format
-      ``"SA3_XTD10_VAC/TSENS/S30100K"``.
+      ``"SA3_XTD10_VAC/TSENS/S30100K"``. Control data is always recorded
+      exactly once per train.
 
    .. attribute:: instrument_sources
 
       A set of the instrument source names in this data,
       in the format ``"FXE_DET_LPD1M-1/DET/15CH0:xtdf"``.
+      Instrument data may be recorded zero to many times per train.
 
    .. attribute:: all_sources
 
@@ -42,21 +62,65 @@ including the main detectors, record data more frequently.
 
    .. automethod:: info
 
+Getting data by source & key
+----------------------------
+
+Where data will fit into memory, it's usually quickest and most convenient
+to load it like this.
+
+.. seealso::
+
+   :doc:`xpd_examples`
+      Examples of accessing data like this
+
+   `xarray documentation <http://xarray.pydata.org/en/stable/indexing.html>`__
+     How to use the arrays returned by :meth:`~.DataCollection.get_array`
+
+   `pandas documentation <https://pandas.pydata.org/pandas-docs/stable/>`__
+     How to use the objects returned by :meth:`~.DataCollection.get_series` and
+     :meth:`~.DataCollection.get_dataframe`
+
+.. class:: DataCollection
+
+   .. automethod:: get_array
+
+   .. automethod:: get_series
+
+   .. automethod:: get_dataframe
+
+   .. automethod:: get_virtual_dataset
+
+      .. versionadded:: 0.5
+
+Getting data by train
+---------------------
+
+Some kinds of data, e.g. from AGIPD, are too big to load a whole run into
+memory at once. In these cases, it's convenient to load one train at a time.
+
+When accessing data like this, it's worth selecting which sources you're
+interested in, either using :meth:`~.DataCollection.select`, or the ``devices=``
+parameter. This avoids reading all the other data.
+
+.. class:: DataCollection
+
    .. automethod:: trains
 
    .. automethod:: train_from_id
 
    .. automethod:: train_from_index
 
-   .. automethod:: get_dataframe
+Selecting & combining data
+--------------------------
 
-   .. automethod:: get_series
+These methods all return a new :class:`DataCollection` object with the selected
+data, so you use them like this::
 
-   .. automethod:: get_array
+    sel = run.select("*/XGM/*")
+    # sel includes only XGM sources
+    # run still includes all the data
 
-   .. automethod:: get_virtual_dataset
-
-      .. versionadded:: 0.5
+.. class:: DataCollection
 
    .. automethod:: select
 
@@ -65,6 +129,11 @@ including the main detectors, record data more frequently.
    .. automethod:: select_trains
 
    .. automethod:: union
+
+Writing selected data
+---------------------
+
+.. class:: DataCollection
 
    .. automethod:: write
 
