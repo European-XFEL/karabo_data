@@ -133,6 +133,10 @@ class FileAccess:
     def __repr__(self):
         return "{}({})".format(type(self).__name__, repr(self.file))
 
+    @property
+    def all_sources(self):
+        return self.control_sources | self.instrument_sources
+
     def get_index(self, source, group):
         """Get first index & count for a source and for a specific train ID.
 
@@ -769,7 +773,10 @@ class DataCollection:
             seln_or_source_glob = [(seln_or_source_glob, key_glob)]
         selection = self._expand_selection(seln_or_source_glob)
 
-        return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
+        files = [f for f in self.files
+                 if f.all_sources.intersection(selection.keys())]
+
+        return DataCollection(files, selection=selection, train_ids=self.train_ids)
 
     def deselect(self, seln_or_source_glob, key_glob='*'):
         """Select everything except the specified sources and keys.
@@ -799,6 +806,9 @@ class DataCollection:
                 keys = self.keys_for_source(source)
 
             selection[source] = keys - desel_keys
+
+        files = [f for f in self.files
+                 if f.all_sources.intersection(selection.keys())]
 
         return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
 
