@@ -810,7 +810,7 @@ class DataCollection:
         files = [f for f in self.files
                  if f.all_sources.intersection(selection.keys())]
 
-        return DataCollection(self.files, selection=selection, train_ids=self.train_ids)
+        return DataCollection(files, selection=selection, train_ids=self.train_ids)
 
     def select_trains(self, train_range):
         """Select a subset of trains from this data.
