@@ -16,7 +16,7 @@ class RunFilesMap:
     can be stored in:
 
     - (run dir)/karabo_data_map.json
-    - (proposal dir)/scratch/karabo_data_maps/raw_r0032.json
+    - (proposal dir)/scratch/.karabo_data_maps/raw_r0032.json
     """
     cache_file = None
 
@@ -32,7 +32,7 @@ class RunFilesMap:
             prop_dir, raw_proc, run_nr = m.groups()
             fname = '%s_%s.json' % (raw_proc, run_nr)
             self.candidate_paths.append(
-                osp.join(prop_dir, 'scratch', 'karabo_data_maps', fname)
+                osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
             )
 
         self.load()
