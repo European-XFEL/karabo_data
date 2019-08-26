@@ -348,8 +348,6 @@ class DetectorGeometryBase:
                        ax=None,
                        figsize=None,
                        cbar=False,
-                       cax=None,
-                       cbar_args=None,
                        **kwargs):
         """Plot data from the detector using this geometry.
 
@@ -368,22 +366,19 @@ class DetectorGeometryBase:
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
-        ax : `~matplotlib.axes.Axes`, list of Axes, optional
-          Parent axes that will be used to draw the image.
+        ax : `~matplotlib.axes.Axes` object, optional
+          Axes that will be used to draw the image (default: None).
         figsize : tuple
-          Size of the figure to be drawn (default: (10, 10))
-        cbar : bool
-          Whether or not to display a colorbar
-        cax : `~matplotlib.axes.Axes` object, optional
-          Axes into which the colorbar will be drawn. (default: None)
-        cbar_args : dict
-          Additional keyword arguments for customizing the colorbar
+          Size of the figure (width, height) in inches to be drawn (default: (10, 10))
+        cbar : bool, dict
+          Draw colobar with default values (if boolean is given). Colorbar
+          appearance can be controlled by passing a dictionary of properties.
         kwargs :
-          Additional keyword arguments for customizing the plot
+          Additional keyword arguments passed to `~matplotlib.imshow`
         """
         return self._snapped().plot_data(
             data, axis_units=axis_units, frontview=frontview, figsize=figsize,
-            ax=ax, cbar=cbar, cax=cax,  cbar_args=cbar_args, **kwargs
+            ax=ax, cbar=cbar, **kwargs
             )
 
     @classmethod
@@ -962,8 +957,7 @@ class SnappedGeometry:
         return tuple(size), centre
 
     def plot_data(self, modules_data, axis_units='px', frontview=True,
-                  figsize=None, cbar=False, cbar_args=None, cax=None,
-                  ax=None, **kwargs):
+                  figsize=None, cbar=False, ax=None, **kwargs):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
@@ -972,8 +966,6 @@ class SnappedGeometry:
         if axis_units not in {'px', 'm'}:
             raise ValueError("axis_units must be 'px' or 'm', not {!r}"
                              .format(axis_units))
-
-        cbar_args = cbar_args or {}
 
         res, centre = self.position_modules(modules_data)
         min_y, min_x = -centre
@@ -988,20 +980,20 @@ class SnappedGeometry:
         # Use a dark grey for missing data
         _cmap = copy(viridis)
         _cmap.set_bad('0.25', 1.0)
-        for key, default in (('extent', _extent),
-                             ('cmap', _cmap),
-                             ('origin', 'lower')):
-            # Set some default key word arguments for the plot
-            kwargs[key] = kwargs.get(key, default)
-        extent = kwargs.get('extent', _extent)
+
+        kwargs.setdefault('cmap', _cmap)
+        kwargs.setdefault('extent', _extent)
+        kwargs.setdefault('origin', 'lower')
 
         if ax is None:
             fig = plt.figure(figsize=figsize or (10, 10))
             ax = fig.add_subplot(1, 1, 1)
 
         im = ax.imshow(res, **kwargs)
-        if cbar or cbar_args or cax:
-            colorbar = plt.colorbar(im, cax=cax, ax=ax, **cbar_args)
+        if cbar:
+            if isinstance(cbar, bool):
+                cbar = {}
+            colorbar = plt.colorbar(im, ax=ax, **cbar)
 
         ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
         ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
@@ -1449,12 +1441,10 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         return np.split(module_data, 2, axis=-1)
 
     def plot_data_fast(self, data, axis_units='px', frontview=True, ax=None,
-                       figsize=None, cbar=False, cax=None, cbar_args={},
-                       **kwargs):
+                       figsize=None, cbar=False, **kwargs):
 
         ax = super().plot_data_fast(data, axis_units, frontview, ax=ax,
-                figsize=figsize, cbar=cbar, cax=cax, cbar_args=cbar_args,
-                **kwargs)
+                figsize=figsize, cbar=cbar, **kwargs)
         # Squash image to physically equal aspect ratio, so a circle projected
         # on the detector looks like a circle on screen.
         ax.set_aspect(204/236.)
