@@ -34,6 +34,7 @@ from .read_machinery import (
     contiguous_regions,
     find_proposal,
 )
+from .run_files_map import RunFilesMap
 
 __all__ = [
     'H5File',
@@ -71,7 +72,7 @@ class FileAccess:
         Open h5py file object
     """
 
-    def __init__(self, file):
+    def __init__(self, file, _cache_info=None):
         self.file = file
         self.filename = file.filename
 
@@ -83,11 +84,23 @@ class FileAccess:
             # Numbering started at 1.0, so we call the first version 0.5.
             self.format_version = '0.5'
 
-        tid_data = file['INDEX/trainId'][:]
-        self.train_ids = tid_data[tid_data != 0]
+        if _cache_info:
+            self.train_ids = np.array(_cache_info['train_ids'], dtype=np.uint64)
+            self.control_sources = frozenset(_cache_info['control_sources'])
+            self.instrument_sources = frozenset(_cache_info['instrument_sources'])
+        else:
+            tid_data = file['INDEX/trainId'][:]
+            self.train_ids = tid_data[tid_data != 0]
 
-        self.control_sources = set()
-        self.instrument_sources = set()
+            self.control_sources, self.instrument_sources = self._read_data_sources()
+
+        # {(file, source, group): (firsts, counts)}
+        self._index_cache = {}
+        # {source: set(keys)}
+        self._keys_cache = {}
+
+    def _read_data_sources(self):
+        control_sources, instrument_sources = set(), set()
 
         # The list of data sources moved in file format 1.0
         if self.format_version == '0.5':
@@ -95,7 +108,7 @@ class FileAccess:
         else:
             data_sources_path = 'METADATA/dataSources/dataSourceId'
 
-        for source in file[data_sources_path][:]:
+        for source in self.file[data_sources_path][:]:
             if not source:
                 continue
             source = source.decode()
@@ -104,20 +117,14 @@ class FileAccess:
                 device, _, chan_grp = h5_source.partition(':')
                 chan, _, group = chan_grp.partition('/')
                 source = device + ':' + chan
-                self.instrument_sources.add(source)
+                instrument_sources.add(source)
                 # TODO: Do something with groups?
             elif category == 'CONTROL':
-                self.control_sources.add(h5_source)
+                control_sources.add(h5_source)
             else:
                 raise ValueError("Unknown data category %r" % category)
 
-        self.control_sources = frozenset(self.control_sources)
-        self.instrument_sources = frozenset(self.instrument_sources)
-
-        # {(file, source, group): (firsts, counts)}
-        self._index_cache = {}
-        # {source: set(keys)}
-        self._keys_cache = {}
+        return frozenset(control_sources), frozenset(instrument_sources)
 
     def __hash__(self):
         return hash(self.filename)
@@ -229,11 +236,12 @@ class DataCollection:
         self.train_ids = train_ids
 
     @classmethod
-    def from_paths(cls, paths):
+    def from_paths(cls, paths, _files_map=None):
         files = []
         for path in paths:
+            cache_info = _files_map and _files_map.get(path)
             try:
-                fa = FileAccess(h5py.File(path, 'r'))
+                fa = FileAccess(h5py.File(path, 'r'), _cache_info=cache_info)
             except Exception as e:
                 print("Skipping file", path, file=sys.stderr)
                 print("  (error was: {})".format(e), file=sys.stderr)
@@ -1222,8 +1230,12 @@ def RunDirectory(path):
     files = [osp.join(path, f) for f in os.listdir(path) if f.endswith('.h5')]
     if not files:
         raise Exception("No HDF5 files found in {}".format(path))
-    return DataCollection.from_paths(files)
 
+    files_map = RunFilesMap(path)
+    d = DataCollection.from_paths(files, files_map)
+    files_map.save(d.files)
+
+    return d
 
 # RunDirectory was previously RunHandler; we'll leave it accessible in case
 # any code was already using it.
