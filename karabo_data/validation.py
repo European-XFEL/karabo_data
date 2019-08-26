@@ -126,7 +126,7 @@ class RunValidator:
 
         for path in glob(os.path.join(run_dir, '*.h5')):
             try:
-                fa = FileAccess(h5py.File(path, 'r'))
+                fa = FileAccess(path)
             except Exception as e:
                 self.files_excluded.append((path, e))
             else:

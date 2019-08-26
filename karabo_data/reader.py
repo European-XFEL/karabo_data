@@ -71,25 +71,18 @@ class FileAccess:
     file: h5py.File
         Open h5py file object
     """
+    _file = None
+    _format_version = None
 
-    def __init__(self, file, _cache_info=None):
-        self.file = file
-        self.filename = file.filename
-
-        version_ds = file.get('METADATA/dataFormatVersion')
-        if version_ds is not None:
-            self.format_version = version_ds[0].decode('ascii')
-        else:
-            # The first version of the file format had no version number.
-            # Numbering started at 1.0, so we call the first version 0.5.
-            self.format_version = '0.5'
+    def __init__(self, filename, _cache_info=None):
+        self.filename = filename
 
         if _cache_info:
             self.train_ids = np.array(_cache_info['train_ids'], dtype=np.uint64)
             self.control_sources = frozenset(_cache_info['control_sources'])
             self.instrument_sources = frozenset(_cache_info['instrument_sources'])
         else:
-            tid_data = file['INDEX/trainId'][:]
+            tid_data = self.file['INDEX/trainId'][:]
             self.train_ids = tid_data[tid_data != 0]
 
             self.control_sources, self.instrument_sources = self._read_data_sources()
@@ -98,6 +91,30 @@ class FileAccess:
         self._index_cache = {}
         # {source: set(keys)}
         self._keys_cache = {}
+
+    @property
+    def file(self):
+        if self._file is None:
+            self._file = h5py.File(self.filename, 'r')
+        return self._file
+
+    def close(self):
+        if self._file:
+            self._file.close()
+            self._file = None
+
+    @property
+    def format_version(self):
+        if self._format_version is None:
+            version_ds = self.file.get('METADATA/dataFormatVersion')
+            if version_ds is not None:
+                self._format_version = version_ds[0].decode('ascii')
+            else:
+                # The first version of the file format had no version number.
+                # Numbering started at 1.0, so we call the first version 0.5.
+                self._format_version = '0.5'
+
+        return self._format_version
 
     def _read_data_sources(self):
         control_sources, instrument_sources = set(), set()
@@ -241,7 +258,7 @@ class DataCollection:
         for path in paths:
             cache_info = _files_map and _files_map.get(path)
             try:
-                fa = FileAccess(h5py.File(path, 'r'), _cache_info=cache_info)
+                fa = FileAccess(path, _cache_info=cache_info)
             except Exception as e:
                 print("Skipping file", path, file=sys.stderr)
                 print("  (error was: {})".format(e), file=sys.stderr)
@@ -255,7 +272,7 @@ class DataCollection:
 
     @classmethod
     def from_path(cls, path):
-        files = [FileAccess(h5py.File(path, 'r'))]
+        files = [FileAccess(path)]
         return cls(files, ctx_closes=True)
 
     def __enter__(self):
@@ -272,7 +289,7 @@ class DataCollection:
         # Close the files if this collection was created by opening them.
         if self.ctx_closes:
             for file in self.files:
-                file.file.close()
+                file.close()
 
     @property
     def all_sources(self):
