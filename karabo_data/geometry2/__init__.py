@@ -341,7 +341,16 @@ class DetectorGeometryBase:
         """Deprecated alias for :meth:`position_modules_fast`"""
         return self.position_modules_fast(data, out=out)
 
-    def plot_data_fast(self, data, axis_units='px', frontview=True):
+    def plot_data_fast(self,
+                       data,
+                       axis_units='px',
+                       frontview=True,
+                       ax=None,
+                       figsize=None,
+                       cbar=False,
+                       cax=None,
+                       cbar_args=None,
+                       **kwargs):
         """Plot data from the detector using this geometry.
 
         This approximates the geometry to align all pixels to a 2D grid.
@@ -359,10 +368,23 @@ class DetectorGeometryBase:
         frontview : bool
           If True (the default), x increases to the left, as if you were looking
           along the beam. False gives a 'looking into the beam' view.
+        ax : `~matplotlib.axes.Axes`, list of Axes, optional
+          Parent axes that will be used to draw the image.
+        figsize : tuple
+          Size of the figure to be drawn (default: (10, 10))
+        cbar : bool
+          Whether or not to display a colorbar
+        cax : `~matplotlib.axes.Axes` object, optional
+          Axes into which the colorbar will be drawn. (default: None)
+        cbar_args : dict
+          Additional keyword arguments for customizing the colorbar
+        kwargs :
+          Additional keyword arguments for customizing the plot
         """
         return self._snapped().plot_data(
-            data, axis_units=axis_units, frontview=frontview
-        )
+            data, axis_units=axis_units, frontview=frontview, figsize=figsize,
+            ax=ax, cbar=cbar, cax=cax,  cbar_args=cbar_args, **kwargs
+            )
 
     @classmethod
     def _distortion_array_slice(cls, m, t):
@@ -939,7 +961,9 @@ class SnappedGeometry:
         centre = -min_yx
         return tuple(size), centre
 
-    def plot_data(self, modules_data, axis_units='px', frontview=True):
+    def plot_data(self, modules_data, axis_units='px', frontview=True,
+                  figsize=None, cbar=False, cbar_args=None, cax=None,
+                  ax=None, **kwargs):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
@@ -949,23 +973,36 @@ class SnappedGeometry:
             raise ValueError("axis_units must be 'px' or 'm', not {!r}"
                              .format(axis_units))
 
-        fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(1, 1, 1)
-        my_viridis = copy(viridis)
-        # Use a dark grey for missing data
-        my_viridis.set_bad('0.25', 1.0)
+        cbar_args = cbar_args or {}
 
         res, centre = self.position_modules(modules_data)
         min_y, min_x = -centre
         max_y, max_x = np.array(res.shape) - centre
 
-        extent = np.array((min_x - 0.5, max_x + 0.5, min_y - 0.5, max_y + 0.5))
+        _extent = np.array((min_x - 0.5, max_x + 0.5, min_y - 0.5, max_y + 0.5))
         cross_size = 20
         if axis_units == 'm':
-            extent *= self.geom.pixel_size
+            _extent *= self.geom.pixel_size
             cross_size *= self.geom.pixel_size
 
-        ax.imshow(res, origin='lower', cmap=my_viridis, extent=extent)
+        # Use a dark grey for missing data
+        _cmap = copy(viridis)
+        _cmap.set_bad('0.25', 1.0)
+        for key, default in (('extent', _extent),
+                             ('cmap', _cmap),
+                             ('origin', 'lower')):
+            # Set some default key word arguments for the plot
+            kwargs[key] = kwargs.get(key, default)
+        extent = kwargs.get('extent', _extent)
+
+        if ax is None:
+            fig = plt.figure(figsize=figsize or (10, 10))
+            ax = fig.add_subplot(1, 1, 1)
+
+        im = ax.imshow(res, **kwargs)
+        if cbar or cbar_args or cax:
+            colorbar = plt.colorbar(im, cax=cax, ax=ax, **cbar_args)
+
         ax.set_xlabel('metres' if axis_units == 'm' else 'pixels')
         ax.set_ylabel('metres' if axis_units == 'm' else 'pixels')
 
@@ -1411,8 +1448,13 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         # Split into 2 tiles along the fast-scan axis
         return np.split(module_data, 2, axis=-1)
 
-    def plot_data_fast(self, data, axis_units='px', frontview=True):
-        ax = super().plot_data_fast(data, axis_units, frontview)
+    def plot_data_fast(self, data, axis_units='px', frontview=True, ax=None,
+                       figsize=None, cbar=False, cax=None, cbar_args={},
+                       **kwargs):
+
+        ax = super().plot_data_fast(data, axis_units, frontview, ax=ax,
+                figsize=figsize, cbar=cbar, cax=cax, cbar_args=cbar_args,
+                **kwargs)
         # Squash image to physically equal aspect ratio, so a circle projected
         # on the detector looks like a circle on screen.
         ax.set_aspect(204/236.)
