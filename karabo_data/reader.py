@@ -23,7 +23,6 @@ import pandas as pd
 import re
 import sys
 import tempfile
-from warnings import warn
 import xarray
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
@@ -44,8 +43,6 @@ __all__ = [
     'open_run',
     'FileAccess',
     'DataCollection',
-    'stack_data',
-    'stack_detector_data',
     'by_id',
     'by_index',
     'SourceNameError',
@@ -1243,131 +1240,3 @@ def open_run(proposal, run, data='raw'):
         run = 'r' + run.rjust(4, '0')
 
     return RunDirectory(osp.join(prop_dir, data, run))
-
-
-def stack_data(train, data, axis=-3, xcept=()):
-    """Stack data from devices in a train.
-
-    For detector data, use stack_detector_data instead: it can handle missing
-    modules, which this function cannot.
-
-    The returned array will have an extra dimension. The data will be ordered
-    according to any groups of digits in the source name, interpreted as
-    integers. Other characters do not affect sorting. So:
-
-        "B_7_0" < "A_12_0" < "A_12_1"
-
-    Parameters
-    ----------
-    train: dict
-        Train data.
-    data: str
-        The path to the device parameter of the data you want to stack.
-    axis: int, optional
-        Array axis on which you wish to stack.
-    xcept: list
-        List of devices to ignore (useful if you have reccored slow data with
-        detector data in the same run).
-
-    Returns
-    -------
-    combined: numpy.array
-        Stacked data for requested data path.
-    """
-    devices = [dev for dev in train.keys() if dev not in xcept]
-
-    if not devices:
-        raise ValueError("No data after filtering by 'xcept' argument.")
-
-    dtypes, shapes = set(), set()
-    ordered_arrays = []
-    for device in sorted(devices, key=lambda d: list(map(int, re.findall(r'\d+', d)))):
-        array = train[device][data]
-        dtypes.add(array.dtype)
-        ordered_arrays.append(array)
-
-    if len(dtypes) > 1:
-        raise ValueError("Arrays have mismatched dtypes: {}".format(dtypes))
-
-    return np.stack(ordered_arrays, axis=axis)
-
-
-def stack_detector_data(train, data, axis=-3, modules=16, only='', xcept=(),
-                        fillvalue=np.nan):
-    """Stack data from detector modules in a train.
-
-    Parameters
-    ----------
-    train: dict
-        Train data.
-    data: str
-        The path to the device parameter of the data you want to stack, e.g. 'image.data'.
-    axis: int
-        Array axis on which you wish to stack (default is -3).
-    modules: int
-        Number of modules composing a detector (default is 16).
-    only: str
-        Deprecated: Only use devices in train containing this substring.
-    xcept: list
-        Deprecated: list of devices to ignore, if you have recorded slow data
-        with detector data in the same run).
-    fillvalue: number
-        Value to use in place of data for missing modules. The default is nan
-        (not a number) for floating-point data, and 0 for integers.
-
-    Returns
-    -------
-    combined: numpy.array
-        Stacked data for requested data path.
-    """
-    if xcept:
-        warn("xcept= parameter is deprecated, use data.select() or "
-             "data.deselect() instead before getting a dict.",
-             UserWarning, stacklevel=2)
-    if only:
-        warn("only= parameter is deprecated, use data.select() or "
-             "data.deselect() instead before getting a dict.",
-             UserWarning, stacklevel=2)
-
-    devices = [dev for dev in train.keys() if only in dev and dev not in xcept]
-
-    if not devices:
-        raise ValueError("No data after filtering by 'only' and 'xcept' arguments.")
-
-    dtypes, shapes, skip = set(), set(), set()
-    modno_arrays = {}
-    for device in devices:
-        det_mod_match = re.search(r'/DET/(\d+)CH', device)
-        if not det_mod_match:
-            raise ValueError("Non-detector source: {}".format(device))
-        modno = int(det_mod_match.group(1))
-
-        try:
-            array = train[device][data]
-        except KeyError:
-            continue
-        dtypes.add(array.dtype)
-        shapes.add(array.shape)
-        modno_arrays[modno] = array
-
-    if len(dtypes) > 1:
-        raise ValueError("Arrays have mismatched dtypes: {}".format(dtypes))
-    if len(shapes) > 1:
-        s1, s2, *_ = sorted(shapes)
-        if len(shapes) > 2 or (s1[0] != 0) or (s1[1:] != s2[1:]):
-            raise ValueError("Arrays have mismatched shapes: {}".format(shapes))
-        skip = {n for n, a in modno_arrays.items() if a.shape == s1}
-        shapes.remove(s1)
-    if max(modno_arrays) >= modules:
-        raise IndexError("Module {} is out of range for a detector with {} modules"
-                         .format(max(modno_arrays), modules))
-
-    dtype = dtypes.pop()
-    shape = shapes.pop()
-    combined = np.full((modules,) + shape, fillvalue, dtype=dtype)
-    for modno, array in modno_arrays.items():
-        if modno in skip:
-            continue
-        combined[modno] = array
-
-    return np.moveaxis(combined, 0, axis)

@@ -37,8 +37,9 @@ __version__ = "0.6.2"
 
 
 from .reader import *
+from .stacking import *
 from .export import *
 from .utils import *
 
 
-__all__ = export.__all__ + reader.__all__ + utils.__all__
+__all__ = export.__all__ + reader.__all__ + utils.__all__ + stacking.__all__
