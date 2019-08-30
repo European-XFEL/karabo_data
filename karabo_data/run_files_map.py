@@ -74,7 +74,7 @@ class RunFilesMap:
         """Save the cache if needed
 
         This skips writing the cache out if all the data files already have
-        valid cache entries. It is also silences permission errors from writing
+        valid cache entries. It also silences permission errors from writing
         the cache file.
         """
         need_save = False
