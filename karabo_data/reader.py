@@ -452,9 +452,16 @@ class DataCollection:
         return self.train_from_id(int(train_id), devices=devices)
 
     def get_data_counts(self, source, key):
-        """Get a count of data points in each train
+        """Get a count of data points in each train for the given data field.
 
         Returns a pandas series with an index of train IDs.
+
+        Parameters
+        ----------
+        source: str
+            Source name, e.g. "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "image.data".
         """
         self._check_field(source, key)
         seq_series = []
