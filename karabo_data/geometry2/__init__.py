@@ -342,7 +342,7 @@ class DetectorGeometryBase:
         return self.position_modules_fast(data, out=out)
 
     def plot_data_fast(self,
-                       data,
+                       data, *,
                        axis_units='px',
                        frontview=True,
                        ax=None,
@@ -958,8 +958,14 @@ class SnappedGeometry:
         centre = -min_yx
         return tuple(size), centre
 
-    def plot_data(self, modules_data, axis_units='px', frontview=True,
-                  figsize=None, colorbar=False, ax=None, **kwargs):
+    def plot_data(self,
+                  modules_data, *,
+                  axis_units='px',
+                  frontview=True,
+                  ax=None,
+                  figsize=None,
+                  colorbar=False,
+                  **kwargs):
         """Implementation for plot_data_fast
         """
         from matplotlib.cm import viridis
@@ -1442,11 +1448,22 @@ class DSSC_1MGeometry(DetectorGeometryBase):
         # Split into 2 tiles along the fast-scan axis
         return np.split(module_data, 2, axis=-1)
 
-    def plot_data_fast(self, data, axis_units='px', frontview=True, ax=None,
-                       figsize=None, colorbar=False, **kwargs):
+    def plot_data_fast(self,
+                       data, *,
+                       axis_units='px',
+                       frontview=True,
+                       ax=None,
+                       figsize=None,
+                       colorbar=False,
+                       **kwargs):
 
-        ax = super().plot_data_fast(data, axis_units, frontview, ax=ax,
-                figsize=figsize, colorbar=colorbar, **kwargs)
+        ax = super().plot_data_fast(data,
+                                    axis_units=axis_units,
+                                    frontview=frontview,
+                                    ax=ax,
+                                    figsize=figsize,
+                                    colorbar=colorbar,
+                                    **kwargs)
         # Squash image to physically equal aspect ratio, so a circle projected
         # on the detector looks like a circle on screen.
         ax.set_aspect(204/236.)
