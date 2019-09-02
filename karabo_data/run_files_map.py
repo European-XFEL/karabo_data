@@ -65,13 +65,15 @@ class RunFilesMap:
         loaded_data = []
 
         for path in self.candidate_paths:
-            if osp.isfile(path):
+            try:
                 with open(path) as f:
                     loaded_data = json.load(f)
 
                 self.cache_file = path
                 log.debug("Loaded cached files map from %s", path)
                 break
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
 
         for info in loaded_data:
             filename = info['filename']
