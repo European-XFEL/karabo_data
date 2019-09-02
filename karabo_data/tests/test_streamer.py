@@ -5,12 +5,10 @@ import msgpack_numpy as numpack
 import numpy as np
 import pytest
 from queue import Full
-from struct import pack
-from time import sleep
 
 from karabo_bridge import Client
 
-from karabo_data import ZMQStreamer
+from karabo_data.export import ZMQStreamer
 
 DATA = {
     'source1': {
