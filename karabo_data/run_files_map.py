@@ -3,10 +3,30 @@ import logging
 import os
 import os.path as osp
 import re
+from tempfile import mkstemp
 
 from .read_machinery import DATA_ROOT_DIR
 
 log = logging.getLogger(__name__)
+
+def atomic_dump(obj, path, **kwargs):
+    """Write JSON to a file atomically
+
+    This aims to avoid garbled files from multiple processes writing the same
+    cache. It doesn't try to protect against e.g. sudden power failures, as
+    forcing the OS to flush changes to disk may hurt performance.
+    """
+    dirname, basename = osp.split(path)
+    fd, tmp_filename = mkstemp(dir=dirname, prefix=basename)
+    try:
+        with open(fd, 'w') as f:
+            json.dump(obj, f, **kwargs)
+    except:
+        os.unlink(tmp_filename)
+        raise
+
+    os.replace(tmp_filename, path)
+
 
 class RunFilesMap:
     """Cached data about HDF5 files in a run directory
@@ -100,9 +120,6 @@ class RunFilesMap:
             for path in self.candidate_paths:
                 try:
                     os.makedirs(osp.dirname(path), exist_ok=True)
-                    f = open(path, 'w')
+                    atomic_dump(save_data, path, indent=2)
                 except PermissionError:
                     continue
-
-                with f:
-                    json.dump(save_data, f, indent=2)
