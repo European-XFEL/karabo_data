@@ -629,24 +629,29 @@ class DataCollection:
 
         # Figure out the shape of the result array, and the slice for each chunk
         dest_dim0 = 0
-        shapes = set()
         dest_slices = []
+        shapes = set()
+        dtypes = set()
 
         for chunk in chunks:
             n = int(np.sum(chunk.counts, dtype=np.uint64))
             dest_slices.append(slice(dest_dim0, dest_dim0 + n))
             dest_dim0 += n
             shapes.add(chunk.dataset.shape[1:])
+            dtypes.add(chunk.dataset.dtype)
 
         if len(shapes) > 1:
             raise Exception("Mismatched data shapes: {}".format(shapes))
+
+        if len(dtypes) > 1:
+            raise Exception("Mismatched dtypes: {}".format(dtypes))
 
         # Find the shape of the array with the ROI applied
         roi_dummy = np.zeros((0,) + shapes.pop()) # extra 0 dim: use less memory
         roi_shape = roi_dummy[np.index_exp[:] + roi].shape[1:]
 
         chunks_trainids = []
-        res = np.empty((dest_dim0,) + roi_shape)
+        res = np.empty((dest_dim0,) + roi_shape, dtype=dtypes.pop())
 
         # Read the data from each chunk into the result array
         for chunk, dest_slice in zip(chunks, dest_slices):
