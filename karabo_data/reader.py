@@ -622,11 +622,15 @@ class DataCollection:
             if not isinstance(roi, tuple):
                 roi = (roi,)
 
-        chunks = sorted(self._find_data_chunks(source, key), key=lambda x: x.train_ids[0])
+        chunks = sorted(
+            self._find_data_chunks(source, key),
+            key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
+        )
 
-        dest_slices = []
+        # Figure out the shape of the result array, and the slice for each chunk
         dest_dim0 = 0
         shapes = set()
+        dest_slices = []
 
         for chunk in chunks:
             n = int(np.sum(chunk.counts, dtype=np.uint64))
@@ -637,12 +641,14 @@ class DataCollection:
         if len(shapes) > 1:
             raise Exception("Mismatched data shapes: {}".format(shapes))
 
-        roi_dummy = np.zeros((0,) + shapes.pop())
+        # Find the shape of the array with the ROI applied
+        roi_dummy = np.zeros((0,) + shapes.pop()) # extra 0 dim: use less memory
         roi_shape = roi_dummy[np.index_exp[:] + roi].shape[1:]
 
         chunks_trainids = []
         res = np.empty((dest_dim0,) + roi_shape)
 
+        # Read the data from each chunk into the result array
         for chunk, dest_slice in zip(chunks, dest_slices):
             if dest_slice.start == dest_slice.stop:
                 continue
@@ -652,12 +658,14 @@ class DataCollection:
             )
 
             slices = (chunk.slice,) + roi
-            chunk.dataset.read_direct(res[dest_slice], source_sel=np.s_[slices])
+            chunk.dataset.read_direct(res[dest_slice], source_sel=slices)
 
+        # Dimension labels
         if extra_dims is None:
             extra_dims = ['dim_%d' % i for i in range(res.ndim - 1)]
         dims = ['trainId'] + extra_dims
 
+        # Train ID index
         coords = {}
         if dest_dim0:
             coords = {'trainId': np.concatenate(chunks_trainids)}
