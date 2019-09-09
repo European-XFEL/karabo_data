@@ -60,6 +60,8 @@ to refer to all data associated with that 0.1 second window.
 
    .. automethod:: keys_for_source
 
+   .. automethod:: get_data_counts
+
    .. automethod:: info
 
 Getting data by source & key
