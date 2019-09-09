@@ -1205,12 +1205,12 @@ def RunDirectory(path):
     path: str
         Path to the run directory containing HDF5 files.
     """
-    if not os.access(path, os.R_OK):
-        username = pwd.getpwuid(os.geteuid()).pw_name
-        raise PermissionError(
-                  "Permission denied for '{}': {}".format(username, path))
     files = glob(osp.join(path, '*.h5'))
     if not files:
+        if osp.isdir(path) and not os.access(path, os.R_OK):
+            username = pwd.getpwuid(os.geteuid()).pw_name
+            raise PermissionError(
+                    "Permission denied for '{}': {}".format(username, path))
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
 
