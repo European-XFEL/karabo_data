@@ -8,7 +8,6 @@ You should have received a copy of the 3-Clause BSD License along with this
 program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 """
 
-import fabio
 import h5py
 import numpy as np
 
@@ -128,6 +127,7 @@ def hdf5_paths(ds, indent=0, maxlen=100):
 
 def numpy_to_cbf(np_array, index=0, header=None):
     """Given a 3D numpy array, convert it to a CBF data object"""
+    import fabio.cbfimage
     img_reduced = np_array[index, ...]
     return fabio.cbfimage.cbfimage(header=header or {}, data=img_reduced)
 

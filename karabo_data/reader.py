@@ -19,11 +19,9 @@ import logging
 import numpy as np
 import os
 import os.path as osp
-import pandas as pd
 import re
 import sys
 import tempfile
-import xarray
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
@@ -463,6 +461,8 @@ class DataCollection:
         key: str
             Key of parameter within that device, e.g. "image.data".
         """
+        import pandas as pd
+
         self._check_field(source, key)
         seq_series = []
 
@@ -498,6 +498,8 @@ class DataCollection:
             Key of parameter within that device, e.g. "beamPosition.iyPos.value"
             or "header.linkId". The data must be 1D in the file.
         """
+        import pandas as pd
+
         self._check_field(source, key)
         name = source + '/' + key
         if name.endswith('.value'):
@@ -571,6 +573,8 @@ class DataCollection:
             If false (the default), exclude the timestamps associated with each
             control data field.
         """
+        import pandas as pd
+
         if fields is not None:
             return self.select(fields).get_dataframe(timestamps=timestamps)
 
@@ -613,6 +617,8 @@ class DataCollection:
             first 8 values from every train. If the data is 2D or more at
             each entry, selection looks like roi=by_index[:8, 5:10] .
         """
+        import xarray
+
         self._check_field(source, key)
 
         if not isinstance(roi, by_index):

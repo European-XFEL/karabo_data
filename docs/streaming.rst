@@ -18,7 +18,7 @@ We provide Karabo bridge clients as Python and C++ libraries.
 If you want to do some processing on the data before streaming it, you can
 use this Python interface to send it out:
 
-.. currentmodule:: karabo_data
+.. module:: karabo_data.export
 
 .. autoclass:: ZMQStreamer
 
