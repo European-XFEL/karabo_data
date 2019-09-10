@@ -14,17 +14,14 @@ from collections import defaultdict
 import datetime
 import fnmatch
 from glob import glob
+import h5py
 import logging
+import numpy as np
 import os
 import os.path as osp
 import re
 import sys
 import tempfile
-
-import h5py
-import numpy as np
-import pandas as pd
-import xarray
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
