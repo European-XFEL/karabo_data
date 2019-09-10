@@ -5,6 +5,8 @@ import numpy as np
 import os
 import pandas as pd
 import pytest
+import stat
+from tempfile import mkdtemp
 from testpath import assert_isfile
 from unittest import mock
 from xarray import DataArray
@@ -560,8 +562,18 @@ def test_open_file_format_0_5(mock_sa3_control_data):
     assert file_access.format_version == '0.5'
     assert 'SA3_XTD10_VAC/TSENS/S30180K' in f.control_sources
 
+
 def test_open_file_format_1_0(mock_sa3_control_data_fmt_1_0):
     f = H5File(mock_sa3_control_data_fmt_1_0)
     file_access = f.files[0]
     assert file_access.format_version == '1.0'
     assert 'SA3_XTD10_VAC/TSENS/S30180K' in f.control_sources
+
+
+def test_permission():
+    d = mkdtemp()
+    os.chmod(d, not stat.S_IRUSR)
+    with pytest.raises(PermissionError) as excinfo:
+        run = RunDirectory(d)
+    assert "Permission denied" in str(excinfo.value)
+    assert d in str(excinfo.value)
