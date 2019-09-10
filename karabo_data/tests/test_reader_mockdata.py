@@ -503,6 +503,14 @@ def test_union(mock_fxe_raw_run):
     assert joined.train_ids == list(range(10000, 10010)) + list(range(10200, 10220))
 
 
+def test_union_raw_proc(mock_spb_raw_run, mock_spb_proc_run):
+    raw_run = RunDirectory(mock_spb_raw_run)
+    proc_run = RunDirectory(mock_spb_proc_run)
+    run = raw_run.deselect('*AGIPD1M*').union(proc_run)
+
+    assert run.all_sources == (raw_run.all_sources | proc_run.all_sources)
+
+
 def test_read_skip_invalid(mock_lpd_data, empty_h5_file, capsys):
     d = DataCollection.from_paths([mock_lpd_data, empty_h5_file])
     assert d.instrument_sources == {'FXE_DET_LPD1M-1/DET/0CH0:xtdf'}
