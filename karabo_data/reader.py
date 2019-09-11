@@ -687,7 +687,7 @@ class DataCollection:
                 chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
 
             chunks_darrs.append(
-                da.from_array(chunk.dataset, chunks=chunk_shape)
+                da.from_array(chunk.dataset, chunks=chunk_shape)[chunk.slice]
             )
 
         darr = da.concatenate(chunks_darrs, axis=0)
