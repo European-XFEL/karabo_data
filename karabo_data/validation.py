@@ -89,7 +89,30 @@ class FileValidator:
 
             for src, group in src_groups:
                 record = partial(self.record, dataset='INDEX/{}/{}'.format(src, group))
-                first, count = self.file._read_index(src, group)
+                first, count = self.file.get_index(src, group)
+
+                if (first.ndim != 1) or (count.ndim != 1):
+                    record(
+                        "Index first / count are not 1D",
+                        first_shape=first.shape,
+                        count_shape=count.shape,
+                    )
+                    continue
+
+                if first.shape != count.shape:
+                    record(
+                        "Index first & count have different number of entries",
+                        first_shape=first.shape,
+                        count_shape=count.shape,
+                    )
+
+                if first.shape != self.file.train_ids.shape:
+                    record(
+                        "Index has wrong number of entries",
+                        index_shape=first.shape,
+                        trainids_shape=self.file.train_ids.shape,
+                    )
+
                 check_index_contiguous(first, count, record)
 
 
