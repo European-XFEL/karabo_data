@@ -664,7 +664,6 @@ class DataCollection:
 
     def get_dask_array(self, source, key, extra_dims=None):
         import dask.array as da
-        import xarray
         chunks = sorted(
             self._find_data_chunks(source, key),
             key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
@@ -690,18 +689,7 @@ class DataCollection:
                 da.from_array(chunk.dataset, chunks=chunk_shape)[chunk.slice]
             )
 
-        darr = da.concatenate(chunks_darrs, axis=0)
-
-        # Dimension labels
-        if extra_dims is None:
-            extra_dims = ['dim_%d' % i for i in range(darr.ndim - 1)]
-        dims = ['trainId'] + extra_dims
-
-        coords = {}
-        if darr.shape[0]:
-            coords = {'trainId': np.concatenate(chunks_trainids)}
-
-        return xarray.DataArray(darr, dims=dims, coords=coords)
+        return da.concatenate(chunks_darrs, axis=0)
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
