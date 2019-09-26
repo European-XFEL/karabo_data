@@ -662,7 +662,27 @@ class DataCollection:
             sorted(non_empty, key=lambda a: a.coords['trainId'][0]), dim='trainId'
         )
 
-    def get_dask_array(self, source, key, extra_dims=None):
+    def get_dask_array(self, source, key):
+        """Get a Dask array for the specified data field.
+
+        Dask is a system for lazy parallel computation. This method doesn't
+        actually load the data, but gives you an array-like object which you
+        can operate on. Dask loads the data and calculates results when you ask
+        it to, e.g. by calling a ``.compute()`` method.
+        See the Dask documentation for more details.
+
+        If your computation depends on reading lots of data, consider creating
+        a dask.distributed.Client before calling this.
+        If you don't do this, Dask uses threads by default, which is not
+        efficient for reading HDF5 files.
+
+        Parameters
+        ----------
+        source: str
+            Source name, e.g. "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "image.data".
+        """
         import dask.array as da
         chunks = sorted(
             self._find_data_chunks(source, key),
