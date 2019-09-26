@@ -689,12 +689,8 @@ class DataCollection:
             key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
         )
 
-        chunks_trainids = []
         chunks_darrs = []
         for chunk in chunks:
-            chunks_trainids.append(
-                self._expand_trainids(chunk.counts, chunk.train_ids)
-            )
             chunk_dim0 = np.sum(chunk.counts)
             chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
 
