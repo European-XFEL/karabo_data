@@ -65,6 +65,7 @@ setup(name="karabo_data",
               'sphinxcontrib_github_alt',
           ],
           'test': [
+              'dask',
               'pytest',
               'pytest-cov',
               'nbval',
