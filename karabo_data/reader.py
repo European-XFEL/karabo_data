@@ -691,7 +691,7 @@ class DataCollection:
 
         chunks_darrs = []
         for chunk in chunks:
-            chunk_dim0 = np.sum(chunk.counts)
+            chunk_dim0 = int(np.sum(chunk.counts))
             chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
 
             # Find chunk size of maximum 1 GB
