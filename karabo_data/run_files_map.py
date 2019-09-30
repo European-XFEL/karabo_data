@@ -4,6 +4,7 @@ import os
 import os.path as osp
 import re
 from tempfile import mkstemp
+import time
 
 from .read_machinery import DATA_ROOT_DIR
 
@@ -63,6 +64,7 @@ class RunFilesMap:
         This skips over invalid cache entries(based on the file's size & mtime).
         """
         loaded_data = []
+        t0 = time.monotonic()
 
         for path in self.candidate_paths:
             try:
@@ -80,6 +82,10 @@ class RunFilesMap:
             st = os.stat(osp.join(self.directory, filename))
             if (st.st_mtime == info['mtime']) and (st.st_size == info['size']):
                 self.files_data[filename] = info
+
+        if loaded_data:
+            dt = time.monotonic() - t0
+            log.debug("Loaded cached files map in %.2g s", dt)
 
     def get(self, path):
         """Get cache entry for a file path
@@ -118,6 +124,7 @@ class RunFilesMap:
                 }
 
         if need_save:
+            t0 = time.monotonic()
             save_data = [info for (_, info) in sorted(self.files_data.items())]
             for path in self.candidate_paths:
                 try:
@@ -125,3 +132,9 @@ class RunFilesMap:
                     atomic_dump(save_data, path, indent=2)
                 except PermissionError:
                     continue
+                else:
+                    dt = time.monotonic() - t0
+                    log.debug("Saved run files map to %s in %.2g s", path, dt)
+                    return
+
+            log.debug("Unable to save run files map")

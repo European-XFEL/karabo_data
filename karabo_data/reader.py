@@ -22,6 +22,7 @@ import os.path as osp
 import re
 import sys
 import tempfile
+import time
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
@@ -1249,7 +1250,10 @@ def RunDirectory(path):
         raise Exception("No HDF5 files found in {}".format(path))
 
     files_map = RunFilesMap(path)
+    t0 = time.monotonic()
     d = DataCollection.from_paths(files, files_map)
+    log.debug("Opened run with %d files in %.2g s",
+              len(d.files), time.monotonic() - t0)
     files_map.save(d.files)
 
     return d
