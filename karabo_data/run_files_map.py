@@ -46,18 +46,22 @@ class RunFilesMap:
         self.directory = osp.abspath(directory)
         self.files_data = {}
 
-        self.candidate_paths = [osp.join(directory, 'karabo_data_map.json')]
+        self.candidate_paths = self.map_paths_for_run(directory)
+
+        self.load()
+
+    def map_paths_for_run(self, directory):
+        paths = [osp.join(directory, 'karabo_data_map.json')]
         m = re.match(
             r'(%s/\w+/\w+/\w+)/(raw|proc)/(r\d+)/?$' % DATA_ROOT_DIR, directory
         )
         if m:
             prop_dir, raw_proc, run_nr = m.groups()
             fname = '%s_%s.json' % (raw_proc, run_nr)
-            self.candidate_paths.append(
+            paths.append(
                 osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
             )
-
-        self.load()
+        return paths
 
     def load(self):
         """Load the cached data
