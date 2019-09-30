@@ -7,6 +7,7 @@ import os
 import sys
 
 from .reader import DataCollection, H5File, FileAccess
+from .run_files_map import RunFilesMap
 
 
 class ValidationError(Exception):
@@ -144,6 +145,7 @@ class RunValidator:
         self.problems = []
         self.check_files_openable()
         self.check_files()
+        self.check_files_map()
         return self.problems
 
     def check_files_openable(self):
@@ -160,6 +162,22 @@ class RunValidator:
             fv = FileValidator(f)
             self.problems.extend(fv.run_checks())
 
+    def check_files_map(self):
+        # Outdated cache entries we can detect with the file's stat() are not a
+        # problem. Loading the cache file will discard those automatically.
+        cache = RunFilesMap(self.run_dir)
+        for f_access in self.run.files:
+            f_cache = cache.get(f_access.filename)
+            if (
+                    f_cache['control_sources'] != f_access.control_sources
+                 or f_cache['instrument_sources'] != f_access.instrument_sources
+                 or f_cache['train_ids'] != f_access.train_ids
+            ):
+                self.problems.append(dict(
+                    msg="Incorrect data map cache entry",
+                    cache_file=cache.cache_file,
+                    data_file=f_access.filename,
+                ))
 
 def main(argv=None):
     if argv is None:

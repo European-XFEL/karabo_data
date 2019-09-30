@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import os.path as osp
+import numpy as np
 import re
 from tempfile import mkstemp
 import time
@@ -94,7 +95,12 @@ class RunFilesMap:
         """
         dirname, fname = osp.split(osp.abspath(path))
         if (dirname == self.directory) and (fname in self.files_data):
-            return self.files_data[fname]
+            d = self.files_data[fname]
+            return {
+                'train_ids': np.array(d['train_ids'], dtype=np.uint64),
+                'control_sources': frozenset(d['control_sources']),
+                'instrument_sources': frozenset(d['instrument_sources'])
+            }
 
         return None
 

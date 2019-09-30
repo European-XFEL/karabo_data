@@ -79,9 +79,9 @@ class FileAccess:
         self.filename = filename
 
         if _cache_info:
-            self.train_ids = np.array(_cache_info['train_ids'], dtype=np.uint64)
-            self.control_sources = frozenset(_cache_info['control_sources'])
-            self.instrument_sources = frozenset(_cache_info['instrument_sources'])
+            self.train_ids = _cache_info['train_ids']
+            self.control_sources = _cache_info['control_sources']
+            self.instrument_sources = _cache_info['instrument_sources']
         else:
             tid_data = self.file['INDEX/trainId'][:]
             self.train_ids = tid_data[tid_data != 0]
