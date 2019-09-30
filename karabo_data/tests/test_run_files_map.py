@@ -1,7 +1,6 @@
 import h5py
 import mock
 import numpy as np
-import pytest
 
 from karabo_data import run_files_map, RunDirectory
 
