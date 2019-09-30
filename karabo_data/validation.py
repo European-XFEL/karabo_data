@@ -171,7 +171,7 @@ class RunValidator:
             if (
                     f_cache['control_sources'] != f_access.control_sources
                  or f_cache['instrument_sources'] != f_access.instrument_sources
-                 or f_cache['train_ids'] != f_access.train_ids
+                 or not np.array_equal(f_cache['train_ids'], f_access.train_ids)
             ):
                 self.problems.append(dict(
                     msg="Incorrect data map cache entry",
