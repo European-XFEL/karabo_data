@@ -84,7 +84,10 @@ class RunFilesMap:
 
         for info in loaded_data:
             filename = info['filename']
-            st = os.stat(osp.join(self.directory, filename))
+            try:
+                st = os.stat(osp.join(self.directory, filename))
+            except OSError:
+                continue
             if (st.st_mtime == info['mtime']) and (st.st_size == info['size']):
                 self.files_data[filename] = info
 

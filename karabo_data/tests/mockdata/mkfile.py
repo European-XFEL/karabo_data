@@ -19,3 +19,4 @@ def write_file(filename, devices, ntrains, firsttrain=10000, chunksize=200,
         data_sources.extend(dev.datasource_ids())
     write_metadata(f, data_sources, chunksize=chunksize,
                    format_version=format_version)
+    f.close()
