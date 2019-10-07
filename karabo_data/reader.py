@@ -632,35 +632,60 @@ class DataCollection:
             if not isinstance(roi, tuple):
                 roi = (roi,)
 
-        seq_arrays = []
+        chunks = sorted(
+            self._find_data_chunks(source, key),
+            key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
+        )
 
-        for chunk in self._find_data_chunks(source, key):
-            trainids = self._expand_trainids(chunk.counts, chunk.train_ids)
+        # Figure out the shape of the result array, and the slice for each chunk
+        dest_dim0 = 0
+        dest_slices = []
+        shapes = set()
+        dtypes = set()
 
-            slices = (chunk.slice,) + roi
-            data = chunk.dataset[slices]
+        for chunk in chunks:
+            n = int(np.sum(chunk.counts, dtype=np.uint64))
+            dest_slices.append(slice(dest_dim0, dest_dim0 + n))
+            dest_dim0 += n
+            shapes.add(chunk.dataset.shape[1:])
+            dtypes.add(chunk.dataset.dtype)
 
-            if extra_dims is None:
-                extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-            dims = ['trainId'] + extra_dims
+        if len(shapes) > 1:
+            raise Exception("Mismatched data shapes: {}".format(shapes))
 
-            seq_arrays.append(
-                xarray.DataArray(data, dims=dims, coords={'trainId': trainids})
+        if len(dtypes) > 1:
+            raise Exception("Mismatched dtypes: {}".format(dtypes))
+
+        # Find the shape of the array with the ROI applied
+        roi_dummy = np.zeros((0,) + shapes.pop()) # extra 0 dim: use less memory
+        roi_shape = roi_dummy[np.index_exp[:] + roi].shape[1:]
+
+        chunks_trainids = []
+        res = np.empty((dest_dim0,) + roi_shape, dtype=dtypes.pop())
+
+        # Read the data from each chunk into the result array
+        for chunk, dest_slice in zip(chunks, dest_slices):
+            if dest_slice.start == dest_slice.stop:
+                continue
+
+            chunks_trainids.append(
+                self._expand_trainids(chunk.counts, chunk.train_ids)
             )
 
-        non_empty = [a for a in seq_arrays if (a.size > 0)]
-        if not non_empty:
-            if seq_arrays:
-                # All per-file arrays are empty, so just return the first one.
-                return seq_arrays[0]
+            slices = (chunk.slice,) + roi
+            chunk.dataset.read_direct(res[dest_slice], source_sel=slices)
 
-            raise Exception(("Unable to get data for source {!r}, key {!r}. "
-                             "Please report an issue so we can investigate")
-                            .format(source, key))
+        # Dimension labels
+        if extra_dims is None:
+            extra_dims = ['dim_%d' % i for i in range(res.ndim - 1)]
+        dims = ['trainId'] + extra_dims
 
-        return xarray.concat(
-            sorted(non_empty, key=lambda a: a.coords['trainId'][0]), dim='trainId'
-        )
+        # Train ID index
+        coords = {}
+        if dest_dim0:
+            coords = {'trainId': np.concatenate(chunks_trainids)}
+
+        return xarray.DataArray(res, dims=dims, coords=coords)
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
