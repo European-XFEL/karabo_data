@@ -40,7 +40,7 @@ run or a file.
 Load data into memory - see :ref:`data-by-source-and-key` for more::
 
     # Get a labelled array
-    run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
+    arr = run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
 
     # Get a pandas dataframe of 1D fields
     df = run.get_dataframe(fields=[
