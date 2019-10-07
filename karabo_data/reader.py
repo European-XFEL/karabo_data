@@ -488,7 +488,7 @@ class DataCollection:
 
         ::
 
-            run.get_series("SA1_XTD2_XGM/XGM/DOOCS", "beamPosition.ixPos")
+            s = run.get_series("SA1_XTD2_XGM/XGM/DOOCS", "beamPosition.ixPos")
 
         This only works for 1-dimensional data.
 
@@ -596,7 +596,7 @@ class DataCollection:
 
         ::
 
-            run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
+            arr = run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
 
         This should work for any data.
         The first axis of the returned data will be labelled with the train IDs.
