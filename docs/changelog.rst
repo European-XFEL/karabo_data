@@ -1,6 +1,37 @@
 Release Notes
 =============
 
+0.7
+---
+
+Data access
+~~~~~~~~~~~
+
+- Trying to open a run directory to which you don't have read access now
+  correctly raises PermissionError (:ghpull:`210`).
+- :func:`~.stack_detector_data` has a new parameter ``real_array``. Passing
+  ``real_array=False`` avoids copying the data into a temporary array on the way
+  to assembling images with detector geometry (:ghpull:`196`).
+- Importing ``karabo_data`` is faster, as packages like xarray and pandas are
+  now only loaded if you use the relevant methods (:ghpull:`207`).
+- :meth:`~.DataCollection.get_array` is slightly faster, as it avoids copying
+  data in memory unnecessarily (:ghpull:`209`)
+- When you select sources with :meth:`~.DataCollection.select` or
+  :meth:`~.DataCollection.select`, the resulting DataCollection no longer
+  keeps references to files with no selected data. This should make it easier
+  to then combine data with :meth:`~.DataCollection.union` in some situations
+  (:ghpull:`202`).
+- :doc:`Data validation <validation>` now checks that indexes have one entry per
+  train ID.
+
+Detector geometry
+~~~~~~~~~~~~~~~~~
+
+- :meth:`~.AGIPD_1MGeometry.plot_data_fast` is much more flexible, e.g.
+  if you want to add a colorbar or draw the image as part of a larger figure
+  (:ghpull:`205`). See its documentation for the new parameters.
+
+
 0.6
 ---
 
