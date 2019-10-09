@@ -17,7 +17,7 @@ Data access
 - :meth:`~.DataCollection.get_array` is slightly faster, as it avoids copying
   data in memory unnecessarily (:ghpull:`209`)
 - When you select sources with :meth:`~.DataCollection.select` or
-  :meth:`~.DataCollection.select`, the resulting DataCollection no longer
+  :meth:`~.DataCollection.deselect`, the resulting DataCollection no longer
   keeps references to files with no selected data. This should make it easier
   to then combine data with :meth:`~.DataCollection.union` in some situations
   (:ghpull:`202`).
