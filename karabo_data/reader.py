@@ -693,11 +693,17 @@ class DataCollection:
         for chunk in chunks:
             chunk_dim0 = int(np.sum(chunk.counts))
             chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
+            itemsize = chunk.dataset.dtype.itemsize
 
-            # Find chunk size of maximum 1 GB
+            # Find chunk size of maximum 2 GB. This is largely arbitrary:
+            # we want chunks small enough that each worker can have at least
+            # a couple in memory (Maxwell nodes have 256-768 GB in late 2019).
+            # But bigger chunks means less overhead.
+            # Empirically, making chunks 4 times bigger/smaller didn't seem to
+            # affect speed dramatically - but this could depend on many factors.
             # TODO: optional user control of chunking
-            limit = 1024 ** 3
-            while np.product(chunk_shape) > limit and chunk_dim0 > 1:
+            limit = 2 * 1024 ** 3
+            while np.product(chunk_shape) * itemsize > limit and chunk_dim0 > 1:
                 chunk_dim0 //= 2
                 chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
 
