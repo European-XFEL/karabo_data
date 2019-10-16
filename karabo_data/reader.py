@@ -686,6 +686,57 @@ class DataCollection:
 
         return xarray.DataArray(res, dims=dims, coords=coords)
 
+    def get_dask_array(self, source, key):
+        """Get a Dask array for the specified data field.
+
+        Dask is a system for lazy parallel computation. This method doesn't
+        actually load the data, but gives you an array-like object which you
+        can operate on. Dask loads the data and calculates results when you ask
+        it to, e.g. by calling a ``.compute()`` method.
+        See the Dask documentation for more details.
+
+        If your computation depends on reading lots of data, consider creating
+        a dask.distributed.Client before calling this.
+        If you don't do this, Dask uses threads by default, which is not
+        efficient for reading HDF5 files.
+
+        Parameters
+        ----------
+        source: str
+            Source name, e.g. "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "image.data".
+        """
+        import dask.array as da
+        chunks = sorted(
+            self._find_data_chunks(source, key),
+            key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
+        )
+
+        chunks_darrs = []
+        for chunk in chunks:
+            chunk_dim0 = int(np.sum(chunk.counts))
+            chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
+            itemsize = chunk.dataset.dtype.itemsize
+
+            # Find chunk size of maximum 2 GB. This is largely arbitrary:
+            # we want chunks small enough that each worker can have at least
+            # a couple in memory (Maxwell nodes have 256-768 GB in late 2019).
+            # But bigger chunks means less overhead.
+            # Empirically, making chunks 4 times bigger/smaller didn't seem to
+            # affect speed dramatically - but this could depend on many factors.
+            # TODO: optional user control of chunking
+            limit = 2 * 1024 ** 3
+            while np.product(chunk_shape) * itemsize > limit and chunk_dim0 > 1:
+                chunk_dim0 //= 2
+                chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
+
+            chunks_darrs.append(
+                da.from_array(chunk.dataset, chunks=chunk_shape)[chunk.slice]
+            )
+
+        return da.concatenate(chunks_darrs, axis=0)
+
     def union(self, *others):
         """Join the data in this collection with one or more others.
 

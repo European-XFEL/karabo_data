@@ -85,6 +85,7 @@ Documentation contents
    xpd_examples
    xpd_examples2
    parallel_example
+   dask_averaging
 
 .. toctree::
    :caption: Development

@@ -421,6 +421,18 @@ def test_run_get_virtual_dataset_filename(mock_fxe_raw_run, tmpdir):
     assert ds.shape == (61440, 1, 256, 256)
 
 
+def test_run_get_dask_array(mock_fxe_raw_run):
+    import dask.array as da
+    run = RunDirectory(mock_fxe_raw_run)
+    arr = run.get_dask_array(
+        'SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD',
+    )
+
+    assert isinstance(arr, da.Array)
+    assert arr.shape == (480, 1000)
+    assert arr.dtype == np.float32
+
+
 def test_select(mock_fxe_raw_run):
     run = RunDirectory(mock_fxe_raw_run)
 
