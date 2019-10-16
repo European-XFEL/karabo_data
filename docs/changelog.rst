@@ -7,6 +7,9 @@ Release Notes
 Data access
 ~~~~~~~~~~~
 
+- A new :meth:`~.get_dask_array` method to access data as a Dask array
+  (:ghpull:`212`). `Dask <https://docs.dask.org/en/latest/>`_ is a powerful tool
+  for working with large amounts of data and doing computation in parallel.
 - Trying to open a run directory to which you don't have read access now
   correctly raises PermissionError (:ghpull:`210`).
 - :func:`~.stack_detector_data` has a new parameter ``real_array``. Passing
