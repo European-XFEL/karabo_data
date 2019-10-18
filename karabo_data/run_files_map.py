@@ -126,7 +126,19 @@ class RunFilesMap:
                 log.debug("Will save cached data for %s", fname)
                 need_save = True
 
-                st = os.stat(file_access.filename)
+                # It's possible that the file we opened has been replaced by a
+                # new one before this runs. If possible, get the stat from the
+                # file descriptor, which will always be accurate. Stat-ing the
+                # filename will almost always work as a fallback.
+                try:
+                    fd = file_access.file.id.get_vfd_handle()
+                except Exception:
+                    log.warning("Can't get fd for %r, will stat name instead",
+                                fname, exc_info=True)
+                    st = os.stat(file_access.filename)
+                else:
+                    st = os.stat(fd)
+
                 self.files_data[fname] = {
                     'filename': fname,
                     'mtime': st.st_mtime,
