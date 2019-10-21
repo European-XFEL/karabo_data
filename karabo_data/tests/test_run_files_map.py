@@ -41,7 +41,7 @@ def test_save_load_map(run_with_extra_file, tmp_path):
 
     class TestRunFilesMap(run_files_map.RunFilesMap):
         def map_paths_for_run(self, directory):
-            return [run_map_path]
+            return directory, [run_map_path]
 
     rfm = TestRunFilesMap(run_dir)
     assert rfm.files_data == {}
