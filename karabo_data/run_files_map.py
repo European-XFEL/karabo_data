@@ -1,8 +1,9 @@
 import json
 import logging
+import numpy as np
 import os
 import os.path as osp
-import numpy as np
+from pathlib import Path
 import re
 from tempfile import mkstemp
 import time
@@ -10,6 +11,22 @@ import time
 from .read_machinery import DATA_ROOT_DIR
 
 log = logging.getLogger(__name__)
+
+
+def follow_symlinks(path: str) -> list:
+    """Returns all symlinks from a path until a terminal point is found
+    """
+    ret = []
+    path = Path(path)
+    base = Path()
+    for pos, part in enumerate(path.parts, start=1):
+        base = base.joinpath(part)
+        if base.is_symlink():
+            link = osp.join(os.readlink(base.as_posix()), *path.parts[pos:])
+            ret.extend(s for s in follow_symlinks(link))
+            ret.append(link)
+    return ret
+
 
 def atomic_dump(obj, path, **kwargs):
     """Write JSON to a file atomically
@@ -43,25 +60,25 @@ class RunFilesMap:
     cache_file = None
 
     def __init__(self, directory):
-        self.directory = osp.abspath(directory)
         self.files_data = {}
-
-        self.candidate_paths = self.map_paths_for_run(directory)
-
+        self.directory, self.candidate_paths = self.map_paths_for_run(directory)
         self.load()
 
     def map_paths_for_run(self, directory):
         paths = [osp.join(directory, 'karabo_data_map.json')]
-        m = re.match(
-            r'(%s/\w+/\w+/\w+)/(raw|proc)/(r\d+)/?$' % DATA_ROOT_DIR, directory
-        )
-        if m:
-            prop_dir, raw_proc, run_nr = m.groups()
-            fname = '%s_%s.json' % (raw_proc, run_nr)
-            paths.append(
-                osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
-            )
-        return paths
+
+        candidate_links = [directory] + follow_symlinks(directory)
+        for l in candidate_links:
+            m = re.match(
+                r'(%s/\w+/\w+/\w+)/(raw|proc)/(r\d+)/?$' % DATA_ROOT_DIR, l)
+            if m:
+                prop_dir, raw_proc, run_nr = m.groups()
+                fname = '%s_%s.json' % (raw_proc, run_nr)
+                paths.append(
+                    osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
+                )
+                return osp.abspath(l), paths
+        return osp.abspath(directory), paths
 
     def load(self):
         """Load the cached data
@@ -122,7 +139,10 @@ class RunFilesMap:
 
         for file_access in files:
             dirname, fname = osp.split(osp.abspath(file_access.filename))
-            if (dirname == self.directory) and (fname not in self.files_data):
+            if (
+                    osp.realpath(dirname) == osp.realpath(self.directory)
+                and fname not in self.files_data
+            ):
                 log.debug("Will save cached data for %s", fname)
                 need_save = True
 
