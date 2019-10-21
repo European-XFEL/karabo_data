@@ -65,6 +65,7 @@ class RunFilesMap:
         self.load()
 
     def map_paths_for_run(self, directory):
+        directory = osp.abspath(directory)
         paths = [osp.join(directory, 'karabo_data_map.json')]
 
         candidate_links = [directory] + follow_symlinks(directory)
@@ -78,7 +79,7 @@ class RunFilesMap:
                     osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
                 )
                 return osp.abspath(l), paths
-        return osp.abspath(directory), paths
+        return directory, paths
 
     def load(self):
         """Load the cached data
