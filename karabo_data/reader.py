@@ -1085,7 +1085,7 @@ class DataCollection:
             warn("Varying number of frames per train: %s" % counts)
 
         if counts:
-            fpt = counts.pop()
+            fpt = int(counts.pop())
         else:
             fpt = 0
 
