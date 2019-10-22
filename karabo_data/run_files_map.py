@@ -44,6 +44,7 @@ class RunFilesMap:
 
     def __init__(self, directory):
         self.directory = osp.abspath(directory)
+        self.dir_stat = os.stat(self.directory)
         self.files_data = {}
 
         self.candidate_paths = self.map_paths_for_run(directory)
@@ -104,13 +105,16 @@ class RunFilesMap:
             dt = time.monotonic() - t0
             log.debug("Loaded cached files map in %.2g s", dt)
 
+    def is_my_directory(self, dir_path):
+        return osp.samestat(os.stat(dir_path), self.dir_stat)
+
     def get(self, path):
         """Get cache entry for a file path
 
         Returns a dict or None
         """
         dirname, fname = osp.split(osp.abspath(path))
-        if (dirname == self.directory) and (fname in self.files_data):
+        if self.is_my_directory(dirname) and (fname in self.files_data):
             d = self.files_data[fname]
             return {
                 'train_ids': np.array(d['train_ids'], dtype=np.uint64),
@@ -131,7 +135,7 @@ class RunFilesMap:
 
         for file_access in files:
             dirname, fname = osp.split(osp.abspath(file_access.filename))
-            if (dirname == self.directory) and (fname not in self.files_data):
+            if self.is_my_directory(dirname) and (fname not in self.files_data):
                 log.debug("Will save cached data for %s", fname)
                 need_save = True
 
