@@ -8,18 +8,31 @@ from .mockdata import write_file
 from .mockdata.xgm import XGM
 from karabo_data import run_files_map, RunDirectory
 
-def test_candidate_paths(mock_fxe_raw_run, tmp_path):
-    prop_path = tmp_path / 'FXE' / '201901' / 'p001234'
-    run_path = prop_path / 'raw' / 'r0450'
-    run_path.parent.mkdir(parents=True)
-    run_path.symlink_to(mock_fxe_raw_run)
+def test_candidate_paths(tmp_path):
+    # 'real' paths (like /gpfs/exfel/d)
+    prop_raw_path = tmp_path / 'raw' / 'FXE' / '201901' / 'p001234'
+    run_dir = prop_raw_path / 'r0450'
+    run_dir.mkdir(parents=True)
 
-    with mock.patch.object(run_files_map, 'DATA_ROOT_DIR', str(tmp_path)):
-        rfm = run_files_map.RunFilesMap(str(run_path))
+    # stable paths (like /gpfs/exfel/exp)
+    exp = tmp_path / 'exp'
+    prop_dir = exp / 'FXE' / '201901' / 'p001234'
+    prop_scratch = exp / 'FXE' / '201901' / 'p001234' / 'scratch'
+    prop_scratch.mkdir(parents=True)
+    (prop_dir / 'raw').symlink_to(prop_raw_path)
+    run_in_exp = prop_dir / 'raw' / 'r0450'
+
+    with mock.patch.object(run_files_map, 'SCRATCH_ROOT_DIR', str(exp)):
+        rfm = run_files_map.RunFilesMap(str(run_dir))
+        rfm_exp = run_files_map.RunFilesMap(str(run_in_exp))
 
     assert rfm.candidate_paths == [
-        str(run_path / 'karabo_data_map.json'),
-        str(prop_path / 'scratch' / '.karabo_data_maps' / 'raw_r0450.json'),
+        str(run_dir / 'karabo_data_map.json'),
+        str(prop_scratch / '.karabo_data_maps' / 'raw_r0450.json'),
+    ]
+    assert rfm_exp.candidate_paths == [
+        str(run_in_exp / 'karabo_data_map.json'),
+        str(prop_scratch / '.karabo_data_maps' / 'raw_r0450.json'),
     ]
 
 

@@ -7,7 +7,7 @@ import re
 from tempfile import mkstemp
 import time
 
-from .read_machinery import DATA_ROOT_DIR
+SCRATCH_ROOT_DIR = "/gpfs/exfel/exp/"
 
 log = logging.getLogger(__name__)
 
@@ -52,15 +52,24 @@ class RunFilesMap:
 
     def map_paths_for_run(self, directory):
         paths = [osp.join(directory, 'karabo_data_map.json')]
+        # After resolving symlinks, data on Maxwell is stored in either
+        # GPFS, e.g. /gpfs/exfel/d/proc/SCS/201901/p002212  or
+        # dCache, e.g. /pnfs/xfel.eu/exfel/archive/XFEL/raw/SCS/201901/p002212
         m = re.match(
-            r'(%s/\w+/\w+/\w+)/(raw|proc)/(r\d+)/?$' % DATA_ROOT_DIR, directory
+            #     raw/proc  instr  cycle prop   run
+            r'.+/(raw|proc)/(\w+)/(\w+)/(p\d+)/(r\d+)/?$',
+            os.path.realpath(directory)
         )
         if m:
-            prop_dir, raw_proc, run_nr = m.groups()
+            raw_proc, instr, cycle, prop, run_nr = m.groups()
             fname = '%s_%s.json' % (raw_proc, run_nr)
-            paths.append(
-                osp.join(prop_dir, 'scratch', '.karabo_data_maps', fname)
+            prop_scratch = osp.join(
+                SCRATCH_ROOT_DIR, instr, cycle, prop, 'scratch'
             )
+            if osp.isdir(prop_scratch):
+                paths.append(
+                    osp.join(prop_scratch, '.karabo_data_maps', fname)
+                )
         return paths
 
     def load(self):
