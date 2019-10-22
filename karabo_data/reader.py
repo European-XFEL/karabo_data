@@ -1277,7 +1277,7 @@ def H5File(path):
     return DataCollection.from_path(path)
 
 
-def RunDirectory(path):
+def RunDirectory(path, include=None, exclude=None):
     """Open data files from a 'run' at European XFEL.
 
     ::
@@ -1293,8 +1293,16 @@ def RunDirectory(path):
     ----------
     path: str
         Path to the run directory containing HDF5 files.
+    include: str or None
+        Only open data files of which "include" is a substring.
+    exclude: str or None
+        Skip data files that have "exclude" in their filename.
     """
     files = [osp.join(path, f) for f in os.listdir(path) if f.endswith('.h5')]
+    if include is not None:
+        files = [f for f in files if f in include]
+    if exclude is not None:
+        files = [f for f in files if f not in exclude]
     if not files:
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
