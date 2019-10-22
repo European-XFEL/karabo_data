@@ -21,6 +21,7 @@ import os.path as osp
 import re
 import sys
 import tempfile
+from warnings import warn
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
@@ -1049,7 +1050,8 @@ class DataCollection:
             module = ' '.join(mod_key)
             dims = ' x '.join(str(d) for d in dinfo['dims'])
             print("  e.g. module {} : {} pixels".format(module, dims))
-            print("  {} frames per train, {} total frames".format(
+            print("  {}".format(mod_source))
+            print("  {} frames per train, up to {} frames total".format(
                 dinfo['frames_per_train'], dinfo['total_frames']
             ))
         print()
@@ -1069,22 +1071,31 @@ class DataCollection:
 
         Returns a dictionary with keys:
         - 'dims' (pixel dimensions)
-        - 'frames_per_train'
-        - 'total_frames'
+        - 'frames_per_train' (estimated from one file)
+        - 'total_frames' (estimated assuming all trains have data)
         """
-        all_counts = []
-        for file in self._source_index[source]:
-            _, counts = file.get_index(source, 'image')
-            all_counts.append(counts)
+        source_files = self._source_index[source]
+        file0 = sorted(source_files, key=lambda fa: fa.filename)[0]
 
-        all_counts = np.concatenate(all_counts)
-        dims = file.file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
+        _, counts = file0.get_index(source, 'image')
+        counts = set(np.unique(counts))
+        counts.discard(0)
+
+        if len(counts) > 1:
+            warn("Varying number of frames per train: %s" % counts)
+
+        if counts:
+            fpt = int(counts.pop())
+        else:
+            fpt = 0
+
+        dims = file0.file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
 
         return {
             'dims': dims,
             # Some trains have 0 frames; max is the interesting value
-            'frames_per_train': all_counts.max(),
-            'total_frames': all_counts.sum(),
+            'frames_per_train': fpt,
+            'total_frames': fpt * len(self.train_ids),
         }
 
     def train_info(self, train_id):
