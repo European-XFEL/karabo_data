@@ -1313,7 +1313,7 @@ def RunDirectory(path, include=None, exclude=None):
 RunHandler = RunDirectory
 
 
-def open_run(proposal, run, data='raw'):
+def open_run(proposal, run, data='raw', include=None, exclude=None):
     """Access EuXFEL data on the Maxwell cluster by proposal and run number.
 
     ::
@@ -1332,6 +1332,10 @@ def open_run(proposal, run, data='raw'):
     data: str
         'raw' or 'proc' (processed) to access data from one of those folders.
         The default is 'raw'.
+    include: str or None
+        If not None, only open data files of which "include" is a substring.
+    exclude: str or None
+        If not None, skip data files that have "exclude" in their filename.
     """
     if isinstance(proposal, int):
         proposal = 'p{:06d}'.format(proposal)
@@ -1345,4 +1349,4 @@ def open_run(proposal, run, data='raw'):
     elif not run.startswith('r'):
         run = 'r' + run.rjust(4, '0')
 
-    return RunDirectory(osp.join(prop_dir, data, run))
+    return RunDirectory(osp.join(prop_dir, data, run), include=include, exclude=exclude)
