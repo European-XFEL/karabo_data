@@ -1051,7 +1051,7 @@ class DataCollection:
             dims = ' x '.join(str(d) for d in dinfo['dims'])
             print("  e.g. module {} : {} pixels".format(module, dims))
             print("  {}".format(mod_source))
-            print("  {} frames per train, ~{} total frames".format(
+            print("  {} frames per train, up to {} frames total".format(
                 dinfo['frames_per_train'], dinfo['total_frames']
             ))
         print()
