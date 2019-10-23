@@ -1,6 +1,8 @@
 Reading data files
 ==================
 
+.. _opening-files:
+
 Opening files
 -------------
 
@@ -64,6 +66,8 @@ to refer to all data associated with that 0.1 second window.
 
    .. automethod:: info
 
+.. _data-by-source-and-key:
+
 Getting data by source & key
 ----------------------------
 
@@ -93,6 +97,8 @@ to load it like this.
    .. automethod:: get_virtual_dataset
 
       .. versionadded:: 0.5
+
+.. _data-by-train:
 
 Getting data by train
 ---------------------

@@ -13,7 +13,6 @@ program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
 from collections import defaultdict
 import datetime
 import fnmatch
-from glob import glob
 import h5py
 import logging
 import numpy as np
@@ -23,6 +22,7 @@ import re
 import sys
 import tempfile
 import time
+from warnings import warn
 
 from .exceptions import SourceNameError, PropertyNameError, TrainIDError
 from .read_machinery import (
@@ -514,7 +514,7 @@ class DataCollection:
 
         ::
 
-            run.get_series("SA1_XTD2_XGM/XGM/DOOCS", "beamPosition.ixPos")
+            s = run.get_series("SA1_XTD2_XGM/XGM/DOOCS", "beamPosition.ixPos")
 
         This only works for 1-dimensional data.
 
@@ -622,7 +622,7 @@ class DataCollection:
 
         ::
 
-            run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
+            arr = run.get_array("SA3_XTD10_PES/ADC/1:network", "digitizers.channel_4_A.raw.samples")
 
         This should work for any data.
         The first axis of the returned data will be labelled with the train IDs.
@@ -658,35 +658,111 @@ class DataCollection:
             if not isinstance(roi, tuple):
                 roi = (roi,)
 
-        seq_arrays = []
+        chunks = sorted(
+            self._find_data_chunks(source, key),
+            key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
+        )
 
-        for chunk in self._find_data_chunks(source, key):
-            trainids = self._expand_trainids(chunk.counts, chunk.train_ids)
+        # Figure out the shape of the result array, and the slice for each chunk
+        dest_dim0 = 0
+        dest_slices = []
+        shapes = set()
+        dtypes = set()
 
-            slices = (chunk.slice,) + roi
-            data = chunk.dataset[slices]
+        for chunk in chunks:
+            n = int(np.sum(chunk.counts, dtype=np.uint64))
+            dest_slices.append(slice(dest_dim0, dest_dim0 + n))
+            dest_dim0 += n
+            shapes.add(chunk.dataset.shape[1:])
+            dtypes.add(chunk.dataset.dtype)
 
-            if extra_dims is None:
-                extra_dims = ['dim_%d' % i for i in range(data.ndim - 1)]
-            dims = ['trainId'] + extra_dims
+        if len(shapes) > 1:
+            raise Exception("Mismatched data shapes: {}".format(shapes))
 
-            seq_arrays.append(
-                xarray.DataArray(data, dims=dims, coords={'trainId': trainids})
+        if len(dtypes) > 1:
+            raise Exception("Mismatched dtypes: {}".format(dtypes))
+
+        # Find the shape of the array with the ROI applied
+        roi_dummy = np.zeros((0,) + shapes.pop()) # extra 0 dim: use less memory
+        roi_shape = roi_dummy[np.index_exp[:] + roi].shape[1:]
+
+        chunks_trainids = []
+        res = np.empty((dest_dim0,) + roi_shape, dtype=dtypes.pop())
+
+        # Read the data from each chunk into the result array
+        for chunk, dest_slice in zip(chunks, dest_slices):
+            if dest_slice.start == dest_slice.stop:
+                continue
+
+            chunks_trainids.append(
+                self._expand_trainids(chunk.counts, chunk.train_ids)
             )
 
-        non_empty = [a for a in seq_arrays if (a.size > 0)]
-        if not non_empty:
-            if seq_arrays:
-                # All per-file arrays are empty, so just return the first one.
-                return seq_arrays[0]
+            slices = (chunk.slice,) + roi
+            chunk.dataset.read_direct(res[dest_slice], source_sel=slices)
 
-            raise Exception(("Unable to get data for source {!r}, key {!r}. "
-                             "Please report an issue so we can investigate")
-                            .format(source, key))
+        # Dimension labels
+        if extra_dims is None:
+            extra_dims = ['dim_%d' % i for i in range(res.ndim - 1)]
+        dims = ['trainId'] + extra_dims
 
-        return xarray.concat(
-            sorted(non_empty, key=lambda a: a.coords['trainId'][0]), dim='trainId'
+        # Train ID index
+        coords = {}
+        if dest_dim0:
+            coords = {'trainId': np.concatenate(chunks_trainids)}
+
+        return xarray.DataArray(res, dims=dims, coords=coords)
+
+    def get_dask_array(self, source, key):
+        """Get a Dask array for the specified data field.
+
+        Dask is a system for lazy parallel computation. This method doesn't
+        actually load the data, but gives you an array-like object which you
+        can operate on. Dask loads the data and calculates results when you ask
+        it to, e.g. by calling a ``.compute()`` method.
+        See the Dask documentation for more details.
+
+        If your computation depends on reading lots of data, consider creating
+        a dask.distributed.Client before calling this.
+        If you don't do this, Dask uses threads by default, which is not
+        efficient for reading HDF5 files.
+
+        Parameters
+        ----------
+        source: str
+            Source name, e.g. "SPB_DET_AGIPD1M-1/DET/7CH0:xtdf"
+        key: str
+            Key of parameter within that device, e.g. "image.data".
+        """
+        import dask.array as da
+        chunks = sorted(
+            self._find_data_chunks(source, key),
+            key=lambda x: x.train_ids[0] if x.train_ids.size else 0,
         )
+
+        chunks_darrs = []
+        for chunk in chunks:
+            chunk_dim0 = int(np.sum(chunk.counts))
+            chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
+            itemsize = chunk.dataset.dtype.itemsize
+
+            # Find chunk size of maximum 2 GB. This is largely arbitrary:
+            # we want chunks small enough that each worker can have at least
+            # a couple in memory (Maxwell nodes have 256-768 GB in late 2019).
+            # But bigger chunks means less overhead.
+            # Empirically, making chunks 4 times bigger/smaller didn't seem to
+            # affect speed dramatically - but this could depend on many factors.
+            # TODO: optional user control of chunking
+            limit = 2 * 1024 ** 3
+            while np.product(chunk_shape) * itemsize > limit and chunk_dim0 > 1:
+                chunk_dim0 //= 2
+                chunk_shape = (chunk_dim0,) + chunk.dataset.shape[1:]
+
+            chunks_darrs.append(
+                da.from_array(chunk.dataset, chunks=chunk_shape)[chunk.slice]
+            )
+
+        return da.concatenate(chunks_darrs, axis=0)
 
     def union(self, *others):
         """Join the data in this collection with one or more others.
@@ -1000,7 +1076,8 @@ class DataCollection:
             module = ' '.join(mod_key)
             dims = ' x '.join(str(d) for d in dinfo['dims'])
             print("  e.g. module {} : {} pixels".format(module, dims))
-            print("  {} frames per train, {} total frames".format(
+            print("  {}".format(mod_source))
+            print("  {} frames per train, up to {} frames total".format(
                 dinfo['frames_per_train'], dinfo['total_frames']
             ))
         print()
@@ -1020,22 +1097,31 @@ class DataCollection:
 
         Returns a dictionary with keys:
         - 'dims' (pixel dimensions)
-        - 'frames_per_train'
-        - 'total_frames'
+        - 'frames_per_train' (estimated from one file)
+        - 'total_frames' (estimated assuming all trains have data)
         """
-        all_counts = []
-        for file in self._source_index[source]:
-            _, counts = file.get_index(source, 'image')
-            all_counts.append(counts)
+        source_files = self._source_index[source]
+        file0 = sorted(source_files, key=lambda fa: fa.filename)[0]
 
-        all_counts = np.concatenate(all_counts)
-        dims = file.file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
+        _, counts = file0.get_index(source, 'image')
+        counts = set(np.unique(counts))
+        counts.discard(0)
+
+        if len(counts) > 1:
+            warn("Varying number of frames per train: %s" % counts)
+
+        if counts:
+            fpt = int(counts.pop())
+        else:
+            fpt = 0
+
+        dims = file0.file['/INSTRUMENT/{}/image/data'.format(source)].shape[-2:]
 
         return {
             'dims': dims,
             # Some trains have 0 frames; max is the interesting value
-            'frames_per_train': all_counts.max(),
-            'total_frames': all_counts.sum(),
+            'frames_per_train': fpt,
+            'total_frames': fpt * len(self.train_ids),
         }
 
     def train_info(self, train_id):
