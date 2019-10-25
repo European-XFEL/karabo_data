@@ -1277,7 +1277,7 @@ def H5File(path):
     return DataCollection.from_path(path)
 
 
-def RunDirectory(path, include=None, exclude=None):
+def RunDirectory(path, include='*'):
     """Open data files from a 'run' at European XFEL.
 
     ::
@@ -1293,16 +1293,11 @@ def RunDirectory(path, include=None, exclude=None):
     ----------
     path: str
         Path to the run directory containing HDF5 files.
-    include: str or None
-        Only open data files of which "include" is a substring.
-    exclude: str or None
-        Skip data files that have "exclude" in their filename.
+    include: str
+        Wildcard string to filter data files.
     """
     files = [osp.join(path, f) for f in os.listdir(path) if f.endswith('.h5')]
-    if include is not None:
-        files = [f for f in files if f in include]
-    if exclude is not None:
-        files = [f for f in files if f not in exclude]
+    files = fnmatch.filter(files, include)
     if not files:
         raise Exception("No HDF5 files found in {}".format(path))
     return DataCollection.from_paths(files)
@@ -1313,7 +1308,7 @@ def RunDirectory(path, include=None, exclude=None):
 RunHandler = RunDirectory
 
 
-def open_run(proposal, run, data='raw', include=None, exclude=None):
+def open_run(proposal, run, data='raw', include='*'):
     """Access EuXFEL data on the Maxwell cluster by proposal and run number.
 
     ::
@@ -1332,10 +1327,8 @@ def open_run(proposal, run, data='raw', include=None, exclude=None):
     data: str
         'raw' or 'proc' (processed) to access data from one of those folders.
         The default is 'raw'.
-    include: str or None
-        If not None, only open data files of which "include" is a substring.
-    exclude: str or None
-        If not None, skip data files that have "exclude" in their filename.
+    include: str
+        Wildcard string to filter data files.
     """
     if isinstance(proposal, int):
         proposal = 'p{:06d}'.format(proposal)
@@ -1349,4 +1342,4 @@ def open_run(proposal, run, data='raw', include=None, exclude=None):
     elif not run.startswith('r'):
         run = 'r' + run.rjust(4, '0')
 
-    return RunDirectory(osp.join(prop_dir, data, run), include=include, exclude=exclude)
+    return RunDirectory(osp.join(prop_dir, data, run), include=include)
