@@ -1296,10 +1296,10 @@ def RunDirectory(path, include='*'):
     include: str
         Wildcard string to filter data files.
     """
-    files = [osp.join(path, f) for f in os.listdir(path) if f.endswith('.h5')]
-    files = fnmatch.filter(files, include)
+    files = [f for f in os.listdir(path) if f.endswith('.h5')]
+    files = [osp.join(path, f) for f in fnmatch.filter(files, include)]
     if not files:
-        raise Exception("No HDF5 files found in {}".format(path))
+        raise Exception("No HDF5 files found in {} with glob pattern {}".format(path, include))
     return DataCollection.from_paths(files)
 
 
