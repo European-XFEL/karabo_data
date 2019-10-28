@@ -1,6 +1,8 @@
 Command line tools
 ==================
 
+.. _cmd-lsxfel:
+
 ``lsxfel``
 ----------
 

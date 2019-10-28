@@ -10,6 +10,9 @@ Data access
 - A new :meth:`~.get_dask_array` method to access data as a Dask array
   (:ghpull:`212`). `Dask <https://docs.dask.org/en/latest/>`_ is a powerful tool
   for working with large amounts of data and doing computation in parallel.
+- :func:`~.open_run` and :func:`~.RunDirectory` now take an optional
+  ``include=`` glob pattern to select files to open (:ghpull:`221`).
+  This can make opening a run faster if you only need to read certain files.
 - Trying to open a run directory to which you don't have read access now
   correctly raises PermissionError (:ghpull:`210`).
 - :func:`~.stack_detector_data` has a new parameter ``real_array``. Passing
@@ -17,6 +20,8 @@ Data access
   to assembling images with detector geometry (:ghpull:`196`).
 - Importing ``karabo_data`` is faster, as packages like xarray and pandas are
   now only loaded if you use the relevant methods (:ghpull:`207`).
+- :ref:`cmd-lsxfel` and :meth:`~.DataCollection.info` are faster in some cases,
+  as they only look in one file for the detector data shape (:ghpull:`219`).
 - :meth:`~.DataCollection.get_array` is slightly faster, as it avoids copying
   data in memory unnecessarily (:ghpull:`209`)
 - When you select sources with :meth:`~.DataCollection.select` or
