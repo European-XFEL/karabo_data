@@ -1335,7 +1335,7 @@ def RunDirectory(path, include='*'):
     """
     files = [f for f in os.listdir(path) if f.endswith('.h5')]
     files = [osp.join(path, f) for f in fnmatch.filter(files, include)]
-    if not files:s
+    if not files:
         raise Exception("No HDF5 files found in {} with glob pattern {}".format(path, include))
 
     files_map = RunFilesMap(path)
