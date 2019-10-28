@@ -118,6 +118,16 @@ def test_read_fxe_raw_run(mock_fxe_raw_run):
     assert run.train_ids == list(range(10000, 10480))
     run.info()  # Smoke test
 
+def test_read_fxe_raw_run_selective(mock_fxe_raw_run):
+    run = RunDirectory(mock_fxe_raw_run, include='*DA*')
+    assert run.train_ids == list(range(10000, 10480))
+    assert 'SA1_XTD2_XGM/DOOCS/MAIN' in run.control_sources
+    assert 'FXE_DET_LPD1M-1/DET/0CH0:xtdf' not in run.detector_sources
+    run = RunDirectory(mock_fxe_raw_run, include='*LPD*')
+    assert run.train_ids == list(range(10000, 10480))
+    assert 'SA1_XTD2_XGM/DOOCS/MAIN' not in run.control_sources
+    assert 'FXE_DET_LPD1M-1/DET/0CH0:xtdf' in run.detector_sources
+
 def test_read_spb_proc_run(mock_spb_proc_run):
     run = RunDirectory(mock_spb_proc_run) #Test for calib data
     assert len(run.files) == 16 # only 16 detector modules for calib data

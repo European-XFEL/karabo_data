@@ -1314,7 +1314,7 @@ def H5File(path):
     return DataCollection.from_path(path)
 
 
-def RunDirectory(path):
+def RunDirectory(path, include='*'):
     """Open data files from a 'run' at European XFEL.
 
     ::
@@ -1330,10 +1330,13 @@ def RunDirectory(path):
     ----------
     path: str
         Path to the run directory containing HDF5 files.
+    include: str
+        Wildcard string to filter data files.
     """
-    files = [osp.join(path, f) for f in os.listdir(path) if f.endswith('.h5')]
-    if not files:
-        raise Exception("No HDF5 files found in {}".format(path))
+    files = [f for f in os.listdir(path) if f.endswith('.h5')]
+    files = [osp.join(path, f) for f in fnmatch.filter(files, include)]
+    if not files:s
+        raise Exception("No HDF5 files found in {} with glob pattern {}".format(path, include))
 
     files_map = RunFilesMap(path)
     t0 = time.monotonic()
@@ -1349,7 +1352,7 @@ def RunDirectory(path):
 RunHandler = RunDirectory
 
 
-def open_run(proposal, run, data='raw'):
+def open_run(proposal, run, data='raw', include='*'):
     """Access EuXFEL data on the Maxwell cluster by proposal and run number.
 
     ::
@@ -1368,6 +1371,8 @@ def open_run(proposal, run, data='raw'):
     data: str
         'raw' or 'proc' (processed) to access data from one of those folders.
         The default is 'raw'.
+    include: str
+        Wildcard string to filter data files.
     """
     if isinstance(proposal, int):
         proposal = 'p{:06d}'.format(proposal)
@@ -1381,4 +1386,4 @@ def open_run(proposal, run, data='raw'):
     elif not run.startswith('r'):
         run = 'r' + run.rjust(4, '0')
 
-    return RunDirectory(osp.join(prop_dir, data, run))
+    return RunDirectory(osp.join(prop_dir, data, run), include=include)
