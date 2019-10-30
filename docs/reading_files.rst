@@ -74,29 +74,44 @@ Getting data by source & key
 Where data will fit into memory, it's usually quickest and most convenient
 to load it like this.
 
-.. seealso::
-
-   :doc:`xpd_examples`
-      Examples of accessing data like this
-
-   `xarray documentation <http://xarray.pydata.org/en/stable/indexing.html>`__
-     How to use the arrays returned by :meth:`~.DataCollection.get_array`
-
-   `pandas documentation <https://pandas.pydata.org/pandas-docs/stable/>`__
-     How to use the objects returned by :meth:`~.DataCollection.get_series` and
-     :meth:`~.DataCollection.get_dataframe`
-
 .. class:: DataCollection
 
    .. automethod:: get_array
+
+     .. seealso::
+       `xarray documentation <http://xarray.pydata.org/en/stable/indexing.html>`__
+         How to use the arrays returned by :meth:`~.get_array`
+
+       :doc:`xpd_examples`
+         Examples using xarray & pandas with EuXFEL data
+
+   .. automethod:: get_dask_array
+
+     .. seealso::
+       `Dask Array documentation <https://docs.dask.org/en/latest/array.html>`__
+         How to use the objects returned by :meth:`~.get_dask_array`
+
+       :doc:`dask_averaging`
+         An example using Dask with EuXFEL data
 
    .. automethod:: get_series
 
    .. automethod:: get_dataframe
 
+      .. seealso::
+        `pandas documentation <https://pandas.pydata.org/pandas-docs/stable/>`__
+          How to use the objects returned by :meth:`~.get_series` and
+          :meth:`~.get_dataframe`
+
+        :doc:`xpd_examples`
+          Examples using xarray & pandas with EuXFEL data
+
    .. automethod:: get_virtual_dataset
 
       .. versionadded:: 0.5
+
+      .. seealso::
+        :doc:`parallel_example`
 
 .. _data-by-train:
 
@@ -209,6 +224,8 @@ Here are some problems we've seen, and possible solutions or workarounds:
 If you're having problems with karabo_data, you can also try searching
 `previously reported issues <https://github.com/European-XFEL/karabo_data/issues?q=is%3Aissue>`_
 to see if anyone has encountered similar symptoms.
+
+.. _run-map-caching:
 
 Cached run data maps
 --------------------

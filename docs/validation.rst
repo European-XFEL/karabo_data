@@ -17,6 +17,7 @@ past. Currently, it checks that:
   usable file.
 - The list of train IDs in a file has no zeros except for padding at the end.
 - Each train ID in a file is greater than the one before it.
+- The indexes have the same number of entries as train IDs.
 - The indexes do not point to data beyond the end of a dataset.
 - The indexes point to the start of the dataset, and then to successive chunks
   for successive trains, without gaps or overlaps between them.
