@@ -225,6 +225,8 @@ If you're having problems with karabo_data, you can also try searching
 `previously reported issues <https://github.com/European-XFEL/karabo_data/issues?q=is%3Aissue>`_
 to see if anyone has encountered similar symptoms.
 
+.. _run-map-caching:
+
 Cached run data maps
 --------------------
 

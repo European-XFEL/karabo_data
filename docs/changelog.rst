@@ -18,6 +18,12 @@ Data access
 - :func:`~.stack_detector_data` has a new parameter ``real_array``. Passing
   ``real_array=False`` avoids copying the data into a temporary array on the way
   to assembling images with detector geometry (:ghpull:`196`).
+- When you open a run directory with :func:`~.open_run` or
+  :func:`~.RunDirectory`, karabo_data tries to cache the metadata describing
+  what data is in each file (:ghpull:`206`).
+  Once the cache is created, opening the run again should be much faster,
+  as it only needs to open the files containing the data you want.
+  See :ref:`run-map-caching` for the details of how this works.
 - Importing ``karabo_data`` is faster, as packages like xarray and pandas are
   now only loaded if you use the relevant methods (:ghpull:`207`).
 - :ref:`cmd-lsxfel` and :meth:`~.DataCollection.info` are faster in some cases,
