@@ -1,7 +1,7 @@
 Performance notes
 =================
 
-These are some notes on how to make load and process data efficiently.
+These are some notes on how to load and process data efficiently.
 
 Load data into memory
 ---------------------

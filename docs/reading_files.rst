@@ -209,3 +209,41 @@ Here are some problems we've seen, and possible solutions or workarounds:
 If you're having problems with karabo_data, you can also try searching
 `previously reported issues <https://github.com/European-XFEL/karabo_data/issues?q=is%3Aissue>`_
 to see if anyone has encountered similar symptoms.
+
+Cached run data maps
+--------------------
+
+When you open a run in karabo_data, it needs to know what data is in each file.
+Each file has metadata describing its contents, but reading this from every file
+is slow, especially on GPFS. karabo_data therefore tries to cache this
+information the first time a run is opened, and reuse it when opening that run
+again.
+
+This should happen automatically, without the user needing to know about it.
+You only need these details if you think caching may be causing problems.
+
+- Caching is triggered when you use :func:`RunDirectory` or :func:`open_run`.
+- There are two possible locations for the cached data map:
+
+  - In the run directory: ``(run dir)/karabo_data_map.json``.
+  - In the proposal scratch directory:
+    ``(proposal dir)/scratch/.karabo_data_maps/raw_r0032.json``.
+    This will normally be the one used on Maxwell, as users can't write to the
+    run directory.
+
+- The format is a JSON array, with an object for each file in the run.
+
+  - This holds the list of train IDs in the file, and the lists of control and
+    instrument sources.
+  - It also stores the file size and last modified time of each data file, to
+    check if the file has changed since the cache was created. If either of
+    these attributes doesn't match, karabo_data ignores the cached information
+    and reads the metadata from the HDF5 file.
+
+- If any file in the run wasn't listed in the data map, or its entry was
+  outdated, a new data map is written automatically. It tries the same two
+  locations described above, but it will continue without error if it can't
+  write to either.
+
+JSON was chosen as it can be easily inspected manually, and it's reasonably
+efficient to load the entire file.
