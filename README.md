@@ -3,6 +3,12 @@
 
 Python 3 tools for reading European XFEL's HDF5 files.
 
+karabo_data has been renamed to
+[EXtra-data](https://github.com/European-XFEL/EXtra-data) (for data access)
+and [EXtra-geom](https://github.com/European-XFEL/EXtra-geom) (for
+detector geometry and image assembly). Please use those packages for new
+code.
+
 [Documentation](https://karabo-data.readthedocs.io/en/latest/)
 
 Installing

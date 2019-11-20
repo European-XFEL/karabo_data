@@ -24,6 +24,12 @@ file:
 ``karabo-data-validate``
 ------------------------
 
+.. note::
+
+   This tool has been renamed to ``extra-data-validate``,
+   provided `as part of the EXtra-data package
+   <https://extra-data.readthedocs.io/en/latest/validation.html>`_.
+
 Check the structure of an EuXFEL run or HDF5 file:
 
 .. code-block:: shell
@@ -44,6 +50,12 @@ format. See :doc:`streaming` for more information.
 
 ``karabo-data-make-virtual-cxi``
 --------------------------------
+
+.. note::
+
+   This tool has been renamed to ``extra-data-make-virtual-cxi``,
+   provided `as part of the EXtra-data package
+   <https://extra-data.readthedocs.io/en/latest/cli.html#extra-data-make-virtual-cxi>`_.
 
 Make a virtual CXI file to access AGIPD/LPD detector data from a specified run:
 

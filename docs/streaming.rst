@@ -1,6 +1,12 @@
 Streaming data over ZeroMQ
 ==========================
 
+.. note::
+
+   This part of karabo_data has been renamed to
+   `EXtra-data <https://extra-data.readthedocs.io/en/latest/>`_.
+   Please use that package in new code.
+
 *Karabo Bridge* provides access to live data during the experiment over a ZeroMQ
 socket. The ``karabo_data`` Python package can stream data from files using the same
 protocol. You can use this to test code which expects to receive data from

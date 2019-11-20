@@ -1,6 +1,12 @@
 AGIPD, LPD & DSSC Geometry
 ==========================
 
+.. note::
+
+   This part of karabo_data has been renamed to
+   `EXtra-geom <https://extra-geom.readthedocs.io/en/latest/>`_.
+   Please use that package in new code.
+
 .. module:: karabo_data.geometry2
 
 The AGIPD and LPD detectors are made up of several sensor modules,
