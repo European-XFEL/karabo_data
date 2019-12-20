@@ -68,6 +68,7 @@ setup(name="karabo_data",
               'dask[array]',
               'pytest',
               'pytest-cov',
+              'coverage<5',  # Until nbval is compatible with coverage 5.0
               'nbval',
               'testpath',
           ]
