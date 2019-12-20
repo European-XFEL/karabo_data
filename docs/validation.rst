@@ -1,6 +1,12 @@
 Checking data files
 ===================
 
+.. note::
+
+   The validation tool has been renamed to ``extra-data-validate``,
+   provided `as part of the EXtra-data package
+   <https://extra-data.readthedocs.io/en/latest/validation.html>`_.
+
 *karabo_data* includes a tool to check the integrity of data files.
 You can pass it a run::
 

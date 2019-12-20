@@ -1,6 +1,12 @@
 Reading data files
 ==================
 
+.. note::
+
+   This part of karabo_data has been renamed to
+   `EXtra-data <https://extra-data.readthedocs.io/en/latest/>`_.
+   Please use that package in new code.
+
 .. _opening-files:
 
 Opening files

@@ -4,6 +4,14 @@ European XFEL Python data tools
 **karabo_data** is a Python library for accessing and working with data
 produced at `European XFEL <https://www.xfel.eu/>`_.
 
+.. note::
+
+   karabo_data has been renamed to
+   `EXtra-data <https://extra-data.readthedocs.io/en/latest/>`_ (for data access)
+   and `EXtra-geom <https://extra-geom.readthedocs.io/en/latest/>`_ (for
+   detector geometry and image assembly). Please use those packages for new
+   code.
+
 Installation
 ------------
 

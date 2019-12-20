@@ -1,6 +1,12 @@
 AGIPD, LPD & DSSC data
 ======================
 
+.. note::
+
+   This part of karabo_data has been renamed to
+   `EXtra-data <https://extra-data.readthedocs.io/en/latest/>`_.
+   Please use that package in new code.
+
 .. module:: karabo_data.components
 
 These data from AGIPD, LPD and DSSC is spread out in separate files.
