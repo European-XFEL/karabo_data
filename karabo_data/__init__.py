@@ -41,6 +41,11 @@ from .reader import *
 from .stacking import *
 from .utils import *
 
+
+warn("The karabo_data package is deprecated, please use extra_data and extra_geom instead",
+     DeprecationWarning, stacklevel=2)
+
+
 def ZMQStreamer(port, maxlen=10, protocol_version='2.2', dummy_timestamps=False):
     warn("Please update imports: "
          "karabo_data.ZMQStreamer -> karabo_data.export.ZMQStreamer",
