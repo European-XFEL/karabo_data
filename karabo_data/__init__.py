@@ -42,7 +42,7 @@ from .stacking import *
 from .utils import *
 
 
-warn("The karabo-data package is deprecated, please use extra-data and extra-geom instead",
+warn("The karabo_data package is deprecated, please use extra_data and extra_geom instead",
      DeprecationWarning, stacklevel=2)
 
 
